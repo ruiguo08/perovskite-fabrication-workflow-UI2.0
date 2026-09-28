@@ -6,9 +6,12 @@ The target architecture (see ARCHITECTURE.md "Module responsibilities"):
         -> repository data functions (web.repository) -> web.database
 
 These tests pin the import direction with AST scans so a violation fails in
-CI instead of surviving as a silent architectural regression. In-function
-(lazy) imports are checked separately: they are allowed only in the two
-documented deprecated repository delegates.
+CI instead of surviving as a silent architectural regression. Scans walk
+every ``.py`` file under each layer package (subpackages included) and check
+imports at any depth, so hiding an import inside a function body does not
+bypass the boundary. In-function (lazy) imports of ``web.operations`` in the
+repository are the one documented exception: they are allowed only in the
+two deprecated delegate methods.
 """
 
 import ast
@@ -24,7 +27,7 @@ sys.path.insert(0, str(SRC))
 
 
 def _module_files(package: Path) -> list[Path]:
-    return sorted(package.glob("*.py"))
+    return sorted(package.rglob("*.py"))
 
 
 def _imports_at_module_level(tree: ast.Module) -> list[str]:
@@ -121,18 +124,37 @@ class ServicesToRepositoryBoundaryTests(unittest.TestCase):
 
 
 class OperationsBoundaryTests(unittest.TestCase):
-    """Application operations stay HTTP-free and never import the routes."""
+    """Application operations stay HTTP-free and never import the routes.
+
+    Checked over the whole AST, at any nesting depth: a lazy
+    ``from web.routes import x`` inside a function body is the same boundary
+    violation as a module-level one, and raising (not just importing)
+    ``HTTPException`` is equally forbidden. AST-level checks also avoid the
+    false positives a raw-text scan produces on docstrings.
+    """
 
     def test_operations_never_import_routes_or_http(self) -> None:
-        offenders = []
+        offenders: list[str] = []
         for path in _module_files(WEB / "operations"):
-            source = path.read_text(encoding="utf-8")
-            tree = ast.parse(source)
-            for name in _imports_at_module_level(tree):
-                if "routes" in name or "HTTPException" in name:
-                    offenders.append(f"{path.name}: {name}")
-            if "HTTPException" in source:
-                offenders.append(f"{path.name}: raises HTTPException")
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ImportFrom) and node.module:
+                    if "routes" in node.module or node.module == "fastapi":
+                        offenders.append(
+                            f"{path.name}:{node.lineno} imports from {node.module}"
+                        )
+                elif isinstance(node, ast.Import):
+                    for alias in node.names:
+                        if "routes" in alias.name or alias.name == "fastapi":
+                            offenders.append(
+                                f"{path.name}:{node.lineno} imports {alias.name}"
+                            )
+                elif isinstance(node, (ast.Name, ast.Attribute)):
+                    name = node.id if isinstance(node, ast.Name) else node.attr
+                    if name == "HTTPException":
+                        offenders.append(
+                            f"{path.name}:{node.lineno} references HTTPException"
+                        )
         self.assertEqual(offenders, [])
 
 

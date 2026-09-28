@@ -27,7 +27,9 @@ Result routes also use the J-V CSV parser and publication-figure renderer. Read-
 ## Module Responsibilities (application-operations layering)
 
 The web package is layered so that authorization, validation, transactions,
-and audit cannot be forgotten when a workflow changes:
+and audit cannot be forgotten when a workflow changes. The diagram is the
+**target** architecture; the migration status below states exactly how much
+of it is realized today:
 
 ~~~
 HTTP routes (web/routes/<domain>.py)
@@ -45,6 +47,30 @@ Connection-level data functions (web/repository/*.py, web/audit_trail.py)
 web.database (schema) / PostgreSQL
 ~~~
 
+### Migration status (honest ledger, 2026-09)
+
+The operations layer is realized today for the use cases where multi-entity
+invariants made it pay first:
+
+- ``operations/batch_lifecycle.py`` — batch status transitions (including
+  completion, which records actual substrate counts, shortfall deviations,
+  and materialized substrates atomically);
+- ``operations/result_assignment.py`` — substrate-to-condition assignment and
+  device exclusions (including experiment completion in the same transaction).
+
+The remaining state-changing domain CRUD (conditions, plan status, substrate
+exceptions, campaigns, materials and supplier products, layer presets,
+baselines, device layouts, solution preparations, process executions,
+deviations) still lives in ``WebRepository`` methods that open their own
+transaction, perform the authorization and validation inside it, and raise
+``PermissionError``/``ValueError``/``KeyError`` for the routes to map onto
+403/400/404. That style is **transitional, not an invitation**: new
+state-changing use cases must be implemented as application operations, and
+existing ones migrate domain by domain (start with the flows that carry
+lifecycle invariants across entities). Until a domain migrates, the diagram
+above reads routes → repository for it, with the repository method playing
+the operation's role.
+
 Rules enforced by ``tests/test_layering.py``:
 
 - ``web.repository`` never imports ``web.operations`` at module level. The two
@@ -55,11 +81,14 @@ Rules enforced by ``tests/test_layering.py``:
   functionality (audit-event persistence) lives in ``web.audit_trail``, which
   depends only on the database metadata.
 - Application operations never raise HTTP exceptions and never import the
-  routes; they raise the typed errors from ``web.operations.errors``
+  routes (checked at any import depth, not only module level); they raise the
+  typed errors from ``web.operations.errors``
   (``RecordNotFound``, ``AccessDenied``, ``InvalidInput``, ``StateConflict``).
   ``InvalidInput`` subclasses ``ValueError`` and ``AccessDenied`` subclasses
   ``PermissionError`` so historical exception contracts keep working.
 - ``perovskite_bo`` never imports ``web``.
+- The scan walks every ``.py`` file under each layer package, including
+  subpackages added later.
 
 ### Transaction and error boundaries
 
