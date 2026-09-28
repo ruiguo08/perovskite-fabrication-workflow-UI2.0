@@ -8,8 +8,8 @@ CdpSession's ``_events`` list and verify that ``wait_for_response`` and
 from __future__ import annotations
 
 import unittest
-from unittest.mock import MagicMock
 from typing import Any
+from unittest.mock import MagicMock
 
 from tests.cdp_driver import CdpSession
 

@@ -56,7 +56,12 @@ export function csrfToken(): string {
  * ["body", "deposition_process", "vcd_stages", 2, "seconds"] ->
  * "deposition_process vcd_stages stage 3 seconds". Body/query/path markers
  * are dropped because they carry no meaning for the operator; array indexes
- * are rendered 1-based to match the stage rows the operator sees. */
+ * are rendered 1-based to match the rows the operator sees. Only the VCD
+ * stage containers are called "stage"; every other array (spin_steps,
+ * experimental_groups, ...) is called "item" so an off-by-one complaint
+ * cannot point the operator at the wrong card. */
+const STAGE_CONTAINERS = new Set(["vcd_stages", "gas_backfill_stages"]);
+
 function formatErrorLocation(location: unknown): string | null {
   if (!Array.isArray(location)) return null;
   const segments = location
@@ -66,7 +71,10 @@ function formatErrorLocation(location: unknown): string | null {
   for (const part of segments) {
     if (typeof part === "number") {
       if (parts.length > 0) {
-        parts[parts.length - 1] = `${parts[parts.length - 1]} stage ${part + 1}`;
+        const noun = STAGE_CONTAINERS.has(parts[parts.length - 1])
+          ? "stage"
+          : "item";
+        parts[parts.length - 1] = `${parts[parts.length - 1]} ${noun} ${part + 1}`;
       }
     } else {
       parts.push(part);

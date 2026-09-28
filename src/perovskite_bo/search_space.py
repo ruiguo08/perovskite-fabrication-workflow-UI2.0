@@ -8,9 +8,15 @@ from typing import Any, Protocol, Sequence
 
 
 class Parameter(Protocol):
-    """A tunable parameter that can be sampled and validated."""
+    """A tunable parameter that can be sampled and validated.
 
-    name: str
+    ``name`` is declared as a read-only property so the frozen dataclass
+    parameters satisfy the protocol structurally (a settable protocol
+    attribute would reject frozen instances).
+    """
+
+    @property
+    def name(self) -> str: ...
 
     def sample(self, random: Random) -> Any: ...
 

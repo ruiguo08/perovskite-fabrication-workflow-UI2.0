@@ -18,8 +18,8 @@ Requires Node + corepack pnpm and is skipped unless PEROVSKITE_VITE_SMOKE=1
 (a deliberate integration gate, like the PostgreSQL tests).
 """
 
-import os
 import json
+import os
 import shutil
 import socket
 import subprocess
@@ -32,7 +32,6 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPOSITORY_ROOT / "src"))
 
-from web.repository import UserRole
 
 FRONTEND_DIR = REPOSITORY_ROOT / "frontend"
 USERNAME = "smoke-admin"

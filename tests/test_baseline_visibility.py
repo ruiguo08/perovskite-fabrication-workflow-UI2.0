@@ -21,22 +21,18 @@ and instructor/admin-only):
 from __future__ import annotations
 
 import asyncio
-import json
 import tempfile
 import unittest
-from copy import deepcopy
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from tests.layout_fixtures import seed_standard_layouts
+from tests.test_web_app import FLAT_RECIPE_WITHOUT_DEVICE, complete_guided_setup
 from web import create_app
 from web.database import audit_events
 from web.repository import UserRole
-
-from tests.test_web_app import FLAT_RECIPE_WITHOUT_DEVICE, complete_guided_setup
-
 
 ADMIN_USERNAME = "visibility-admin"
 ADMIN_PASSWORD = "Visibility administrator password 2026"

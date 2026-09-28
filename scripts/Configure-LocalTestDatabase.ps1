@@ -11,10 +11,20 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$psql = Join-Path $env:ProgramFiles "PostgreSQL\18\bin\psql.exe"
-if (-not (Test-Path -LiteralPath $psql)) {
-    throw "PostgreSQL 18 psql was not found at $psql"
+# Accept any installed major version (17/18/19, ...) and prefer the newest.
+$postgresRoot = Join-Path $env:ProgramFiles "PostgreSQL"
+$psqlDir = Get-ChildItem -LiteralPath $postgresRoot -Directory -ErrorAction SilentlyContinue |
+    Where-Object {
+        $version = $null
+        (Test-Path -LiteralPath (Join-Path $_.FullName "bin\psql.exe")) -and
+        [version]::TryParse($_.Name, [ref]$version)
+    } |
+    Sort-Object { [version]$_.Name } -Descending |
+    Select-Object -First 1
+if ($null -eq $psqlDir) {
+    throw "psql.exe was not found under $postgresRoot (any installed PostgreSQL major version works)"
 }
+$psql = Join-Path $psqlDir.FullName "bin\psql.exe"
 
 $adminCredential = Get-Credential `
     -UserName $AdminUser `

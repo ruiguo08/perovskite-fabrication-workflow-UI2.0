@@ -113,6 +113,36 @@ describe("apiFetch", () => {
     });
   });
 
+  it("calls non-VCD array indexes item N, not stage N", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          detail: [
+            {
+              type: "missing",
+              loc: ["body", "device_recipe", "spin_steps", 2, "rpm"],
+              msg: "Field required",
+            },
+            {
+              type: "missing",
+              loc: ["body", "experimental_groups", 1, "change_from_control"],
+              msg: "Field required",
+            },
+          ],
+        }),
+        { status: 422, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const failure = apiFetch("/api/example", { method: "POST", body: {} });
+    await expect(failure).rejects.toMatchObject({
+      status: 422,
+      message:
+        "device_recipe spin_steps item 3 rpm: Field required; " +
+        "experimental_groups item 2 change_from_control: Field required",
+    });
+  });
+
   it("redirects to login on 401 away from the login page", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ detail: "authentication required" }), {

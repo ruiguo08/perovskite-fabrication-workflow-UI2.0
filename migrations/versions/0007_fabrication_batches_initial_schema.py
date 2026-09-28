@@ -7,8 +7,8 @@ Create Date: 2026-08-06 21:16:19.293513
 
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = '0007_fabrication_batches'

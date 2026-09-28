@@ -7,10 +7,10 @@ headless Chrome with a forced 320px layout viewport, using the CDP driver
 """
 
 from __future__ import annotations
-import os
 
 import asyncio
 import json
+import os
 import socket
 import subprocess
 import tempfile
@@ -22,10 +22,6 @@ from pathlib import Path
 import uvicorn
 from fastapi.testclient import TestClient
 
-from tests.layout_fixtures import seed_standard_layouts
-from web import create_app
-from web.repository import BatchStatus, ExecutionStatus, PreparationStatus, UserRole
-
 from tests.cdp_driver import (
     click_until,
     evaluate,
@@ -33,7 +29,10 @@ from tests.cdp_driver import (
     set_file_input,
     wait_for_expression,
 )
+from tests.layout_fixtures import seed_standard_layouts
 from tests.test_browser_builder import chrome_path
+from web import create_app
+from web.repository import BatchStatus, ExecutionStatus, PreparationStatus, UserRole
 
 ADMIN_USERNAME = "results-admin"
 ADMIN_PASSWORD = "Results administrator password 2026!"
@@ -359,10 +358,6 @@ class ResultBrowserTests(unittest.TestCase):
             wait_for_expression(session, "Boolean(document.querySelector('input[type=file]').files.length)")
 
             # Choose the eligible (in_progress) batch and submit through the React form.
-            batch_select = (
-                f"Array.from(document.querySelectorAll('select option')).find(o => "
-                f"o.textContent.indexOf({_js_escape(self.batch.batch_code)}) !== -1)?.parentElement"
-            )
             option_value = evaluate(
                 session,
                 f"(function() {{ const opt = Array.from(document.querySelectorAll('select option')).find(o => "
@@ -470,7 +465,7 @@ class ResultBrowserTests(unittest.TestCase):
             self._navigate(session, "/app/results")
             wait_for_expression(
                 session,
-                f"Array.from(document.querySelectorAll('[data-result-row]')).some(el => el.textContent.indexOf('jv-multi.csv') !== -1)",
+                "Array.from(document.querySelectorAll('[data-result-row]')).some(el => el.textContent.indexOf('jv-multi.csv') !== -1)",
             )
             self._assert_viewport(session, 320)
             self._assert_no_overflow(session, "global results list")
