@@ -166,4 +166,7 @@ jobs:
           key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
       - run: uv sync --locked --no-editable
       - run: uv run --no-sync ruff check .
-      - run: uv run --no-sync mypy src
+      # No path argument: the checked scope comes from pyproject's mypy
+      # `files` setting (a bare `mypy src` would override it and pull in the
+      # web layer before its typing migration is done).
+      - run: uv run --no-sync mypy
