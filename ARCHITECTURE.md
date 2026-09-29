@@ -320,5 +320,8 @@ The upload does not complete the experiment automatically. Statistics and substr
 
 - structured result export;
 - instrument-specific parsers;
-- optional analytical and Bayesian-optimization consumers;
+- optional analytical and Bayesian-optimization consumers — the BO search
+  space and its snapshot mapping are per-campaign configuration data
+  (`perovskite_bo.bo_config`), so additional campaigns are new data rows,
+  not code changes;
 - broader browser-level end-to-end coverage.
