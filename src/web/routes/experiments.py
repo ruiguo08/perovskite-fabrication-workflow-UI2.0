@@ -5,7 +5,6 @@ from typing import Annotated
 from fastapi import (
     APIRouter,
     Depends,
-    HTTPException,
     Request,
     status,
 )
@@ -31,6 +30,7 @@ from ..models import (
     SubstrateExceptionResponse,
 )
 from ..operations import conditions as condition_operations
+from ..operations import experiment_creation as experiment_operations
 from ..operations.errors import OperationError
 from ..plan_export import (
     build_plan_export,
@@ -47,7 +47,6 @@ from ..repository import (
 from .common import (
     _client_ip,
     _condition_response,
-    _create_experiment,
     _fabrication_batch_response,
     _get_record_or_404,
     _operation_error_to_http,
@@ -120,9 +119,9 @@ def create_experiments_router(
         auth_context: Annotated[AuthContext, Depends(require_user)],
     ) -> ExperimentResponse:
         try:
-            record = await _create_experiment(
+            record = await experiment_operations.create_experiment(
                 repository,
-                payload.recipe.model_dump(mode="python"),
+                recipe_values=payload.recipe.model_dump(mode="python"),
                 campaign_id=(
                     payload.campaign_id
                     if payload.campaign_id is not None
@@ -137,18 +136,8 @@ def create_experiments_router(
                 actor_user_id=auth_context.user.id,
                 client_ip=_client_ip(request),
             )
-        except KeyError as error:
-            # The requested baseline version is outside the actor's source-use
-            # boundary; report the uniform 404 so its existence is not leaked.
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=str(error),
-            ) from error
-        except (TypeError, ValueError) as error:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(error),
-            ) from error
+        except OperationError as error:
+            raise _operation_error_to_http(error) from error
         return _record_response(record)
     @router.get("/api/experiments", response_model=list[ExperimentResponse])
     async def list_experiments_api(

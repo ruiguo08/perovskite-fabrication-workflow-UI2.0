@@ -70,6 +70,7 @@ class RepositoryToOperationsBoundaryTests(unittest.TestCase):
                 "request_substrate_exception",
                 "decide_substrate_exception",
             },
+            "experiment.py": {"add_experiment"},
         }
         for path in _module_files(WEB / "repository"):
             tree = ast.parse(path.read_text(encoding="utf-8"))

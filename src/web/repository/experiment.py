@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Iterable, Mapping, Sequence
 
 from sqlalchemy import exists, func, insert, select, text
+from sqlalchemy.ext.asyncio import AsyncConnection
 
 from perovskite_bo import DepositionRecipe, ExperimentRecord, ExperimentStatus
 from perovskite_bo.device_recipe import deposition_recipe_from_process
@@ -153,152 +154,22 @@ class ExperimentsMixin:
         actor_user_id: int | None,
         client_ip: str | None = None,
     ) -> ExperimentRecord:
-        normalized_campaign_id = _normalize_campaign_id(campaign_id)
-        if normalized_campaign_id is None:
-            raise ValueError("an active instructor-created campaign is required")
-        recipe_values = recipe.to_dict()
-        if not isinstance(recipe_values.get("device_recipe"), Mapping):
-            raise ValueError(
-                "a complete device_recipe is required; baselines and presets must be "
-                "expanded before an experiment is saved"
-            )
-        now = _utc_now()
-        async with self.database.begin() as connection:
-            campaign_status = await connection.scalar(
-                select(campaigns.c.status).where(
-                    campaigns.c.code == normalized_campaign_id
-                )
-            )
-            if campaign_status is None:
-                raise ValueError(
-                    f"campaign {normalized_campaign_id!r} does not exist; "
-                    "an instructor must create it first"
-                )
-            if campaign_status != CampaignStatus.ACTIVE.value:
-                raise ValueError(
-                    f"campaign {normalized_campaign_id!r} is not active"
-                )
-            # _actor_role validates an authenticated, active actor; the role
-            # value itself is unused here.
-            await _actor_role(connection, actor_user_id)
-            # source_baseline_version_id is provenance only — every condition
-            # stores its own complete recipe snapshot, so a student may plan
-            # from scratch without referencing any baseline.
-            await _validate_baseline_version_for_condition(
-                connection, source_baseline_version_id,
-                actor_user_id=actor_user_id,
-            )
-            if connection.dialect.name == "postgresql":
-                await connection.execute(
-                    text("SELECT pg_advisory_xact_lock(hashtextextended(:series_id, 0))"),
-                    {"series_id": normalized_campaign_id or "<unassigned>"},
-                )
-            condition = (
-                experiments.c.campaign_id.is_(None)
-                if normalized_campaign_id is None
-                else experiments.c.campaign_id == normalized_campaign_id
-            )
-            next_version = int(
-                await connection.scalar(
-                    select(func.coalesce(func.max(experiments.c.series_version), 0) + 1)
-                    .where(condition)
-                )
-                or 1
-            )
-            experiment_code = (
-                f"{normalized_campaign_id or 'experiment'}-v{next_version}"
-            )
-            if len(experiment_code) > EXPERIMENT_CODE_MAX_LENGTH:
-                raise ValueError(
-                    f"experiment code must not exceed {EXPERIMENT_CODE_MAX_LENGTH} characters"
-                )
-            from ..services.catalog_service import list_device_layouts
-            from ..services.legacy_adapter import materialize_legacy_conditions
+        """Deprecated delegate: :mod:`web.operations.experiment_creation`
+        owns this use case. Kept for the historical exception contract (the
+        operation adds no ownership pre-check; creation targets no existing
+        record)."""
+        from ..operations.experiment_creation import create_experiment as _operation
 
-            # The device-layout catalog is database-authoritative: an empty
-            # catalog blocks experiment creation until an administrator
-            # creates the layouts.
-            db_layouts: list[DeviceLayout] = await list_device_layouts(connection)
-            condition_specs = materialize_legacy_conditions(
-                recipe_values,
-                experiment_code,
-                layouts=db_layouts,
-                condition_plans=condition_plans,
-            )
-            if not condition_specs:
-                raise ValueError(
-                    "a complete device_recipe must materialize at least one condition"
-                )
-            roles = {ConditionRole(spec["role"]) for spec in condition_specs}
-            plan_type = (
-                "standalone"
-                if roles == {ConditionRole.STANDALONE}
-                else "comparative"
-            )
-            plan_status = PlanStatus.DRAFT.value
-            result = await connection.execute(
-                insert(experiments).values(
-                    status=ExperimentStatus.SUGGESTED.value,
-                    metrics={},
-                    created_at=now,
-                    updated_at=now,
-                    campaign_id=normalized_campaign_id,
-                    experiment_code=experiment_code,
-                    series_version=next_version,
-                    created_by_id=actor_user_id,
-                    plan_type=plan_type,
-                    plan_status=plan_status,
-                )
-            )
-            experiment_id = _inserted_id(result)
-            for spec in condition_specs:
-                snapshot = validate_condition_snapshot(spec["recipe_snapshot"])
-                layout = next(
-                    (
-                        item
-                        for item in db_layouts
-                        if item.code == spec["device_layout_code"]
-                    ),
-                    None,
-                )
-                if layout is None:
-                    raise ValueError(
-                        f"unknown device layout code: {spec['device_layout_code']!r}"
-                    )
-                count = int(spec["planned_substrate_count"])
-                await connection.execute(
-                    insert(experiment_conditions).values(
-                        experiment_id=experiment_id,
-                        role=ConditionRole(spec["role"]).value,
-                        condition_code=str(spec["condition_code"]).strip(),
-                        condition_name=str(spec["condition_name"]).strip(),
-                        recipe_snapshot=snapshot,
-                        recipe_schema_version=int(snapshot["schema_version"]),
-                        canonical_hash=condition_canonical_hash(snapshot),
-                        source_baseline_version_id=spec.get(
-                            "source_baseline_version_id"
-                        ) or source_baseline_version_id,
-                        device_layout_code=layout.code,
-                        device_layout_snapshot=layout_snapshot(layout),
-                        planned_substrate_count=count,
-                        expected_device_count=expected_device_count(count, layout),
-                        requires_manual_review=bool(
-                            spec.get("requires_manual_review", False)
-                        ),
-                        created_at=now,
-                        created_by_id=actor_user_id,
-                    )
-                )
-            await _add_audit_event(
-                connection,
-                actor_user_id=actor_user_id,
-                action="experiment.create",
-                entity_type="experiment",
-                entity_id=str(experiment_id),
-                details={"experiment_code": experiment_code},
-                client_ip=client_ip,
-            )
-        return await self.get_experiment(experiment_id)
+        return await _operation(
+            self,
+            recipe_values=recipe.to_dict(),
+            campaign_id=campaign_id,
+            source_baseline_version_id=source_baseline_version_id,
+            condition_plans=condition_plans,
+            actor_user_id=actor_user_id,
+            client_ip=client_ip,
+        )
+
 
     async def get_experiment(
         self,
@@ -416,3 +287,156 @@ class ExperimentsMixin:
                 client_ip=client_ip,
             )
         return await self.get_experiment(experiment_id)
+async def apply_experiment_create(
+    connection: AsyncConnection,
+    *,
+    recipe_values: Mapping[str, Any],
+    normalized_campaign_id: str,
+    source_baseline_version_id: int | None,
+    condition_plans: Sequence[Mapping[str, Any]] | None,
+    actor_user_id: int | None,
+    client_ip: str | None = None,
+) -> int:
+    """Connection-level experiment creation: campaign state check, actor
+    validation, series-version allocation under the campaign advisory lock,
+    condition materialization, and the audit record — on the caller's
+    transaction."""
+
+    now = _utc_now()
+
+    campaign_status = await connection.scalar(
+        select(campaigns.c.status).where(
+            campaigns.c.code == normalized_campaign_id
+        )
+    )
+    if campaign_status is None:
+        raise ValueError(
+            f"campaign {normalized_campaign_id!r} does not exist; "
+            "an instructor must create it first"
+        )
+    if campaign_status != CampaignStatus.ACTIVE.value:
+        raise ValueError(
+            f"campaign {normalized_campaign_id!r} is not active"
+        )
+    # _actor_role validates an authenticated, active actor; the role
+    # value itself is unused here.
+    await _actor_role(connection, actor_user_id)
+    # source_baseline_version_id is provenance only — every condition
+    # stores its own complete recipe snapshot, so a student may plan
+    # from scratch without referencing any baseline.
+    await _validate_baseline_version_for_condition(
+        connection, source_baseline_version_id,
+        actor_user_id=actor_user_id,
+    )
+    if connection.dialect.name == "postgresql":
+        await connection.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:series_id, 0))"),
+            {"series_id": normalized_campaign_id or "<unassigned>"},
+        )
+    condition = (
+        experiments.c.campaign_id.is_(None)
+        if normalized_campaign_id is None
+        else experiments.c.campaign_id == normalized_campaign_id
+    )
+    next_version = int(
+        await connection.scalar(
+            select(func.coalesce(func.max(experiments.c.series_version), 0) + 1)
+            .where(condition)
+        )
+        or 1
+    )
+    experiment_code = (
+        f"{normalized_campaign_id or 'experiment'}-v{next_version}"
+    )
+    if len(experiment_code) > EXPERIMENT_CODE_MAX_LENGTH:
+        raise ValueError(
+            f"experiment code must not exceed {EXPERIMENT_CODE_MAX_LENGTH} characters"
+        )
+    from ..services.catalog_service import list_device_layouts
+    from ..services.legacy_adapter import materialize_legacy_conditions
+
+    # The device-layout catalog is database-authoritative: an empty
+    # catalog blocks experiment creation until an administrator
+    # creates the layouts.
+    db_layouts: list[DeviceLayout] = await list_device_layouts(connection)
+    condition_specs = materialize_legacy_conditions(
+        recipe_values,
+        experiment_code,
+        layouts=db_layouts,
+        condition_plans=condition_plans,
+    )
+    if not condition_specs:
+        raise ValueError(
+            "a complete device_recipe must materialize at least one condition"
+        )
+    roles = {ConditionRole(spec["role"]) for spec in condition_specs}
+    plan_type = (
+        "standalone"
+        if roles == {ConditionRole.STANDALONE}
+        else "comparative"
+    )
+    plan_status = PlanStatus.DRAFT.value
+    result = await connection.execute(
+        insert(experiments).values(
+            status=ExperimentStatus.SUGGESTED.value,
+            metrics={},
+            created_at=now,
+            updated_at=now,
+            campaign_id=normalized_campaign_id,
+            experiment_code=experiment_code,
+            series_version=next_version,
+            created_by_id=actor_user_id,
+            plan_type=plan_type,
+            plan_status=plan_status,
+        )
+    )
+    experiment_id = _inserted_id(result)
+    for spec in condition_specs:
+        snapshot = validate_condition_snapshot(spec["recipe_snapshot"])
+        layout = next(
+            (
+                item
+                for item in db_layouts
+                if item.code == spec["device_layout_code"]
+            ),
+            None,
+        )
+        if layout is None:
+            raise ValueError(
+                f"unknown device layout code: {spec['device_layout_code']!r}"
+            )
+        count = int(spec["planned_substrate_count"])
+        await connection.execute(
+            insert(experiment_conditions).values(
+                experiment_id=experiment_id,
+                role=ConditionRole(spec["role"]).value,
+                condition_code=str(spec["condition_code"]).strip(),
+                condition_name=str(spec["condition_name"]).strip(),
+                recipe_snapshot=snapshot,
+                recipe_schema_version=int(snapshot["schema_version"]),
+                canonical_hash=condition_canonical_hash(snapshot),
+                source_baseline_version_id=spec.get(
+                    "source_baseline_version_id"
+                ) or source_baseline_version_id,
+                device_layout_code=layout.code,
+                device_layout_snapshot=layout_snapshot(layout),
+                planned_substrate_count=count,
+                expected_device_count=expected_device_count(count, layout),
+                requires_manual_review=bool(
+                    spec.get("requires_manual_review", False)
+                ),
+                created_at=now,
+                created_by_id=actor_user_id,
+            )
+        )
+    await _add_audit_event(
+        connection,
+        actor_user_id=actor_user_id,
+        action="experiment.create",
+        entity_type="experiment",
+        entity_id=str(experiment_id),
+        details={"experiment_code": experiment_code},
+        client_ip=client_ip,
+    )
+    return experiment_id
+
