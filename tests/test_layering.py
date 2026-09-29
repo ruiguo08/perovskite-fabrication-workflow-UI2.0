@@ -67,6 +67,8 @@ class RepositoryToOperationsBoundaryTests(unittest.TestCase):
                 "update_condition",
                 "delete_condition",
                 "update_plan_status",
+                "request_substrate_exception",
+                "decide_substrate_exception",
             },
         }
         for path in _module_files(WEB / "repository"):

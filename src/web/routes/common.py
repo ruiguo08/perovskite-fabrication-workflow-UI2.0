@@ -145,21 +145,6 @@ _ALLOWED_RESULT_CONTENT_TYPES = frozenset(
     }
 )
 
-async def _condition_for_actor(
-    repository: WebRepository,
-    condition_id: int,
-    auth_context: AuthContext,
-) -> Any:
-    try:
-        condition = await repository.get_condition(condition_id)
-    except KeyError as error:
-        raise HTTPException(status_code=404, detail=str(error)) from error
-    await _get_record_or_404(
-        repository, condition.experiment_id, auth_context
-    )
-    return condition
-
-
 async def _batch_for_actor_or_404(
     repository: WebRepository,
     batch_id: int,
@@ -868,7 +853,7 @@ __all__ = [
     "MAX_RESULT_FILE_BYTES",
     "_RESULT_READ_CHUNK_BYTES",
     "_ALLOWED_RESULT_CONTENT_TYPES",
-    "_condition_for_actor",
+
     "_batch_for_actor_or_404",
     "_result_for_actor_or_404",
     "_result_detail_response",

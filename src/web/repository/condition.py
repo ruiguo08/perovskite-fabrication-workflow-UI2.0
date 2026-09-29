@@ -465,73 +465,18 @@ class ConditionsMixin:
         requested_by_id: int | None,
         client_ip: str | None = None,
     ) -> SubstrateExceptionRecord:
-        if not reason.strip():
-            raise ValueError("exception reason must not be blank")
-        if requested_count not in (1, 2):
-            raise ValueError("a substrate exception may request only 1 or 2 substrates")
-        now = _utc_now()
-        async with self.database.begin() as connection:
-            condition = (
-                await connection.execute(
-                    select(
-                        experiment_conditions.c.planned_substrate_count,
-                        experiments.c.created_by_id,
-                        experiments.c.plan_status,
-                    )
-                    .select_from(experiment_conditions)
-                    .join(
-                        experiments,
-                        experiments.c.id == experiment_conditions.c.experiment_id,
-                    )
-                    .where(experiment_conditions.c.id == condition_id)
-                )
-            ).one_or_none()
-            if condition is None:
-                raise KeyError(f"unknown condition id: {condition_id}")
-            actor_role = await _actor_role(connection, requested_by_id)
-            if (
-                actor_role == UserRole.STUDENT
-                and condition.created_by_id != requested_by_id
-            ):
-                raise PermissionError(
-                    "students can request exceptions only for their own plans"
-                )
-            if condition.plan_status not in (None, PlanStatus.DRAFT.value):
-                raise ValueError("exceptions can be requested only while a plan is draft")
-            if condition.planned_substrate_count != requested_count:
-                raise ValueError(
-                    "requested count must equal the condition's planned substrate count"
-                )
-            try:
-                result = await connection.execute(
-                    insert(condition_substrate_exceptions).values(
-                        condition_id=condition_id,
-                        requested_count=requested_count,
-                        reason=reason.strip(),
-                        requested_by_id=requested_by_id,
-                        requested_at=now,
-                        decision=ExceptionDecision.PENDING.value,
-                        decision_note="",
-                    )
-                )
-            except IntegrityError as error:
-                raise ValueError(
-                    "this condition already has an active substrate exception"
-                ) from error
-            exception_id = _inserted_id(result)
-            await _add_audit_event(
-                connection,
-                actor_user_id=requested_by_id,
-                action="exception.request",
-                entity_type="condition_substrate_exception",
-                entity_id=str(exception_id),
-                details={
-                    "condition_id": condition_id,
-                    "requested_count": requested_count,
-                },
-                client_ip=client_ip,
-            )
-        return await self.get_substrate_exception(exception_id)
+        """Deprecated delegate: :mod:`web.operations.conditions` owns this
+        use case (same no-pre-check delegate contract as create)."""
+        from ..operations.conditions import request_substrate_exception as _operation
+
+        return await _operation(
+            self,
+            condition_id=condition_id,
+            requested_count=requested_count,
+            reason=reason,
+            requested_by_id=requested_by_id,
+            client_ip=client_ip,
+        )
 
     async def get_substrate_exception(
         self, exception_id: int
@@ -625,66 +570,19 @@ class ConditionsMixin:
         decision_note: str = "",
         client_ip: str | None = None,
     ) -> SubstrateExceptionRecord:
-        if decision not in (ExceptionDecision.APPROVED, ExceptionDecision.REJECTED):
-            raise ValueError("decision must be approved or rejected")
-        now = _utc_now()
-        async with self.database.begin() as connection:
-            actor_role = await _actor_role(connection, decided_by_id)
-            if ROLE_RANK[actor_role] < ROLE_RANK[UserRole.INSTRUCTOR]:
-                raise PermissionError(
-                    "instructor access is required to decide substrate exceptions"
-                )
-            exception = (
-                await connection.execute(
-                    select(
-                        condition_substrate_exceptions.c.decision,
-                        experiment_conditions.c.canonical_hash,
-                    )
-                    .select_from(condition_substrate_exceptions)
-                    .join(
-                        experiment_conditions,
-                        experiment_conditions.c.id
-                        == condition_substrate_exceptions.c.condition_id,
-                    )
-                    .where(condition_substrate_exceptions.c.id == exception_id)
-                    .with_for_update()
-                )
-            ).one_or_none()
-            if exception is None:
-                raise KeyError(f"unknown substrate exception id: {exception_id}")
-            if exception.decision != ExceptionDecision.PENDING.value:
-                raise ValueError(
-                    f"substrate exception {exception_id} is not pending"
-                )
-            values: dict[str, Any] = {
-                "decision": decision.value,
-                "decided_by_id": decided_by_id,
-                "decided_at": now,
-                "decision_note": decision_note.strip(),
-            }
-            if decision == ExceptionDecision.APPROVED:
-                values["approved_condition_hash"] = exception.canonical_hash
-            result = await connection.execute(
-                update(condition_substrate_exceptions)
-                .where(condition_substrate_exceptions.c.id == exception_id)
-                .where(
-                    condition_substrate_exceptions.c.decision
-                    == ExceptionDecision.PENDING.value
-                )
-                .values(**values)
-            )
-            if result.rowcount != 1:
-                raise ValueError(f"substrate exception {exception_id} changed concurrently")
-            await _add_audit_event(
-                connection,
-                actor_user_id=decided_by_id,
-                action=f"exception.{decision.value}",
-                entity_type="condition_substrate_exception",
-                entity_id=str(exception_id),
-                details={"decision": decision.value},
-                client_ip=client_ip,
-            )
-        return await self.get_substrate_exception(exception_id)
+        """Deprecated delegate: :mod:`web.operations.conditions` owns this
+        use case. The in-transaction instructor-role check stays here as the
+        authoritative gate."""
+        from ..operations.conditions import decide_substrate_exception as _operation
+
+        return await _operation(
+            self,
+            exception_id,
+            decision=decision,
+            decided_by_id=decided_by_id,
+            decision_note=decision_note,
+            client_ip=client_ip,
+        )
 
     async def invalidate_exceptions_for_condition(
         self,
@@ -1124,6 +1022,152 @@ async def apply_plan_status_update(
             "from": current.value,
             "to": plan_status.value,
         },
+        client_ip=client_ip,
+    )
+
+async def apply_substrate_exception_request(
+    connection: AsyncConnection,
+    *,
+    condition_id: int,
+    requested_count: int,
+    reason: str,
+    requested_by_id: int | None,
+    client_ip: str | None = None,
+) -> int:
+    """Connection-level exception request: the plan must be draft, the
+    requested count must match the condition, and one active exception per
+    condition is enforced by a unique constraint (surfaced as ValueError on
+    the caller's transaction)."""
+
+    now = _utc_now()
+    condition = (
+        await connection.execute(
+            select(
+                experiment_conditions.c.planned_substrate_count,
+                experiments.c.created_by_id,
+                experiments.c.plan_status,
+            )
+            .select_from(experiment_conditions)
+            .join(
+                experiments,
+                experiments.c.id == experiment_conditions.c.experiment_id,
+            )
+            .where(experiment_conditions.c.id == condition_id)
+        )
+    ).one_or_none()
+    if condition is None:
+        raise KeyError(f"unknown condition id: {condition_id}")
+    actor_role = await _actor_role(connection, requested_by_id)
+    if (
+        actor_role == UserRole.STUDENT
+        and condition.created_by_id != requested_by_id
+    ):
+        raise PermissionError(
+            "students can request exceptions only for their own plans"
+        )
+    if condition.plan_status not in (None, PlanStatus.DRAFT.value):
+        raise ValueError("exceptions can be requested only while a plan is draft")
+    if condition.planned_substrate_count != requested_count:
+        raise ValueError(
+            "requested count must equal the condition's planned substrate count"
+        )
+    try:
+        result = await connection.execute(
+            insert(condition_substrate_exceptions).values(
+                condition_id=condition_id,
+                requested_count=requested_count,
+                reason=reason.strip(),
+                requested_by_id=requested_by_id,
+                requested_at=now,
+                decision=ExceptionDecision.PENDING.value,
+                decision_note="",
+            )
+        )
+    except IntegrityError as error:
+        raise ValueError(
+            "this condition already has an active substrate exception"
+        ) from error
+    exception_id = _inserted_id(result)
+    await _add_audit_event(
+        connection,
+        actor_user_id=requested_by_id,
+        action="exception.request",
+        entity_type="condition_substrate_exception",
+        entity_id=str(exception_id),
+        details={
+            "condition_id": condition_id,
+            "requested_count": requested_count,
+        },
+        client_ip=client_ip,
+    )
+    return exception_id
+
+async def apply_substrate_exception_decision(
+    connection: AsyncConnection,
+    *,
+    exception_id: int,
+    decision: ExceptionDecision,
+    decided_by_id: int | None,
+    decision_note: str,
+    client_ip: str | None = None,
+) -> None:
+    """Connection-level decision: instructor-role check, pending-state and
+    canonical-hash capture, audit — all on the caller's transaction."""
+
+    now = _utc_now()
+    actor_role = await _actor_role(connection, decided_by_id)
+    if ROLE_RANK[actor_role] < ROLE_RANK[UserRole.INSTRUCTOR]:
+        raise PermissionError(
+            "instructor access is required to decide substrate exceptions"
+        )
+    exception = (
+        await connection.execute(
+            select(
+                condition_substrate_exceptions.c.decision,
+                experiment_conditions.c.canonical_hash,
+            )
+            .select_from(condition_substrate_exceptions)
+            .join(
+                experiment_conditions,
+                experiment_conditions.c.id
+                == condition_substrate_exceptions.c.condition_id,
+            )
+            .where(condition_substrate_exceptions.c.id == exception_id)
+            .with_for_update()
+        )
+    ).one_or_none()
+    if exception is None:
+        raise KeyError(f"unknown substrate exception id: {exception_id}")
+    if exception.decision != ExceptionDecision.PENDING.value:
+        raise ValueError(
+            f"substrate exception {exception_id} is not pending"
+        )
+    values: dict[str, Any] = {
+        "decision": decision.value,
+        "decided_by_id": decided_by_id,
+        "decided_at": now,
+        "decision_note": decision_note.strip(),
+    }
+    if decision == ExceptionDecision.APPROVED:
+        values["approved_condition_hash"] = exception.canonical_hash
+    result = await connection.execute(
+        update(condition_substrate_exceptions)
+        .where(condition_substrate_exceptions.c.id == exception_id)
+        .where(
+            condition_substrate_exceptions.c.decision
+            == ExceptionDecision.PENDING.value
+        )
+        .values(**values)
+    )
+    if result.rowcount != 1:
+        raise ValueError(f"substrate exception {exception_id} changed concurrently")
+    await _add_audit_event(
+        connection,
+        actor_user_id=decided_by_id,
+        action=f"exception.{decision.value}",
+        entity_type="condition_substrate_exception",
+        entity_id=str(exception_id),
+        details={"decision": decision.value},
         client_ip=client_ip,
     )
 

@@ -23,9 +23,17 @@ from ..repository.condition import (
     apply_condition_delete,
     apply_condition_update,
     apply_plan_status_update,
+    apply_substrate_exception_decision,
+    apply_substrate_exception_request,
 )
-from ..repository.records import ConditionRole, PlanStatus, UserRole
-from .errors import InvalidInput, RecordNotFound
+from ..repository.records import (
+    ROLE_RANK,
+    ConditionRole,
+    ExceptionDecision,
+    PlanStatus,
+    UserRole,
+)
+from .errors import AccessDenied, InvalidInput, RecordNotFound
 
 
 def _owner_scope(
@@ -236,3 +244,100 @@ async def update_plan_status(
         raise RecordNotFound(str(error)) from error
     except ValueError as error:
         raise InvalidInput(str(error)) from error
+
+
+async def request_substrate_exception(
+    repository,
+    *,
+    condition_id: int,
+    requested_count: int,
+    reason: str,
+    requested_by_id: int | None,
+    client_ip: str | None = None,
+    actor_role: UserRole | None = None,
+):
+    """Authorize, validate, and persist one substrate-count exception request."""
+
+    # --- Authorization -------------------------------------------------
+    try:
+        condition = await repository.get_condition(condition_id)
+    except KeyError as error:
+        raise RecordNotFound(str(error)) from error
+    if actor_role is not None:
+        owner_scope = _owner_scope(actor_role, requested_by_id)
+        try:
+            await repository.get_experiment(
+                int(condition.experiment_id), owner_user_id=owner_scope
+            )
+        except KeyError as error:
+            raise RecordNotFound(str(error)) from error
+
+    # --- Input validation -----------------------------------------------
+    if not reason.strip():
+        raise InvalidInput("exception reason must not be blank")
+    if requested_count not in (1, 2):
+        raise InvalidInput("a substrate exception may request only 1 or 2 substrates")
+
+    # --- Transaction -----------------------------------------------------
+    try:
+        async with repository.database.begin() as connection:
+            exception_id = await apply_substrate_exception_request(
+                connection,
+                condition_id=condition_id,
+                requested_count=requested_count,
+                reason=reason,
+                requested_by_id=requested_by_id,
+                client_ip=client_ip,
+            )
+    except KeyError as error:
+        raise RecordNotFound(str(error)) from error
+    except ValueError as error:
+        raise InvalidInput(str(error)) from error
+    return await repository.get_substrate_exception(exception_id)
+
+
+async def decide_substrate_exception(
+    repository,
+    exception_id: int,
+    *,
+    decision: ExceptionDecision,
+    decided_by_id: int | None,
+    decision_note: str = "",
+    client_ip: str | None = None,
+    actor_role: UserRole | None = None,
+):
+    """Authorize and record one instructor decision on an exception."""
+
+    # --- Authorization -------------------------------------------------
+    # The route also carries require_role(INSTRUCTOR); the operation checks
+    # the role up front and the apply function re-checks it inside the row
+    # lock (the authoritative gate).
+    if actor_role is not None and ROLE_RANK[actor_role] < ROLE_RANK[UserRole.INSTRUCTOR]:
+        raise AccessDenied("instructor access is required to decide substrate exceptions")
+    try:
+        await repository.get_substrate_exception(exception_id)
+    except KeyError as error:
+        raise RecordNotFound(str(error)) from error
+
+    # --- Input validation -----------------------------------------------
+    if decision not in (ExceptionDecision.APPROVED, ExceptionDecision.REJECTED):
+        raise InvalidInput("decision must be approved or rejected")
+
+    # --- Transaction -----------------------------------------------------
+    try:
+        async with repository.database.begin() as connection:
+            await apply_substrate_exception_decision(
+                connection,
+                exception_id=exception_id,
+                decision=decision,
+                decided_by_id=decided_by_id,
+                decision_note=decision_note,
+                client_ip=client_ip,
+            )
+    except KeyError as error:
+        raise RecordNotFound(str(error)) from error
+    except PermissionError as error:
+        raise AccessDenied(str(error)) from error
+    except ValueError as error:
+        raise InvalidInput(str(error)) from error
+    return await repository.get_substrate_exception(exception_id)

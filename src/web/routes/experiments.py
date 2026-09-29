@@ -10,7 +10,6 @@ from fastapi import (
     status,
 )
 from fastapi.responses import Response
-from sqlalchemy.exc import IntegrityError
 from starlette.concurrency import run_in_threadpool
 
 from ..auth import (
@@ -47,7 +46,6 @@ from ..repository import (
 )
 from .common import (
     _client_ip,
-    _condition_for_actor,
     _condition_response,
     _create_experiment,
     _fabrication_batch_response,
@@ -317,26 +315,18 @@ def create_experiments_router(
         payload: SubstrateExceptionCreatePayload,
         auth_context: Annotated[AuthContext, Depends(require_user)],
     ) -> SubstrateExceptionResponse:
-        condition = await _condition_for_actor(
-            repository, condition_id, auth_context
-        )
         try:
-            record = await repository.request_substrate_exception(
-                condition_id=condition.id,
+            record = await condition_operations.request_substrate_exception(
+                repository,
+                condition_id=condition_id,
                 requested_count=payload.requested_count,
                 reason=payload.reason,
                 requested_by_id=auth_context.user.id,
                 client_ip=_client_ip(request),
+                actor_role=auth_context.user.role,
             )
-        except PermissionError as error:
-            raise HTTPException(status_code=403, detail=str(error)) from error
-        except (KeyError, ValueError) as error:
-            raise HTTPException(status_code=400, detail=str(error)) from error
-        except IntegrityError as error:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="a pending or approved substrate exception already exists for this condition",
-            ) from error
+        except OperationError as error:
+            raise _operation_error_to_http(error) from error
         return _substrate_exception_response(record)
     @router.post(
         "/api/substrate-exceptions/{exception_id}/decision",
@@ -353,19 +343,17 @@ def create_experiments_router(
         auth_context: Annotated[AuthContext, Depends(require_user)],
     ) -> SubstrateExceptionResponse:
         try:
-            record = await repository.decide_substrate_exception(
+            record = await condition_operations.decide_substrate_exception(
+                repository,
                 exception_id,
                 decision=ExceptionDecision(payload.decision),
                 decided_by_id=auth_context.user.id,
                 decision_note=payload.decision_note,
                 client_ip=_client_ip(request),
+                actor_role=auth_context.user.role,
             )
-        except PermissionError as error:
-            raise HTTPException(status_code=403, detail=str(error)) from error
-        except KeyError as error:
-            raise HTTPException(status_code=404, detail=str(error)) from error
-        except ValueError as error:
-            raise HTTPException(status_code=400, detail=str(error)) from error
+        except OperationError as error:
+            raise _operation_error_to_http(error) from error
         return _substrate_exception_response(record)
     @router.patch(
         "/api/experiments/{experiment_id}/plan-status",
