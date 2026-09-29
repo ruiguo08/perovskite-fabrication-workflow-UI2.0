@@ -31,6 +31,8 @@ from ..models import (
     SubstrateExceptionDecisionPayload,
     SubstrateExceptionResponse,
 )
+from ..operations import conditions as condition_operations
+from ..operations.errors import OperationError
 from ..plan_export import (
     build_plan_export,
     canonical_plan_json,
@@ -50,6 +52,7 @@ from .common import (
     _create_experiment,
     _fabrication_batch_response,
     _get_record_or_404,
+    _operation_error_to_http,
     _record_response,
     _result_summary_response,
     _student_owner_id,
@@ -237,9 +240,9 @@ def create_experiments_router(
         payload: ConditionCreatePayload,
         auth_context: Annotated[AuthContext, Depends(require_user)],
     ) -> ConditionResponse:
-        await _get_record_or_404(repository, experiment_id, auth_context)
         try:
-            record = await repository.create_condition(
+            record = await condition_operations.create_condition(
+                repository,
                 experiment_id=experiment_id,
                 role=ConditionRole(payload.role),
                 condition_code=None,
@@ -250,11 +253,10 @@ def create_experiments_router(
                 planned_substrate_count=payload.planned_substrate_count,
                 actor_user_id=auth_context.user.id,
                 client_ip=_client_ip(request),
+                actor_role=auth_context.user.role,
             )
-        except KeyError as error:
-            raise HTTPException(status_code=404, detail=str(error)) from error
-        except (TypeError, ValueError) as error:
-            raise HTTPException(status_code=400, detail=str(error)) from error
+        except OperationError as error:
+            raise _operation_error_to_http(error) from error
         return _condition_response(record)
     @router.put(
         "/api/conditions/{condition_id}",
@@ -267,12 +269,10 @@ def create_experiments_router(
         payload: ConditionUpdatePayload,
         auth_context: Annotated[AuthContext, Depends(require_user)],
     ) -> ConditionResponse:
-        condition = await _condition_for_actor(
-            repository, condition_id, auth_context
-        )
         try:
-            record = await repository.update_condition(
-                condition.id,
+            record = await condition_operations.update_condition(
+                repository,
+                condition_id,
                 condition_name=payload.condition_name,
                 recipe_snapshot=payload.recipe_snapshot.model_dump(mode="python"),
                 source_baseline_version_id=payload.source_baseline_version_id,
@@ -280,11 +280,10 @@ def create_experiments_router(
                 planned_substrate_count=payload.planned_substrate_count,
                 actor_user_id=auth_context.user.id,
                 client_ip=_client_ip(request),
+                actor_role=auth_context.user.role,
             )
-        except KeyError as error:
-            raise HTTPException(status_code=404, detail=str(error)) from error
-        except (TypeError, ValueError) as error:
-            raise HTTPException(status_code=400, detail=str(error)) from error
+        except OperationError as error:
+            raise _operation_error_to_http(error) from error
         return _condition_response(record)
     @router.delete(
         "/api/conditions/{condition_id}",
@@ -296,19 +295,16 @@ def create_experiments_router(
         condition_id: int,
         auth_context: Annotated[AuthContext, Depends(require_user)],
     ) -> None:
-        condition = await _condition_for_actor(
-            repository, condition_id, auth_context
-        )
         try:
-            await repository.delete_condition(
-                condition.id,
+            await condition_operations.delete_condition(
+                repository,
+                condition_id,
                 actor_user_id=auth_context.user.id,
                 client_ip=_client_ip(request),
+                actor_role=auth_context.user.role,
             )
-        except KeyError as error:
-            raise HTTPException(status_code=404, detail=str(error)) from error
-        except (TypeError, ValueError) as error:
-            raise HTTPException(status_code=400, detail=str(error)) from error
+        except OperationError as error:
+            raise _operation_error_to_http(error) from error
     @router.post(
         "/api/conditions/{condition_id}/substrate-exceptions",
         response_model=SubstrateExceptionResponse,
@@ -382,16 +378,15 @@ def create_experiments_router(
         payload: PlanStatusUpdatePayload,
         auth_context: Annotated[AuthContext, Depends(require_user)],
     ) -> None:
-        await _get_record_or_404(repository, experiment_id, auth_context)
         try:
-            await repository.update_plan_status(
+            await condition_operations.update_plan_status(
+                repository,
                 experiment_id,
                 PlanStatus(payload.status),
                 actor_user_id=auth_context.user.id,
                 client_ip=_client_ip(request),
+                actor_role=auth_context.user.role,
             )
-        except PermissionError as error:
-            raise HTTPException(status_code=403, detail=str(error)) from error
-        except (KeyError, TypeError, ValueError) as error:
-            raise HTTPException(status_code=400, detail=str(error)) from error
+        except OperationError as error:
+            raise _operation_error_to_http(error) from error
     return router

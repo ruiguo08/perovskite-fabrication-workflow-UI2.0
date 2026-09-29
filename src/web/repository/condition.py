@@ -340,150 +340,25 @@ class ConditionsMixin:
         actor_user_id: int | None,
         client_ip: str | None = None,
     ) -> ConditionRecord:
-        normalized_role = ConditionRole(role)
-        normalized_code = condition_code.strip() if condition_code else ""
-        normalized_name = condition_name.strip()
-        if not normalized_name:
-            raise ValueError("condition name must not be blank")
-        if planned_substrate_count < 1:
-            raise ValueError("planned substrate count must be at least 1")
-        normalized_snapshot = validate_condition_snapshot(recipe_snapshot)
-        snapshot_hash = condition_canonical_hash(normalized_snapshot)
-        intended_plan_type = (
-            "standalone"
-            if normalized_role == ConditionRole.STANDALONE
-            else "comparative"
+        """Deprecated delegate: :mod:`web.operations.conditions` owns this
+        use case. Kept for the historical no-pre-check exception contract
+        (the operation adds the ownership pre-check when given a role)."""
+        from ..operations.conditions import create_condition as _operation
+
+        return await _operation(
+            self,
+            experiment_id=experiment_id,
+            role=role,
+            condition_code=condition_code,
+            condition_name=condition_name,
+            recipe_snapshot=recipe_snapshot,
+            source_baseline_version_id=source_baseline_version_id,
+            device_layout_code=device_layout_code,
+            planned_substrate_count=planned_substrate_count,
+            requires_manual_review=requires_manual_review,
+            actor_user_id=actor_user_id,
+            client_ip=client_ip,
         )
-        now = _utc_now()
-        async with self.database.begin() as connection:
-            plan_row = (
-                await connection.execute(
-                    select(
-                        experiments.c.experiment_code,
-                        experiments.c.plan_type,
-                        experiments.c.plan_status,
-                    )
-                    .where(experiments.c.id == experiment_id)
-                    # Serialize with plan-status transitions and batch
-                    # freezes on the parent experiment row (consistent lock
-                    # order: experiment first, then condition rows).
-                    .with_for_update()
-                )
-            ).one_or_none()
-            if plan_row is None:
-                raise KeyError(f"unknown experiment id: {experiment_id}")
-            if plan_row.plan_status in {
-                PlanStatus.RELEASED.value,
-                PlanStatus.IN_PROGRESS.value,
-                PlanStatus.COMPLETED.value,
-                PlanStatus.CANCELLED.value,
-            }:
-                raise ValueError("released or closed plans cannot be modified")
-            if plan_row.plan_type not in (None, intended_plan_type):
-                raise ValueError(
-                    f"{normalized_role.value} conditions are incompatible with "
-                    f"a {plan_row.plan_type} plan"
-                )
-            existing_conditions = (
-                await connection.execute(
-                    select(
-                        experiment_conditions.c.condition_code,
-                        experiment_conditions.c.role,
-                        experiment_conditions.c.source_baseline_version_id,
-                    ).where(
-                        experiment_conditions.c.experiment_id == experiment_id
-                    )
-                )
-            ).all()
-            existing_codes = [str(row.condition_code) for row in existing_conditions]
-            existing_roles = [ConditionRole(row.role) for row in existing_conditions]
-            existing_sources = {
-                row.source_baseline_version_id for row in existing_conditions
-            }
-            # source_baseline_version_id is provenance only — every condition
-            # stores its own complete recipe snapshot, so a student may add
-            # conditions to a from-scratch plan without referencing any
-            # baseline (the same semantics as experiment creation).
-            if existing_sources and existing_sources != {
-                source_baseline_version_id
-            }:
-                raise ValueError(
-                    "all conditions in a plan must use the same baseline revision"
-                )
-            if (
-                normalized_role == ConditionRole.CONTROL
-                and ConditionRole.CONTROL in existing_roles
-            ):
-                raise ValueError("a comparative plan can contain only one control")
-            if normalized_role == ConditionRole.STANDALONE and existing_roles:
-                raise ValueError("a standalone plan can contain only one condition")
-            expected_code = _next_condition_code(
-                str(plan_row.experiment_code), normalized_role, existing_codes
-            )
-            if normalized_code and normalized_code != expected_code:
-                raise ValueError(f"condition code must be {expected_code}")
-            normalized_code = expected_code
-            await _validate_baseline_version_for_condition(
-                connection, source_baseline_version_id,
-                actor_user_id=actor_user_id,
-            )
-            layout = await _resolve_layout(connection, device_layout_code)
-            layout_copy = layout_snapshot(layout)
-            device_count = expected_device_count(planned_substrate_count, layout)
-            result = await connection.execute(
-                insert(experiment_conditions).values(
-                    experiment_id=experiment_id,
-                    role=normalized_role.value,
-                    condition_code=normalized_code,
-                    condition_name=normalized_name,
-                    recipe_snapshot=normalized_snapshot,
-                    recipe_schema_version=int(normalized_snapshot["schema_version"]),
-                    canonical_hash=snapshot_hash,
-                    source_baseline_version_id=source_baseline_version_id,
-                    device_layout_code=layout.code,
-                    device_layout_snapshot=layout_copy,
-                    planned_substrate_count=planned_substrate_count,
-                    expected_device_count=device_count,
-                    requires_manual_review=requires_manual_review,
-                    created_at=now,
-                    created_by_id=actor_user_id,
-                )
-            )
-            condition_id = _inserted_id(result)
-            await connection.execute(
-                update(experiments)
-                .where(experiments.c.id == experiment_id)
-                .values(
-                    plan_type=intended_plan_type,
-                    # A plan still mid-review keeps its status (the approval
-                    # gate re-validates every condition before approving),
-                    # but an already-approved plan must return to draft: the
-                    # new condition has not been reviewed by an instructor,
-                    # so releasing as-is would bypass the review gate. The
-                    # released-or-closed check above blocks later statuses.
-                    plan_status=(
-                        PlanStatus.PENDING_APPROVAL.value
-                        if plan_row.plan_status
-                        == PlanStatus.PENDING_APPROVAL.value
-                        else PlanStatus.DRAFT.value
-                    ),
-                    updated_at=now,
-                )
-            )
-            await _add_audit_event(
-                connection,
-                actor_user_id=actor_user_id,
-                action="condition.create",
-                entity_type="experiment_condition",
-                entity_id=str(condition_id),
-                details={
-                    "experiment_id": experiment_id,
-                    "role": normalized_role.value,
-                    "condition_code": normalized_code,
-                },
-                client_ip=client_ip,
-            )
-        return await self.get_condition(condition_id)
 
     async def update_condition(
         self,
@@ -497,131 +372,21 @@ class ConditionsMixin:
         actor_user_id: int | None,
         client_ip: str | None = None,
     ) -> ConditionRecord:
-        normalized_name = condition_name.strip()
-        if not normalized_name:
-            raise ValueError("condition name must not be blank")
-        if planned_substrate_count < 1:
-            raise ValueError("planned substrate count must be at least 1")
-        normalized_snapshot = validate_condition_snapshot(recipe_snapshot)
-        snapshot_hash = condition_canonical_hash(normalized_snapshot)
-        now = _utc_now()
-        async with self.database.begin() as connection:
-            row = (
-                await connection.execute(
-                    select(
-                        experiment_conditions.c.experiment_id,
-                        experiment_conditions.c.source_baseline_version_id,
-                        experiment_conditions.c.canonical_hash,
-                        experiment_conditions.c.planned_substrate_count,
-                        experiment_conditions.c.device_layout_code,
-                        experiment_conditions.c.device_layout_snapshot,
-                        experiment_conditions.c.requires_manual_review,
-                        experiments.c.plan_status,
-                    )
-                    .select_from(experiment_conditions)
-                    .join(
-                        experiments,
-                        experiments.c.id == experiment_conditions.c.experiment_id,
-                    )
-                    .where(experiment_conditions.c.id == condition_id)
-                    # Serialize with plan-status transitions and batch
-                    # freezes on the parent experiment row (consistent lock
-                    # order: experiment first, then condition rows).
-                    .with_for_update(of=experiments)
-                )
-            ).one_or_none()
-            if row is None:
-                raise KeyError(f"unknown condition id: {condition_id}")
-            if row.plan_status in {
-                PlanStatus.RELEASED.value,
-                PlanStatus.IN_PROGRESS.value,
-                PlanStatus.COMPLETED.value,
-                PlanStatus.CANCELLED.value,
-            }:
-                raise ValueError("released or closed plans cannot be modified")
-            if (
-                source_baseline_version_id
-                != row.source_baseline_version_id
-            ):
-                raise ValueError(
-                    "a condition's source baseline revision cannot be changed"
-                )
-            await _validate_baseline_version_for_condition(
-                connection,
-                source_baseline_version_id,
-                actor_user_id=actor_user_id,
-                require_active=False,
-            )
-            # Clear the manual-review flag only when the edit changes a
-            # substantive field (recipe/canonical hash, substrate count, or
-            # layout). Metadata-only edits (e.g. renaming) preserve it, so a
-            # rename alone cannot silently wave an unvetted condition through.
-            # A condition whose layout code is unchanged stays on the exact
-            # layout version frozen in its snapshot; a NEW layout code selects
-            # the catalog's latest version.
-            saved_layout_snapshot = row.device_layout_snapshot
-            if isinstance(saved_layout_snapshot, str):
-                saved_layout_snapshot = json.loads(saved_layout_snapshot)
-            if (
-                isinstance(saved_layout_snapshot, Mapping)
-                and device_layout_code == row.device_layout_code
-                and saved_layout_snapshot.get("version") is not None
-            ):
-                layout = await _resolve_layout(
-                    connection,
-                    device_layout_code,
-                    version=int(saved_layout_snapshot["version"]),
-                )
-            else:
-                layout = await _resolve_layout(connection, device_layout_code)
-            substantive_changed = (
-                snapshot_hash != row.canonical_hash
-                or planned_substrate_count != row.planned_substrate_count
-                or layout.code != row.device_layout_code
-            )
-            resolved_manual_review = (
-                False if substantive_changed else bool(row.requires_manual_review)
-            )
-            await connection.execute(
-                update(experiment_conditions)
-                .where(experiment_conditions.c.id == condition_id)
-                .values(
-                    condition_name=normalized_name,
-                    recipe_snapshot=normalized_snapshot,
-                    recipe_schema_version=int(normalized_snapshot["schema_version"]),
-                    canonical_hash=snapshot_hash,
-                    source_baseline_version_id=source_baseline_version_id,
-                    device_layout_code=layout.code,
-                    device_layout_snapshot=layout_snapshot(layout),
-                    planned_substrate_count=planned_substrate_count,
-                    expected_device_count=expected_device_count(
-                        planned_substrate_count, layout
-                    ),
-                    requires_manual_review=resolved_manual_review,
-                )
-            )
-            invalidated = await _invalidate_condition_exceptions(
-                connection, condition_id, now=now
-            )
-            # An edit invalidates any approval the plan already holds: the
-            # approved content is what changed, so the plan must return to
-            # draft and pass the approval gate again (concurrent-release
-            # contract: exactly one of edit/release commits).
-            await connection.execute(
-                update(experiments)
-                .where(experiments.c.id == row.experiment_id)
-                .values(plan_status=PlanStatus.DRAFT.value, updated_at=now)
-            )
-            await _add_audit_event(
-                connection,
-                actor_user_id=actor_user_id,
-                action="condition.update",
-                entity_type="experiment_condition",
-                entity_id=str(condition_id),
-                details={"invalidated_exceptions": invalidated},
-                client_ip=client_ip,
-            )
-        return await self.get_condition(condition_id)
+        """Deprecated delegate: :mod:`web.operations.conditions` owns this
+        use case (same no-pre-check delegate contract as create)."""
+        from ..operations.conditions import update_condition as _operation
+
+        return await _operation(
+            self,
+            condition_id,
+            condition_name=condition_name,
+            recipe_snapshot=recipe_snapshot,
+            source_baseline_version_id=source_baseline_version_id,
+            device_layout_code=device_layout_code,
+            planned_substrate_count=planned_substrate_count,
+            actor_user_id=actor_user_id,
+            client_ip=client_ip,
+        )
 
     async def delete_condition(
         self,
@@ -630,56 +395,16 @@ class ConditionsMixin:
         actor_user_id: int | None,
         client_ip: str | None = None,
     ) -> None:
-        now = _utc_now()
-        async with self.database.begin() as connection:
-            row = (
-                await connection.execute(
-                    select(
-                        experiment_conditions.c.experiment_id,
-                        experiments.c.plan_status,
-                    )
-                    .select_from(experiment_conditions)
-                    .join(
-                        experiments,
-                        experiments.c.id == experiment_conditions.c.experiment_id,
-                    )
-                    .where(experiment_conditions.c.id == condition_id)
-                    # Same parent-row lock order as update_condition.
-                    .with_for_update(of=experiments)
-                )
-            ).one_or_none()
-            if row is None:
-                raise KeyError(f"unknown condition id: {condition_id}")
-            if row.plan_status in {
-                PlanStatus.RELEASED.value,
-                PlanStatus.IN_PROGRESS.value,
-                PlanStatus.COMPLETED.value,
-                PlanStatus.CANCELLED.value,
-            }:
-                raise ValueError("released or closed plans cannot be modified")
-            await connection.execute(
-                delete(experiment_conditions).where(
-                    experiment_conditions.c.id == condition_id
-                )
-            )
-            await connection.execute(
-                update(experiments)
-                .where(experiments.c.id == row.experiment_id)
-                # A delete invalidates any approval the plan holds, same as
-                # an edit: the deleted condition was part of what was
-                # approved (concurrent-release contract: exactly one of
-                # delete/release commits).
-                .values(plan_status=PlanStatus.DRAFT.value, updated_at=now)
-            )
-            await _add_audit_event(
-                connection,
-                actor_user_id=actor_user_id,
-                action="condition.delete",
-                entity_type="experiment_condition",
-                entity_id=str(condition_id),
-                details={"experiment_id": row.experiment_id},
-                client_ip=client_ip,
-            )
+        """Deprecated delegate: :mod:`web.operations.conditions` owns this
+        use case (same no-pre-check delegate contract as create)."""
+        from ..operations.conditions import delete_condition as _operation
+
+        return await _operation(
+            self,
+            condition_id,
+            actor_user_id=actor_user_id,
+            client_ip=client_ip,
+        )
 
     async def get_condition(self, condition_id: int) -> ConditionRecord:
         async with self.database.engine.connect() as connection:
@@ -715,56 +440,18 @@ class ConditionsMixin:
         actor_user_id: int | None,
         client_ip: str | None = None,
     ) -> None:
-        async with self.database.begin() as connection:
-            plan = (
-                await connection.execute(
-                    select(
-                        experiments.c.created_by_id,
-                        experiments.c.plan_type,
-                        experiments.c.plan_status,
-                    )
-                    .where(experiments.c.id == experiment_id)
-                    .with_for_update()
-                )
-            ).one_or_none()
-            if plan is None:
-                raise KeyError(f"unknown experiment id: {experiment_id}")
-            actor_role = await _actor_role(connection, actor_user_id)
-            if (
-                actor_role == UserRole.STUDENT
-                and plan.created_by_id != actor_user_id
-            ):
-                raise PermissionError("students can modify only their own plans")
-            current = (
-                PlanStatus(plan.plan_status)
-                if plan.plan_status is not None
-                else PlanStatus.DRAFT
-            )
-            _validate_plan_transition(current, plan_status, actor_role)
-            await _validate_plan_conditions(
-                connection,
-                experiment_id,
-                plan_type=plan.plan_type,
-                target_status=plan_status,
-            )
-            await _require_fabrication_batches(connection, experiment_id, plan_status)
-            await connection.execute(
-                update(experiments)
-                .where(experiments.c.id == experiment_id)
-                .values(plan_status=plan_status.value, updated_at=_utc_now())
-            )
-            await _add_audit_event(
-                connection,
-                actor_user_id=actor_user_id,
-                action="plan.status_change",
-                entity_type="experiment",
-                entity_id=str(experiment_id),
-                details={
-                    "from": current.value,
-                    "to": plan_status.value,
-                },
-                client_ip=client_ip,
-            )
+        """Deprecated delegate: :mod:`web.operations.conditions` owns this
+        use case. The in-transaction role/ownership re-check stays here, so
+        the delegate keeps the historical full semantics."""
+        from ..operations.conditions import update_plan_status as _operation
+
+        return await _operation(
+            self,
+            experiment_id,
+            plan_status,
+            actor_user_id=actor_user_id,
+            client_ip=client_ip,
+        )
 
     # ------------------------------------------------------------------
     # Substrate exception approval
@@ -1024,3 +711,419 @@ class ConditionsMixin:
                     client_ip=client_ip,
                 )
         return count
+async def apply_condition_create(
+    connection: AsyncConnection,
+    *,
+    experiment_id: int,
+    normalized_role: ConditionRole,
+    normalized_code: str | None,
+    normalized_name: str,
+    normalized_snapshot: dict[str, Any],
+    snapshot_hash: str,
+    source_baseline_version_id: int | None,
+    device_layout_code: str,
+    planned_substrate_count: int,
+    requires_manual_review: bool,
+    actor_user_id: int | None,
+    client_ip: str | None = None,
+) -> int:
+    """Connection-level create for one validated condition snapshot.
+
+    Lock order: parent experiment row first, then condition rows. Sets the
+    plan back to draft (or keeps pending-approval mid-review) and writes the
+    audit record on the caller's transaction.
+    """
+
+    intended_plan_type = (
+        "standalone"
+        if normalized_role == ConditionRole.STANDALONE
+        else "comparative"
+    )
+    now = _utc_now()
+    plan_row = (
+        await connection.execute(
+            select(
+                experiments.c.experiment_code,
+                experiments.c.plan_type,
+                experiments.c.plan_status,
+            )
+            .where(experiments.c.id == experiment_id)
+            # Serialize with plan-status transitions and batch
+            # freezes on the parent experiment row (consistent lock
+            # order: experiment first, then condition rows).
+            .with_for_update()
+        )
+    ).one_or_none()
+    if plan_row is None:
+        raise KeyError(f"unknown experiment id: {experiment_id}")
+    if plan_row.plan_status in {
+        PlanStatus.RELEASED.value,
+        PlanStatus.IN_PROGRESS.value,
+        PlanStatus.COMPLETED.value,
+        PlanStatus.CANCELLED.value,
+    }:
+        raise ValueError("released or closed plans cannot be modified")
+    if plan_row.plan_type not in (None, intended_plan_type):
+        raise ValueError(
+            f"{normalized_role.value} conditions are incompatible with "
+            f"a {plan_row.plan_type} plan"
+        )
+    existing_conditions = (
+        await connection.execute(
+            select(
+                experiment_conditions.c.condition_code,
+                experiment_conditions.c.role,
+                experiment_conditions.c.source_baseline_version_id,
+            ).where(
+                experiment_conditions.c.experiment_id == experiment_id
+            )
+        )
+    ).all()
+    existing_codes = [str(row.condition_code) for row in existing_conditions]
+    existing_roles = [ConditionRole(row.role) for row in existing_conditions]
+    existing_sources = {
+        row.source_baseline_version_id for row in existing_conditions
+    }
+    # source_baseline_version_id is provenance only — every condition
+    # stores its own complete recipe snapshot, so a student may add
+    # conditions to a from-scratch plan without referencing any
+    # baseline (the same semantics as experiment creation).
+    if existing_sources and existing_sources != {
+        source_baseline_version_id
+    }:
+        raise ValueError(
+            "all conditions in a plan must use the same baseline revision"
+        )
+    if (
+        normalized_role == ConditionRole.CONTROL
+        and ConditionRole.CONTROL in existing_roles
+    ):
+        raise ValueError("a comparative plan can contain only one control")
+    if normalized_role == ConditionRole.STANDALONE and existing_roles:
+        raise ValueError("a standalone plan can contain only one condition")
+    expected_code = _next_condition_code(
+        str(plan_row.experiment_code), normalized_role, existing_codes
+    )
+    if normalized_code and normalized_code != expected_code:
+        raise ValueError(f"condition code must be {expected_code}")
+    normalized_code = expected_code
+    await _validate_baseline_version_for_condition(
+        connection, source_baseline_version_id,
+        actor_user_id=actor_user_id,
+    )
+    layout = await _resolve_layout(connection, device_layout_code)
+    layout_copy = layout_snapshot(layout)
+    device_count = expected_device_count(planned_substrate_count, layout)
+    result = await connection.execute(
+        insert(experiment_conditions).values(
+            experiment_id=experiment_id,
+            role=normalized_role.value,
+            condition_code=normalized_code,
+            condition_name=normalized_name,
+            recipe_snapshot=normalized_snapshot,
+            recipe_schema_version=int(normalized_snapshot["schema_version"]),
+            canonical_hash=snapshot_hash,
+            source_baseline_version_id=source_baseline_version_id,
+            device_layout_code=layout.code,
+            device_layout_snapshot=layout_copy,
+            planned_substrate_count=planned_substrate_count,
+            expected_device_count=device_count,
+            requires_manual_review=requires_manual_review,
+            created_at=now,
+            created_by_id=actor_user_id,
+        )
+    )
+    condition_id = _inserted_id(result)
+    await connection.execute(
+        update(experiments)
+        .where(experiments.c.id == experiment_id)
+        .values(
+            plan_type=intended_plan_type,
+            # A plan still mid-review keeps its status (the approval
+            # gate re-validates every condition before approving),
+            # but an already-approved plan must return to draft: the
+            # new condition has not been reviewed by an instructor,
+            # so releasing as-is would bypass the review gate. The
+            # released-or-closed check above blocks later statuses.
+            plan_status=(
+                PlanStatus.PENDING_APPROVAL.value
+                if plan_row.plan_status
+                == PlanStatus.PENDING_APPROVAL.value
+                else PlanStatus.DRAFT.value
+            ),
+            updated_at=now,
+        )
+    )
+    await _add_audit_event(
+        connection,
+        actor_user_id=actor_user_id,
+        action="condition.create",
+        entity_type="experiment_condition",
+        entity_id=str(condition_id),
+        details={
+            "experiment_id": experiment_id,
+            "role": normalized_role.value,
+            "condition_code": normalized_code,
+        },
+        client_ip=client_ip,
+    )
+    return condition_id
+
+async def apply_condition_update(
+    connection: AsyncConnection,
+    *,
+    condition_id: int,
+    normalized_name: str,
+    normalized_snapshot: dict[str, Any],
+    snapshot_hash: str,
+    source_baseline_version_id: int | None,
+    device_layout_code: str,
+    planned_substrate_count: int,
+    actor_user_id: int | None,
+    client_ip: str | None = None,
+) -> None:
+    """Connection-level update for one validated condition snapshot.
+
+    Layout-version pinning, manual-review flag resolution, exception
+    invalidation, and the back-to-draft transition all share the caller's
+    transaction.
+    """
+
+    now = _utc_now()
+    row = (
+        await connection.execute(
+            select(
+                experiment_conditions.c.experiment_id,
+                experiment_conditions.c.source_baseline_version_id,
+                experiment_conditions.c.canonical_hash,
+                experiment_conditions.c.planned_substrate_count,
+                experiment_conditions.c.device_layout_code,
+                experiment_conditions.c.device_layout_snapshot,
+                experiment_conditions.c.requires_manual_review,
+                experiments.c.plan_status,
+            )
+            .select_from(experiment_conditions)
+            .join(
+                experiments,
+                experiments.c.id == experiment_conditions.c.experiment_id,
+            )
+            .where(experiment_conditions.c.id == condition_id)
+            # Serialize with plan-status transitions and batch
+            # freezes on the parent experiment row (consistent lock
+            # order: experiment first, then condition rows).
+            .with_for_update(of=experiments)
+        )
+    ).one_or_none()
+    if row is None:
+        raise KeyError(f"unknown condition id: {condition_id}")
+    if row.plan_status in {
+        PlanStatus.RELEASED.value,
+        PlanStatus.IN_PROGRESS.value,
+        PlanStatus.COMPLETED.value,
+        PlanStatus.CANCELLED.value,
+    }:
+        raise ValueError("released or closed plans cannot be modified")
+    if (
+        source_baseline_version_id
+        != row.source_baseline_version_id
+    ):
+        raise ValueError(
+            "a condition's source baseline revision cannot be changed"
+        )
+    await _validate_baseline_version_for_condition(
+        connection,
+        source_baseline_version_id,
+        actor_user_id=actor_user_id,
+        require_active=False,
+    )
+    # Clear the manual-review flag only when the edit changes a
+    # substantive field (recipe/canonical hash, substrate count, or
+    # layout). Metadata-only edits (e.g. renaming) preserve it, so a
+    # rename alone cannot silently wave an unvetted condition through.
+    # A condition whose layout code is unchanged stays on the exact
+    # layout version frozen in its snapshot; a NEW layout code selects
+    # the catalog's latest version.
+    saved_layout_snapshot = row.device_layout_snapshot
+    if isinstance(saved_layout_snapshot, str):
+        saved_layout_snapshot = json.loads(saved_layout_snapshot)
+    if (
+        isinstance(saved_layout_snapshot, Mapping)
+        and device_layout_code == row.device_layout_code
+        and saved_layout_snapshot.get("version") is not None
+    ):
+        layout = await _resolve_layout(
+            connection,
+            device_layout_code,
+            version=int(saved_layout_snapshot["version"]),
+        )
+    else:
+        layout = await _resolve_layout(connection, device_layout_code)
+    substantive_changed = (
+        snapshot_hash != row.canonical_hash
+        or planned_substrate_count != row.planned_substrate_count
+        or layout.code != row.device_layout_code
+    )
+    resolved_manual_review = (
+        False if substantive_changed else bool(row.requires_manual_review)
+    )
+    await connection.execute(
+        update(experiment_conditions)
+        .where(experiment_conditions.c.id == condition_id)
+        .values(
+            condition_name=normalized_name,
+            recipe_snapshot=normalized_snapshot,
+            recipe_schema_version=int(normalized_snapshot["schema_version"]),
+            canonical_hash=snapshot_hash,
+            source_baseline_version_id=source_baseline_version_id,
+            device_layout_code=layout.code,
+            device_layout_snapshot=layout_snapshot(layout),
+            planned_substrate_count=planned_substrate_count,
+            expected_device_count=expected_device_count(
+                planned_substrate_count, layout
+            ),
+            requires_manual_review=resolved_manual_review,
+        )
+    )
+    invalidated = await _invalidate_condition_exceptions(
+        connection, condition_id, now=now
+    )
+    # An edit invalidates any approval the plan already holds: the
+    # approved content is what changed, so the plan must return to
+    # draft and pass the approval gate again (concurrent-release
+    # contract: exactly one of edit/release commits).
+    await connection.execute(
+        update(experiments)
+        .where(experiments.c.id == row.experiment_id)
+        .values(plan_status=PlanStatus.DRAFT.value, updated_at=now)
+    )
+    await _add_audit_event(
+        connection,
+        actor_user_id=actor_user_id,
+        action="condition.update",
+        entity_type="experiment_condition",
+        entity_id=str(condition_id),
+        details={"invalidated_exceptions": invalidated},
+        client_ip=client_ip,
+    )
+
+async def apply_condition_delete(
+    connection: AsyncConnection,
+    *,
+    condition_id: int,
+    actor_user_id: int | None,
+    client_ip: str | None = None,
+) -> None:
+    """Connection-level delete; the plan returns to draft on the same
+    transaction (the deleted condition was part of any approval)."""
+
+    now = _utc_now()
+    row = (
+        await connection.execute(
+            select(
+                experiment_conditions.c.experiment_id,
+                experiments.c.plan_status,
+            )
+            .select_from(experiment_conditions)
+            .join(
+                experiments,
+                experiments.c.id == experiment_conditions.c.experiment_id,
+            )
+            .where(experiment_conditions.c.id == condition_id)
+            # Same parent-row lock order as update_condition.
+            .with_for_update(of=experiments)
+        )
+    ).one_or_none()
+    if row is None:
+        raise KeyError(f"unknown condition id: {condition_id}")
+    if row.plan_status in {
+        PlanStatus.RELEASED.value,
+        PlanStatus.IN_PROGRESS.value,
+        PlanStatus.COMPLETED.value,
+        PlanStatus.CANCELLED.value,
+    }:
+        raise ValueError("released or closed plans cannot be modified")
+    await connection.execute(
+        delete(experiment_conditions).where(
+            experiment_conditions.c.id == condition_id
+        )
+    )
+    await connection.execute(
+        update(experiments)
+        .where(experiments.c.id == row.experiment_id)
+        # A delete invalidates any approval the plan holds, same as
+        # an edit: the deleted condition was part of what was
+        # approved (concurrent-release contract: exactly one of
+        # delete/release commits).
+        .values(plan_status=PlanStatus.DRAFT.value, updated_at=now)
+    )
+    await _add_audit_event(
+        connection,
+        actor_user_id=actor_user_id,
+        action="condition.delete",
+        entity_type="experiment_condition",
+        entity_id=str(condition_id),
+        details={"experiment_id": row.experiment_id},
+        client_ip=client_ip,
+    )
+
+async def apply_plan_status_update(
+    connection: AsyncConnection,
+    *,
+    experiment_id: int,
+    plan_status: PlanStatus,
+    actor_user_id: int | None,
+    client_ip: str | None = None,
+) -> None:
+    """Connection-level plan-status transition: role/ownership check,
+    transition and condition validation, batch guards, audit."""
+
+    plan = (
+        await connection.execute(
+            select(
+                experiments.c.created_by_id,
+                experiments.c.plan_type,
+                experiments.c.plan_status,
+            )
+            .where(experiments.c.id == experiment_id)
+            .with_for_update()
+        )
+    ).one_or_none()
+    if plan is None:
+        raise KeyError(f"unknown experiment id: {experiment_id}")
+    actor_role = await _actor_role(connection, actor_user_id)
+    if (
+        actor_role == UserRole.STUDENT
+        and plan.created_by_id != actor_user_id
+    ):
+        raise PermissionError("students can modify only their own plans")
+    current = (
+        PlanStatus(plan.plan_status)
+        if plan.plan_status is not None
+        else PlanStatus.DRAFT
+    )
+    _validate_plan_transition(current, plan_status, actor_role)
+    await _validate_plan_conditions(
+        connection,
+        experiment_id,
+        plan_type=plan.plan_type,
+        target_status=plan_status,
+    )
+    await _require_fabrication_batches(connection, experiment_id, plan_status)
+    await connection.execute(
+        update(experiments)
+        .where(experiments.c.id == experiment_id)
+        .values(plan_status=plan_status.value, updated_at=_utc_now())
+    )
+    await _add_audit_event(
+        connection,
+        actor_user_id=actor_user_id,
+        action="plan.status_change",
+        entity_type="experiment",
+        entity_id=str(experiment_id),
+        details={
+            "from": current.value,
+            "to": plan_status.value,
+        },
+        client_ip=client_ip,
+    )
+

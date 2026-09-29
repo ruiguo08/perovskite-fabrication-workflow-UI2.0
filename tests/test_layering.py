@@ -59,9 +59,15 @@ class RepositoryToOperationsBoundaryTests(unittest.TestCase):
         self.assertEqual(offenders, [])
 
     def test_lazy_operations_imports_are_limited_to_documented_delegates(self) -> None:
-        allowed = {
-            "result.py": "update_result_analysis_and_complete",
-            "batch.py": "update_fabrication_batch_status",
+        allowed: dict[str, set[str]] = {
+            "result.py": {"update_result_analysis_and_complete"},
+            "batch.py": {"update_fabrication_batch_status"},
+            "condition.py": {
+                "create_condition",
+                "update_condition",
+                "delete_condition",
+                "update_plan_status",
+            },
         }
         for path in _module_files(WEB / "repository"):
             tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -76,8 +82,8 @@ class RepositoryToOperationsBoundaryTests(unittest.TestCase):
             if not lazy:
                 continue
             self.assertIn(path.name, allowed, f"unexpected lazy import in {path.name}")
-            # Every lazy operations import in the file must sit inside the
-            # one documented delegate method.
+            # Every lazy operations import in the file must sit inside one
+            # of the documented delegate methods.
             lazy_ids = {id(node) for node in lazy}
             containing_functions = [
                 node
@@ -90,7 +96,7 @@ class RepositoryToOperationsBoundaryTests(unittest.TestCase):
                 f"lazy operations imports spread over multiple functions in {path.name}",
             )
             for function in containing_functions:
-                self.assertEqual(function.name, allowed[path.name])
+                self.assertIn(function.name, allowed[path.name])
 
 
 class ServicesToRepositoryBoundaryTests(unittest.TestCase):
