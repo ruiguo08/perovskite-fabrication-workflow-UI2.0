@@ -721,7 +721,7 @@ async def _run_import_catalog(
             # document is untrusted input, so the stored snapshot must pass
             # full recipe/process validation, not just the schema version.
             from web.models import BaselinePayload
-            from web.routes import _baseline_values
+            from web.routes.common import _baseline_values
 
             normalized = _baseline_values(
                 BaselinePayload.model_validate(

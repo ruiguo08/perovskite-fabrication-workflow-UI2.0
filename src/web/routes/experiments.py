@@ -1,6 +1,60 @@
 """Experiment plans: creation, conditions, plan lifecycle, and substrate exceptions."""
 
-from .common import *  # noqa: F401,F403
+from typing import Annotated
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Request,
+    status,
+)
+from fastapi.responses import Response
+from sqlalchemy.exc import IntegrityError
+from starlette.concurrency import run_in_threadpool
+
+from ..auth import (
+    AuthContext,
+    require_csrf,
+    require_role,
+    require_user,
+)
+from ..models import (
+    ConditionCreatePayload,
+    ConditionResponse,
+    ConditionUpdatePayload,
+    ExperimentDetailResponse,
+    ExperimentResponse,
+    PlanStatusUpdatePayload,
+    RecipePayload,
+    SubstrateExceptionCreatePayload,
+    SubstrateExceptionDecisionPayload,
+    SubstrateExceptionResponse,
+)
+from ..plan_export import (
+    build_plan_export,
+    canonical_plan_json,
+    render_plan_pdf,
+)
+from ..repository import (
+    ConditionRole,
+    ExceptionDecision,
+    PlanStatus,
+    UserRole,
+    WebRepository,
+)
+from .common import (
+    _client_ip,
+    _condition_for_actor,
+    _condition_response,
+    _create_experiment,
+    _fabrication_batch_response,
+    _get_record_or_404,
+    _record_response,
+    _result_summary_response,
+    _student_owner_id,
+    _substrate_exception_response,
+)
 
 
 def create_experiments_router(

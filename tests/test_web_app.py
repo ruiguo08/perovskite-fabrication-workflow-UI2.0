@@ -14,7 +14,7 @@ from tests.layout_fixtures import seed_standard_layouts
 from tests.recipe_fixtures import REFERENCE_DEPOSITION_PROCESS, REFERENCE_DEVICE_RECIPE
 from web import create_app
 from web.repository import ExecutionStatus, PreparationStatus, UserRole
-from web.routes import MAX_RESULT_FILE_BYTES
+from web.routes.common import MAX_RESULT_FILE_BYTES
 from web.version import __version__
 
 TEST_USERNAME = "test-admin"
