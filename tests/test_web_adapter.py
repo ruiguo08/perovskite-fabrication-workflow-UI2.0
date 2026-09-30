@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+from random import Random
 
 from perovskite_bo.bo_config import BO_CONFIGS, DEFAULT_CAMPAIGN_ID
 from perovskite_bo.device_recipe import VCD_VALVES
@@ -249,6 +250,48 @@ class CampaignConfigTests(unittest.TestCase):
             search_space_from_spec([{"name": "x", "kind": "choice", "choices": []}])
         with self.assertRaises(ValueError):
             search_space_from_spec([{"name": "", "kind": "int", "lower": 0, "upper": 1}])
+
+    def test_int_spec_rejects_non_integer_bounds_at_construction(self) -> None:
+        # A float bound would make IntegerParameter.sample raise TypeError at
+        # sampling time; construction must reject it instead.
+        with self.assertRaises(ValueError):
+            search_space_from_spec(
+                [{"name": "x", "kind": "int", "lower": 0.5, "upper": 2.5}]
+            )
+        with self.assertRaises(ValueError):
+            search_space_from_spec(
+                [{"name": "x", "kind": "int", "lower": True, "upper": 2}]
+            )
+
+    def test_float_spec_rejects_nonfinite_bounds_at_construction(self) -> None:
+        with self.assertRaises(ValueError):
+            search_space_from_spec(
+                [{"name": "x", "kind": "float", "lower": float("nan"), "upper": 1.0}]
+            )
+        with self.assertRaises(ValueError):
+            search_space_from_spec(
+                [{"name": "x", "kind": "float", "lower": 0.0, "upper": float("inf")}]
+            )
+        with self.assertRaises(ValueError):
+            search_space_from_spec(
+                [{"name": "x", "kind": "float", "lower": False, "upper": 1.0}]
+            )
+
+    def test_spec_numeric_bounds_success_cases(self) -> None:
+        space = search_space_from_spec(
+            [
+                {"name": "i", "kind": "int", "lower": 1, "upper": 5},
+                {"name": "f", "kind": "float", "lower": 0.5, "upper": 2},
+                {"name": "c", "kind": "choice", "choices": ["a", "b"]},
+            ]
+        )
+        by_name = {parameter.name: parameter for parameter in space.parameters}
+        self.assertEqual((by_name["i"].lower, by_name["i"].upper), (1, 5))
+        self.assertEqual((by_name["f"].lower, by_name["f"].upper), (0.5, 2))
+        self.assertEqual(by_name["c"].choices, ["a", "b"])
+        values = space.sample(Random(7))
+        search_space = space
+        search_space.validate(values)
 
     def test_unknown_campaign_raises_value_error(self) -> None:
         with self.assertRaises(ValueError):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from random import Random
 from typing import Any, Mapping, Protocol, Sequence
@@ -118,9 +119,9 @@ def search_space_from_spec(spec: Sequence[Mapping[str, Any]]) -> SearchSpace:
             raise ValueError("parameter spec requires a non-blank string name")
         kind = entry.get("kind")
         if kind == "int":
-            parameters.append(IntegerParameter(name, *_spec_bounds(name, entry)))
+            parameters.append(IntegerParameter(name, *_spec_bounds(name, entry, kind="int")))
         elif kind == "float":
-            parameters.append(FloatParameter(name, *_spec_bounds(name, entry)))
+            parameters.append(FloatParameter(name, *_spec_bounds(name, entry, kind="float")))
         elif kind == "choice":
             choices = entry.get("choices")
             if (
@@ -135,10 +136,31 @@ def search_space_from_spec(spec: Sequence[Mapping[str, Any]]) -> SearchSpace:
     return SearchSpace(parameters)
 
 
-def _spec_bounds(name: str, entry: Mapping[str, Any]) -> tuple[Any, Any]:
+def _spec_bounds(
+    name: str, entry: Mapping[str, Any], *, kind: str
+) -> tuple[Any, Any]:
+    """Validate and return the (lower, upper) bounds for a numeric spec.
+
+    ``int`` specs require genuinely integer bounds (a float bound such as
+    0.5 would make ``IntegerParameter.sample`` raise at sampling time —
+    reject it here, at construction). ``float`` specs accept int or float
+    bounds but reject non-finite values (NaN/inf would poison every
+    sampled candidate). Bools are rejected for both kinds.
+    """
+
     lower = entry.get("lower")
     upper = entry.get("upper")
     for label, value in (("lower", lower), ("upper", upper)):
-        if not isinstance(value, (int, float)) or isinstance(value, bool):
-            raise ValueError(f"{name}: {label} bound must be a number")
+        if kind == "int":
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise ValueError(f"{name}: {label} bound of an int parameter must be an integer")
+        else:
+            if (
+                not isinstance(value, (int, float))
+                or isinstance(value, bool)
+                or not math.isfinite(value)
+            ):
+                raise ValueError(
+                    f"{name}: {label} bound must be a finite number"
+                )
     return lower, upper
