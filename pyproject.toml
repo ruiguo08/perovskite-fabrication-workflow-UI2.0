@@ -83,7 +83,6 @@ extend-immutable-calls = [
 "src/web/routes/*" = ["F403", "F405"]
 # Test modules bootstrap sys.path before their imports.
 "tests/*" = ["E402"]
-"scripts/*" = ["E402"]
 # The CDP teardown blocks deliberately keep their compact
 # `session.close(); process.kill()` one-liner style.
 "tests/test_browser_cutover.py" = ["E701", "E702"]
