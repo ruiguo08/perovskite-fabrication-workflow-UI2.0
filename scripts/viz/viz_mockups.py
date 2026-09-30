@@ -8,13 +8,14 @@ import sys
 import math
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "src"))
 from PIL import Image, ImageDraw, ImageFont
 
 from web.jv_parser import parse_jv_analysis
 
-RAW = Path(r"docs/test-data/20260916.csv")
-OUT = Path(r"docs/test-data/viz-mockups")
+RAW = ROOT / "docs/test-data/20260916.csv"
+OUT = ROOT / "docs/test-data/viz-mockups"
 OUT.mkdir(parents=True, exist_ok=True)
 
 # ---- load & label-fix real data (same transform as before) ----
