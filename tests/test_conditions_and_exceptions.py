@@ -219,6 +219,25 @@ class ConditionRepositoryTests(unittest.TestCase):
             with self.subTest(write=write):
                 self.assertEqual(asyncio.run(scenario(write)), wanted)
 
+    def test_delegate_reports_input_validation_before_record_lookup(self) -> None:
+        """Historical delegate contract: on the no-role path, input
+        validation precedes any record lookup — an unknown condition id must
+        not shadow the blank-name ValueError (regression for the operations
+        migration, which briefly pre-read the condition unconditionally)."""
+
+        import asyncio
+
+        with self.assertRaisesRegex(ValueError, "condition name must not be blank"):
+            asyncio.run(self.repository.update_condition(
+                99999,
+                condition_name="",
+                recipe_snapshot={},
+                source_baseline_version_id=None,
+                device_layout_code="15x15_dual_005",
+                planned_substrate_count=2,
+                actor_user_id=None,
+            ))
+
     def test_condition_create_resets_approved_plan_to_draft(self) -> None:
         """A new condition on an APPROVED plan must return it to draft: the
         condition has not been reviewed by an instructor, so keeping

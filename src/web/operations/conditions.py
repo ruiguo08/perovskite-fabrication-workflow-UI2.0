@@ -64,17 +64,10 @@ async def create_condition(
 ):
     """Authorize, validate, and persist one new condition snapshot."""
 
-    # --- Authorization -------------------------------------------------
-    # A missing experiment and another student's experiment report the same
-    # error so the response never reveals existence.
-    if actor_role is not None:
-        owner_scope = _owner_scope(actor_role, actor_user_id)
-        try:
-            await repository.get_experiment(experiment_id, owner_user_id=owner_scope)
-        except KeyError as error:
-            raise RecordNotFound(str(error)) from error
-
     # --- Input and snapshot validation ---------------------------------
+    # Validation runs before any record read: the delegate path
+    # (actor_role=None) keeps the historical repository contract of
+    # reporting input problems first, without issuing pre-check queries.
     normalized_role = ConditionRole(role)
     normalized_code = condition_code.strip() if condition_code else ""
     normalized_name = condition_name.strip()
@@ -82,8 +75,23 @@ async def create_condition(
         raise InvalidInput("condition name must not be blank")
     if planned_substrate_count < 1:
         raise InvalidInput("planned substrate count must be at least 1")
-    normalized_snapshot = validate_condition_snapshot(recipe_snapshot)
+    try:
+        normalized_snapshot = validate_condition_snapshot(recipe_snapshot)
+    except (TypeError, ValueError) as error:
+        raise InvalidInput(str(error)) from error
     snapshot_hash = condition_canonical_hash(normalized_snapshot)
+
+    # --- Authorization -------------------------------------------------
+    # A missing experiment and another student's experiment report the same
+    # error so the response never reveals existence. Role-provided callers
+    # get this before the transaction; the delegate path relies on the
+    # apply function's authoritative in-transaction checks.
+    if actor_role is not None:
+        owner_scope = _owner_scope(actor_role, actor_user_id)
+        try:
+            await repository.get_experiment(experiment_id, owner_user_id=owner_scope)
+        except KeyError as error:
+            raise RecordNotFound(str(error)) from error
 
     # --- Transaction -----------------------------------------------------
     try:
@@ -125,12 +133,31 @@ async def update_condition(
 ):
     """Authorize, validate, and persist one condition edit."""
 
-    # --- Authorization -------------------------------------------------
+    # --- Input and snapshot validation ---------------------------------
+    # Validation first: the delegate path (actor_role=None) keeps the
+    # historical repository contract of reporting input problems before any
+    # record read, without issuing pre-check queries.
+    normalized_name = condition_name.strip()
+    if not normalized_name:
+        raise InvalidInput("condition name must not be blank")
+    if planned_substrate_count < 1:
+        raise InvalidInput("planned substrate count must be at least 1")
     try:
-        condition = await repository.get_condition(condition_id)
-    except KeyError as error:
-        raise RecordNotFound(str(error)) from error
+        normalized_snapshot = validate_condition_snapshot(recipe_snapshot)
+    except (TypeError, ValueError) as error:
+        raise InvalidInput(str(error)) from error
+    snapshot_hash = condition_canonical_hash(normalized_snapshot)
+
+    # --- Authorization -------------------------------------------------
+    # Role-provided callers get existence + ownership before the
+    # transaction (matching the historical route's 404-first behavior);
+    # the delegate path relies on the apply function's in-transaction
+    # checks.
     if actor_role is not None:
+        try:
+            condition = await repository.get_condition(condition_id)
+        except KeyError as error:
+            raise RecordNotFound(str(error)) from error
         owner_scope = _owner_scope(actor_role, actor_user_id)
         try:
             await repository.get_experiment(
@@ -138,15 +165,6 @@ async def update_condition(
             )
         except KeyError as error:
             raise RecordNotFound(str(error)) from error
-
-    # --- Input and snapshot validation ---------------------------------
-    normalized_name = condition_name.strip()
-    if not normalized_name:
-        raise InvalidInput("condition name must not be blank")
-    if planned_substrate_count < 1:
-        raise InvalidInput("planned substrate count must be at least 1")
-    normalized_snapshot = validate_condition_snapshot(recipe_snapshot)
-    snapshot_hash = condition_canonical_hash(normalized_snapshot)
 
     # --- Transaction -----------------------------------------------------
     try:
@@ -181,11 +199,14 @@ async def delete_condition(
     """Authorize and delete one draft condition."""
 
     # --- Authorization -------------------------------------------------
-    try:
-        condition = await repository.get_condition(condition_id)
-    except KeyError as error:
-        raise RecordNotFound(str(error)) from error
+    # Role-provided callers get existence + ownership before the
+    # transaction; the delegate path goes straight to the apply function,
+    # whose in-transaction check raises the historical KeyError lineage.
     if actor_role is not None:
+        try:
+            condition = await repository.get_condition(condition_id)
+        except KeyError as error:
+            raise RecordNotFound(str(error)) from error
         owner_scope = _owner_scope(actor_role, actor_user_id)
         try:
             await repository.get_experiment(
@@ -242,6 +263,11 @@ async def update_plan_status(
             )
     except KeyError as error:
         raise RecordNotFound(str(error)) from error
+    except PermissionError as error:
+        # The apply function's in-transaction role/ownership check refuses
+        # students transitioning their own plan past draft (403, as the
+        # historical route mapped it).
+        raise AccessDenied(str(error)) from error
     except ValueError as error:
         raise InvalidInput(str(error)) from error
 
@@ -258,12 +284,20 @@ async def request_substrate_exception(
 ):
     """Authorize, validate, and persist one substrate-count exception request."""
 
-    # --- Authorization -------------------------------------------------
-    try:
-        condition = await repository.get_condition(condition_id)
-    except KeyError as error:
-        raise RecordNotFound(str(error)) from error
+    # --- Input validation -----------------------------------------------
+    # Validation first: the delegate path keeps the historical repository
+    # contract of reporting input problems before any record read.
+    if not reason.strip():
+        raise InvalidInput("exception reason must not be blank")
+    if requested_count not in (1, 2):
+        raise InvalidInput("a substrate exception may request only 1 or 2 substrates")
+
+    # --- Authorization ---------------------------------------------------
     if actor_role is not None:
+        try:
+            condition = await repository.get_condition(condition_id)
+        except KeyError as error:
+            raise RecordNotFound(str(error)) from error
         owner_scope = _owner_scope(actor_role, requested_by_id)
         try:
             await repository.get_experiment(
@@ -271,12 +305,6 @@ async def request_substrate_exception(
             )
         except KeyError as error:
             raise RecordNotFound(str(error)) from error
-
-    # --- Input validation -----------------------------------------------
-    if not reason.strip():
-        raise InvalidInput("exception reason must not be blank")
-    if requested_count not in (1, 2):
-        raise InvalidInput("a substrate exception may request only 1 or 2 substrates")
 
     # --- Transaction -----------------------------------------------------
     try:
@@ -314,12 +342,10 @@ async def decide_substrate_exception(
     # lock (the authoritative gate).
     if actor_role is not None and ROLE_RANK[actor_role] < ROLE_RANK[UserRole.INSTRUCTOR]:
         raise AccessDenied("instructor access is required to decide substrate exceptions")
-    try:
-        await repository.get_substrate_exception(exception_id)
-    except KeyError as error:
-        raise RecordNotFound(str(error)) from error
 
     # --- Input validation -----------------------------------------------
+    # Validation first: the delegate path keeps the historical repository
+    # contract of reporting input problems before any record read.
     if decision not in (ExceptionDecision.APPROVED, ExceptionDecision.REJECTED):
         raise InvalidInput("decision must be approved or rejected")
 

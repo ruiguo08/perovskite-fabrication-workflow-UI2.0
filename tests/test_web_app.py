@@ -1776,5 +1776,172 @@ class BaselineSnapshotIntegrityTests(unittest.TestCase):
         self.assertNotIn("stack_reference_id", str(device))
 
 
+class OperationContractRegressionTests(unittest.TestCase):
+    """The operations migration must keep the historical HTTP contracts:
+    expected validation failures surface as 400/403 with their original
+    messages (never 500), rejected operations write nothing, and missing
+    records report the uniform 404."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.database_path = Path(self.tmp.name) / "contracts.sqlite3"
+        self.app = create_app(
+            self.database_path,
+            secure_cookies=False,
+            _test_user=("admin", "Adm1n!password", UserRole.ADMINISTRATOR),
+        )
+        self.client_context = TestClient(self.app)
+        self.client = self.client_context.__enter__()
+        self._login("admin", "Adm1n!password")
+        self._create_user("student1", UserRole.STUDENT, "Stud3nt!pass")
+        seed_standard_layouts(self.client)
+        self.client.post(
+            "/api/campaigns",
+            json={"code": "contract", "display_name": "contract", "description": ""},
+        )
+        self._login("student1", "Stud3nt!pass")
+        device_recipe, deposition_process = complete_guided_setup()
+        target = next(
+            group for group in device_recipe["experimental_groups"]
+            if group["kind"] == "target"
+        )
+        target["adjustments"] = []
+        target["layers"] = json.loads(json.dumps(device_recipe["layers"]))
+        target["deposition_process"] = json.loads(json.dumps(deposition_process))
+        self.plans = [
+            {
+                "group_id": group["group_id"],
+                "role": group["kind"],
+                "device_layout_code": "15x15_dual_005",
+                # Three substrates everywhere: keeps the pending-approval
+                # transition clear of the substrate-exception gate, which
+                # these regressions do not exercise.
+                "planned_substrate_count": 3,
+            }
+            for group in device_recipe["experimental_groups"]
+        ]
+        self.recipe = {
+            **deposition_recipe_from_process(deposition_process),
+            "device_recipe": device_recipe,
+        }
+
+    def tearDown(self) -> None:
+        import asyncio
+        asyncio.run(self.app.state.database.dispose())
+        self.client_context.__exit__(None, None, None)
+        self.tmp.cleanup()
+
+    def _login(self, username: str, password: str) -> None:
+        csrf = self.client.get("/api/auth/login-csrf")
+        response = self.client.post(
+            "/api/auth/login",
+            json={"username": username, "password": password,
+                  "login_csrf": csrf.json()["login_csrf_token"]},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.client.headers["X-CSRF-Token"] = self.client.cookies.get("perovskite_csrf")
+
+    def _create_user(self, username: str, role: UserRole, password: str) -> None:
+        response = self.client.post(
+            "/api/users",
+            json={"username": username, "display_name": username.title(),
+                  "password": password, "role": role.value},
+        )
+        self.assertEqual(response.status_code, 201, response.text)
+
+    def _create_valid_experiment(self) -> None:
+        created = self.client.post(
+            "/api/experiments",
+            json={"campaign_id": "contract", "recipe": self.recipe,
+                  "condition_plans": self.plans},
+        )
+        self.assertEqual(created.status_code, 201, created.text)
+
+    def test_recipe_validation_failure_returns_400_and_writes_nothing(self) -> None:
+        broken = dict(self.recipe)
+        broken["spin_cast_rpm"] = -100
+        response = self.client.post(
+            "/api/experiments",
+            json={"campaign_id": "contract", "recipe": broken,
+                  "condition_plans": self.plans},
+        )
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertIn("must be greater than zero", response.json()["detail"])
+        # The rejected operation must not leave an experiment behind.
+        self.assertEqual(self.client.get("/api/experiments").json(), [])
+
+    def test_condition_snapshot_validation_failure_returns_400_not_500(self) -> None:
+        self._create_valid_experiment()
+        condition = self.client.get("/api/experiments/1/conditions").json()[0]
+        broken = dict(condition["recipe_snapshot"])
+        broken["schema_version"] = 99
+        response = self.client.put(
+            f"/api/conditions/{condition['id']}",
+            json={
+                "condition_name": condition["condition_name"],
+                "recipe_snapshot": broken,
+                "source_baseline_version_id": condition["source_baseline_version_id"],
+                "device_layout_code": condition["device_layout_code"],
+                "planned_substrate_count": condition["planned_substrate_count"],
+            },
+        )
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertIn("schema_version", response.json()["detail"])
+
+    def test_student_transition_to_approved_returns_403_not_500(self) -> None:
+        self._create_valid_experiment()
+        pending = self.client.patch(
+            "/api/experiments/1/plan-status",
+            json={"status": "pending_approval"},
+        )
+        self.assertEqual(pending.status_code, 204, pending.text)
+        approved = self.client.patch(
+            "/api/experiments/1/plan-status",
+            json={"status": "approved"},
+        )
+        self.assertEqual(approved.status_code, 403, approved.text)
+        self.assertIn("instructor", approved.json()["detail"])
+
+    def test_missing_condition_reports_uniform_404(self) -> None:
+        self._create_valid_experiment()
+        condition = self.client.get("/api/experiments/1/conditions").json()[0]
+        response = self.client.put(
+            "/api/conditions/99999",
+            json={
+                "condition_name": condition["condition_name"],
+                "recipe_snapshot": condition["recipe_snapshot"],
+                "source_baseline_version_id": condition["source_baseline_version_id"],
+                "device_layout_code": condition["device_layout_code"],
+                "planned_substrate_count": condition["planned_substrate_count"],
+            },
+        )
+        self.assertEqual(response.status_code, 404, response.text)
+        self.assertIn("unknown condition id", response.json()["detail"])
+
+    def test_foreign_condition_reports_404_like_missing(self) -> None:
+        # Ownership isolation: another user's condition is indistinguishable
+        # from a missing one at the status-code level.
+        self._create_valid_experiment()  # student owns experiment 1
+        self._login("admin", "Adm1n!password")
+        self._create_valid_experiment()  # admin owns experiment 2
+        foreign_condition = self.client.get("/api/experiments/2/conditions").json()[0]
+        payload = {
+            "condition_name": foreign_condition["condition_name"],
+            "recipe_snapshot": foreign_condition["recipe_snapshot"],
+            "source_baseline_version_id": foreign_condition[
+                "source_baseline_version_id"
+            ],
+            "device_layout_code": foreign_condition["device_layout_code"],
+            "planned_substrate_count": foreign_condition["planned_substrate_count"],
+        }
+        self._login("student1", "Stud3nt!pass")
+        missing = self.client.put("/api/conditions/99999", json=payload)
+        foreign = self.client.put(
+            f"/api/conditions/{foreign_condition['id']}", json=payload
+        )
+        self.assertEqual(missing.status_code, 404, missing.text)
+        self.assertEqual(foreign.status_code, 404, foreign.text)
+
+
 if __name__ == "__main__":
     unittest.main()

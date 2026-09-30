@@ -32,8 +32,13 @@ async def create_experiment(
     # --- Input validation -------------------------------------------------
     # The flat DepositionRecipe is the creation API contract; from_mapping
     # validates every field plus the embedded device_recipe, and to_dict()
-    # emits the canonical form the apply function materializes.
-    recipe = DepositionRecipe.from_mapping(dict(recipe_values))
+    # emits the canonical form the apply function materializes. Expected
+    # validation failures (bad ranges, malformed values) are typed so the
+    # route reports 400 with the historical message instead of a 500.
+    try:
+        recipe = DepositionRecipe.from_mapping(dict(recipe_values))
+    except (TypeError, ValueError) as error:
+        raise InvalidInput(str(error)) from error
     normalized_values = recipe.to_dict()
     if not isinstance(normalized_values.get("device_recipe"), Mapping):
         raise InvalidInput(
