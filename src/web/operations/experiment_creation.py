@@ -47,7 +47,10 @@ async def create_experiment(
         )
 
     # --- Authorization -----------------------------------------------------
-    normalized_campaign_id = _normalize_campaign_id(campaign_id)
+    try:
+        normalized_campaign_id = _normalize_campaign_id(campaign_id)
+    except (TypeError, ValueError) as error:
+        raise InvalidInput(str(error)) from error
     if normalized_campaign_id is None:
         raise InvalidInput("an active instructor-created campaign is required")
 
@@ -66,7 +69,12 @@ async def create_experiment(
     except KeyError as error:
         # The requested baseline version is outside the actor's source-use
         # boundary; report the uniform 404 so its existence is not leaked.
-        raise RecordNotFound(str(error)) from error
+        raise RecordNotFound(*error.args) from error
     except ValueError as error:
         raise InvalidInput(str(error)) from error
-    return await repository.get_experiment(experiment_id)
+    try:
+        return await repository.get_experiment(experiment_id)
+    except KeyError as error:
+        # The readback runs after the commit; a concurrent delete must not
+        # escape as an unhandled 500.
+        raise RecordNotFound(*error.args) from error

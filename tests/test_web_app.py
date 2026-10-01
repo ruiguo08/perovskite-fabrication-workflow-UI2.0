@@ -1888,6 +1888,22 @@ class OperationContractRegressionTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400, response.text)
         self.assertIn("schema_version", response.json()["detail"])
 
+    def test_blank_campaign_id_returns_400_and_writes_nothing(self) -> None:
+        for campaign_id in ("", "   "):
+            with self.subTest(campaign_id=repr(campaign_id)):
+                response = self.client.post(
+                    "/api/experiments",
+                    json={"campaign_id": campaign_id, "recipe": self.recipe,
+                          "condition_plans": self.plans},
+                )
+                self.assertEqual(response.status_code, 400, response.text)
+                self.assertEqual(
+                    response.json()["detail"],
+                    "campaign_id must be a non-blank string",
+                )
+        # The rejected operations must not leave an experiment behind.
+        self.assertEqual(self.client.get("/api/experiments").json(), [])
+
     def test_student_transition_to_approved_returns_403_not_500(self) -> None:
         self._create_valid_experiment()
         pending = self.client.patch(
@@ -1902,7 +1918,11 @@ class OperationContractRegressionTests(unittest.TestCase):
         self.assertEqual(approved.status_code, 403, approved.text)
         self.assertIn("instructor", approved.json()["detail"])
 
-    def test_missing_condition_reports_uniform_404(self) -> None:
+    def test_missing_condition_404_detail_is_the_historical_quoted_form(self) -> None:
+        # The repository raises KeyError("unknown condition id: 99999"); the
+        # historical route surfaced str(error), whose KeyError repr adds the
+        # surrounding quotes. The typed-error mapping must reproduce that
+        # exact body, not wrap it a second time.
         self._create_valid_experiment()
         condition = self.client.get("/api/experiments/1/conditions").json()[0]
         response = self.client.put(
@@ -1916,7 +1936,35 @@ class OperationContractRegressionTests(unittest.TestCase):
             },
         )
         self.assertEqual(response.status_code, 404, response.text)
-        self.assertIn("unknown condition id", response.json()["detail"])
+        self.assertEqual(
+            response.json()["detail"], "'unknown condition id: 99999'"
+        )
+
+    def test_missing_or_foreign_condition_404_precedes_snapshot_validation(self) -> None:
+        # Role-provided callers keep the historical authorization-first
+        # order: an absent or foreign-owned condition reports 404 even when
+        # the payload would also fail snapshot validation (400).
+        self._create_valid_experiment()  # student owns experiment 1
+        self._login("admin", "Adm1n!password")
+        self._create_valid_experiment()  # admin owns experiment 2
+        foreign_condition = self.client.get("/api/experiments/2/conditions").json()[0]
+        payload = {
+            "condition_name": foreign_condition["condition_name"],
+            "recipe_snapshot": foreign_condition["recipe_snapshot"],
+            "source_baseline_version_id": foreign_condition[
+                "source_baseline_version_id"
+            ],
+            "device_layout_code": foreign_condition["device_layout_code"],
+            "planned_substrate_count": foreign_condition["planned_substrate_count"],
+        }
+        payload["recipe_snapshot"]["schema_version"] = 99
+        self._login("student1", "Stud3nt!pass")
+        missing = self.client.put("/api/conditions/99999", json=payload)
+        foreign = self.client.put(
+            f"/api/conditions/{foreign_condition['id']}", json=payload
+        )
+        self.assertEqual(missing.status_code, 404, missing.text)
+        self.assertEqual(foreign.status_code, 404, foreign.text)
 
     def test_foreign_condition_reports_404_like_missing(self) -> None:
         # Ownership isolation: another user's condition is indistinguishable
