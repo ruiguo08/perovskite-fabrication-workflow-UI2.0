@@ -29,10 +29,10 @@ try:
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    from matplotlib.colors import LinearSegmentedColormap, to_rgb
     from matplotlib.figure import Figure
     from matplotlib.lines import Line2D
     from matplotlib.patches import Rectangle
-    from matplotlib.colors import LinearSegmentedColormap, to_rgb
 except ModuleNotFoundError:  # lets the app report a focused 503 before dependencies are synced
     matplotlib = None  # type: ignore[assignment]
     plt = None  # type: ignore[assignment]

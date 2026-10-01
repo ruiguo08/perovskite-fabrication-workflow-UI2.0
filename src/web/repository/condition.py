@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping
-from sqlalchemy.ext.asyncio import AsyncConnection
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy import and_, delete, func, insert, select, update
+import json
 from datetime import datetime
+from typing import Any, Mapping
+
+from sqlalchemy import and_, delete, insert, select, update
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncConnection
 
 from ..condition_snapshot import (
     canonical_hash as condition_canonical_hash,
+)
+from ..condition_snapshot import (
     validate_condition_snapshot,
 )
 from ..database import (
@@ -20,6 +24,9 @@ from ..database import (
 )
 from ..device_layouts import expected_device_count, layout_snapshot
 from ..services.catalog_service import get_device_layout
+from ..services.catalog_service import (
+    resolve_layout as _resolve_layout,
+)
 from .helpers import (
     _actor_role,
     _add_audit_event,
@@ -29,11 +36,8 @@ from .helpers import (
     _utc_now,
     _validate_baseline_version_for_condition,
 )
-from ..services.catalog_service import (
-    resolve_layout as _resolve_layout,
-)
-from .records import ROLE_RANK
 from .records import (
+    ROLE_RANK,
     ConditionRecord,
     ConditionRole,
     ExceptionDecision,
@@ -42,7 +46,6 @@ from .records import (
     UserRole,
 )
 
-import json
 
 async def _invalidate_condition_exceptions(
     connection: AsyncConnection,
@@ -107,7 +110,6 @@ async def _validate_plan_conditions(
         raise ValueError("plan_type must be comparative or standalone before release")
 
     low_count_rows: list[Mapping[str, Any]] = []
-    from ..services.catalog_service import get_device_layout
 
     for row in rows:
         if row["requires_manual_review"]:
@@ -292,29 +294,28 @@ async def _require_fabrication_batches(
     experiment_id: int,
     target: PlanStatus,
 ) -> None:
-    """Block starting/completing fabrication while no batch has been frozen.
+    """Require an active batch to start and a finished batch to complete.
 
     Result upload is keyed per fabrication batch, so a plan that reaches
     completed with zero batches could never receive characterization data.
     """
     if target not in (PlanStatus.IN_PROGRESS, PlanStatus.COMPLETED):
         return
-    batch_count = (
+    statuses = (
         await connection.execute(
-            select(func.count())
-            .select_from(fabrication_batches)
+            select(fabrication_batches.c.status)
             .where(fabrication_batches.c.experiment_id == experiment_id)
         )
-    ).scalar_one()
-    if batch_count == 0:
-        stage = (
-            "starting fabrication"
-            if target is PlanStatus.IN_PROGRESS
-            else "completing fabrication"
-        )
-        raise ValueError(
-            f"at least one fabrication batch must be frozen before {stage}"
-        )
+    ).scalars().all()
+    if not statuses:
+        raise ValueError("at least one fabrication batch must be frozen before fabrication starts or completes")
+    if target is PlanStatus.IN_PROGRESS and all(status == "cancelled" for status in statuses):
+        raise ValueError("at least one non-cancelled fabrication batch is required to start fabrication")
+    if target is PlanStatus.COMPLETED:
+        if "completed" not in statuses:
+            raise ValueError("at least one completed fabrication batch is required to complete the plan")
+        if any(status not in {"completed", "cancelled"} for status in statuses):
+            raise ValueError("all fabrication batches must be completed or cancelled before completing the plan")
 
 
 class ConditionsMixin:

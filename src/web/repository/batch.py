@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Sequence
-from sqlalchemy.ext.asyncio import AsyncConnection
+import hashlib
+import json
+import math
 from datetime import datetime
+from typing import Any, Mapping, Sequence
+
 from sqlalchemy import delete, func, insert, select, text, update
+from sqlalchemy.ext.asyncio import AsyncConnection
 
 from ..condition_snapshot import (
     canonical_hash as condition_canonical_hash,
+)
+from ..condition_snapshot import (
     validate_condition_snapshot,
 )
 from ..database import (
@@ -23,7 +29,6 @@ from ..database import (
     fabrication_substrates,
     process_execution_members,
     process_executions,
-    result_device_assignments,
     result_files,
     solution_preparation_uses,
     solution_preparations,
@@ -36,6 +41,9 @@ from ..execution_snapshots import (
     validate_process_snapshot,
     validate_solution_snapshot,
 )
+from ..services.catalog_service import (
+    resolve_layout as _resolve_layout,
+)
 from .helpers import (
     _actor_role,
     _add_audit_event,
@@ -44,11 +52,8 @@ from .helpers import (
     _optional_utc,
     _utc_now,
 )
-from ..services.catalog_service import (
-    resolve_layout as _resolve_layout,
-)
-from .records import DEVIATION_TYPES
 from .records import (
+    DEVIATION_TYPES,
     BatchStatus,
     ExceptionDecision,
     ExecutionDeviationRecord,
@@ -66,9 +71,6 @@ from .records import (
 )
 from .result import _result_assignment_statement, _result_record
 
-import hashlib
-import json
-import math
 
 async def _attach_substrates_to_condition_executions(
     connection: AsyncConnection,
@@ -140,6 +142,7 @@ async def _batch_for_actor(
 ) -> Mapping[str, Any]:
     """Lock a batch and enforce experiment ownership for student writes."""
 
+    await _lock_batch_experiment(connection, batch_id)
     row = (
         await connection.execute(
             select(
@@ -153,7 +156,7 @@ async def _batch_for_actor(
                 )
             )
             .where(fabrication_batches.c.id == batch_id)
-            .with_for_update()
+            .with_for_update(of=fabrication_batches)
         )
     ).mappings().one_or_none()
     if row is None:
@@ -169,6 +172,29 @@ async def _batch_for_actor(
             f"got '{current.value}'"
         )
     return row
+
+
+async def _lock_batch_experiment(
+    connection: AsyncConnection, batch_id: int
+) -> Mapping[str, Any]:
+    """Serialize batch mutations with plan transitions, parent first."""
+    experiment_id = await connection.scalar(
+        select(fabrication_batches.c.experiment_id).where(
+            fabrication_batches.c.id == batch_id
+        )
+    )
+    if experiment_id is None:
+        raise KeyError(f"unknown fabrication batch id: {batch_id}")
+    experiment = (
+        await connection.execute(
+            select(experiments)
+            .where(experiments.c.id == experiment_id)
+            .with_for_update()
+        )
+    ).mappings().one_or_none()
+    if experiment is None:
+        raise KeyError(f"unknown experiment id: {experiment_id}")
+    return experiment
 
 async def _materialize_condition_substrates(
     connection: AsyncConnection,
@@ -2175,6 +2201,20 @@ class FabricationBatchesMixin:
         if notes is not None:
             values["notes"] = notes.strip()[:2000]
         async with self.database.begin() as connection:
+            # Read the parent id without locking the child, then lock the
+            # batch before its preparation. Bulk record uses this order too.
+            actual_batch_id = await connection.scalar(
+                select(solution_preparations.c.fabrication_batch_id)
+                .where(solution_preparations.c.id == preparation_id)
+            )
+            if actual_batch_id is None or (
+                fabrication_batch_id is not None and actual_batch_id != fabrication_batch_id
+            ):
+                raise KeyError(f"unknown solution preparation id: {preparation_id}")
+            await _batch_for_actor(
+                connection, int(actual_batch_id), actor_user_id,
+                allowed_statuses={BatchStatus.DRAFT, BatchStatus.READY, BatchStatus.IN_PROGRESS},
+            )
             existing = (
                 await connection.execute(
                     select(solution_preparations)
@@ -2183,6 +2223,8 @@ class FabricationBatchesMixin:
                 )
             ).mappings().one_or_none()
             if existing is None:
+                raise KeyError(f"unknown solution preparation id: {preparation_id}")
+            if int(existing["fabrication_batch_id"]) != int(actual_batch_id):
                 raise KeyError(f"unknown solution preparation id: {preparation_id}")
             normalized_actual: dict[str, Any] | None = None
             actual_recording_mode: str | None = None
@@ -2205,22 +2247,6 @@ class FabricationBatchesMixin:
                     prepared_by_id=actor_user_id,
                     prepared_at=now,
                 )
-            actual_batch_id = int(existing["fabrication_batch_id"])
-            if (
-                fabrication_batch_id is not None
-                and actual_batch_id != fabrication_batch_id
-            ):
-                raise KeyError(f"unknown solution preparation id: {preparation_id}")
-            await _batch_for_actor(
-                connection,
-                actual_batch_id,
-                actor_user_id,
-                allowed_statuses={
-                    BatchStatus.DRAFT,
-                    BatchStatus.READY,
-                    BatchStatus.IN_PROGRESS,
-                },
-            )
             current_status = PreparationStatus(existing["status"])
             if status is not None and status != current_status:
                 allowed = _preparation_status_transitions(current_status)
@@ -2614,6 +2640,18 @@ class FabricationBatchesMixin:
         if notes is not None:
             values["notes"] = notes.strip()[:2000]
         async with self.database.begin() as connection:
+            actual_batch_id = await connection.scalar(
+                select(process_executions.c.fabrication_batch_id)
+                .where(process_executions.c.id == execution_id)
+            )
+            if actual_batch_id is None or (
+                fabrication_batch_id is not None and actual_batch_id != fabrication_batch_id
+            ):
+                raise KeyError(f"unknown process execution id: {execution_id}")
+            await _batch_for_actor(
+                connection, int(actual_batch_id), actor_user_id,
+                allowed_statuses={BatchStatus.DRAFT, BatchStatus.READY, BatchStatus.IN_PROGRESS},
+            )
             existing = (
                 await connection.execute(
                     select(process_executions)
@@ -2622,6 +2660,8 @@ class FabricationBatchesMixin:
                 )
             ).mappings().one_or_none()
             if existing is None:
+                raise KeyError(f"unknown process execution id: {execution_id}")
+            if int(existing["fabrication_batch_id"]) != int(actual_batch_id):
                 raise KeyError(f"unknown process execution id: {execution_id}")
             normalized_actual: dict[str, Any] | None = None
             actual_recording_mode: str | None = None
@@ -2645,22 +2685,6 @@ class FabricationBatchesMixin:
                     actual_recording_mode=actual_recording_mode,
                     executed_by_id=actor_user_id,
                 )
-            actual_batch_id = int(existing["fabrication_batch_id"])
-            if (
-                fabrication_batch_id is not None
-                and actual_batch_id != fabrication_batch_id
-            ):
-                raise KeyError(f"unknown process execution id: {execution_id}")
-            await _batch_for_actor(
-                connection,
-                actual_batch_id,
-                actor_user_id,
-                allowed_statuses={
-                    BatchStatus.DRAFT,
-                    BatchStatus.READY,
-                    BatchStatus.IN_PROGRESS,
-                },
-            )
             current_status = ExecutionStatus(existing["status"])
             if status is not None and status != current_status:
                 allowed = _execution_status_transitions(current_status)
@@ -2751,6 +2775,7 @@ class FabricationBatchesMixin:
                             ]
                         ),
                     )
+                    .order_by(solution_preparations.c.id)
                     .with_for_update()
                 )
             ).mappings().all()
@@ -2800,6 +2825,7 @@ class FabricationBatchesMixin:
                             ]
                         ),
                     )
+                    .order_by(process_executions.c.id)
                     .with_for_update()
                 )
             ).mappings().all()
@@ -2996,6 +3022,7 @@ async def apply_batch_status_update(
     typed business errors.
     """
     now = _utc_now()
+    experiment = await _lock_batch_experiment(connection, batch_id)
     row = (
         await connection.execute(
             select(fabrication_batches)
@@ -3012,6 +3039,20 @@ async def apply_batch_status_update(
         raise ValueError(
             f"batch status cannot change from {current.value} to {status.value}"
         )
+
+    if status == BatchStatus.CANCELLED and experiment["plan_status"] == PlanStatus.IN_PROGRESS.value:
+        other_active_batch = await connection.scalar(
+            select(fabrication_batches.c.id).where(
+                fabrication_batches.c.experiment_id == row["experiment_id"],
+                fabrication_batches.c.id != batch_id,
+                fabrication_batches.c.status != BatchStatus.CANCELLED.value,
+            ).limit(1)
+        )
+        if other_active_batch is None:
+            raise ValueError(
+                "cannot cancel the last non-cancelled fabrication batch "
+                "while the plan is in progress"
+            )
 
     # Check ownership for students
     actor_role = await _actor_role(connection, actor_user_id)

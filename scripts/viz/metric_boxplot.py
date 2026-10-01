@@ -160,7 +160,7 @@ def render(metric: str, records: list[dict], out_dir: Path, source: str) -> Path
             if not values:
                 continue
             pos = positions[(cond, direction)]
-            bp = ax.boxplot(
+            ax.boxplot(
                 [values],
                 positions=[pos],
                 widths=0.34,

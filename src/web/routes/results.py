@@ -2,8 +2,6 @@
 
 import gzip
 
-from .common import *  # noqa: F401,F403
-from .common import _flat_metrics_from_analysis  # underscore name: not re-exported by *
 from fastapi import Query
 
 from ..publication_plots import (
@@ -13,6 +11,8 @@ from ..publication_plots import (
     figure_filename,
     render_publication_figure,
 )
+from .common import *  # noqa: F401,F403
+from .common import _flat_metrics_from_analysis  # underscore name: not re-exported by *
 
 
 def create_results_router(
@@ -243,6 +243,7 @@ def create_results_router(
                     for item in payload.exclusions
                 ],
                 group_assignment=None,
+                correction_reason=payload.correction_reason,
                 actor_user_id=auth_context.user.id,
                 actor_role=auth_context.user.role,
                 client_ip=_client_ip(request),

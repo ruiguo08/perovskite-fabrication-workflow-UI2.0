@@ -49,7 +49,7 @@ def _integer(
     return FabricationField(name, label, "integer", unit, default, description=description)
 
 
-def _number(name: str, label: str, unit: str, default: Real | None = None) -> FabricationField:
+def _number(name: str, label: str, unit: str, default: float | int | None = None) -> FabricationField:
     return FabricationField(name, label, "number", unit, default)
 
 

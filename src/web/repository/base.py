@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ..database import Database
 
+
 class WebRepositoryBase:
     """Owns the async database connection."""
 

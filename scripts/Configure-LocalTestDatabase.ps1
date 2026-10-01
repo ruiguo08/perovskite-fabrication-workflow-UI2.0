@@ -11,10 +11,34 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$psql = Join-Path $env:ProgramFiles "PostgreSQL\18\bin\psql.exe"
-if (-not (Test-Path -LiteralPath $psql)) {
-    throw "PostgreSQL 18 psql was not found at $psql"
+# Accept any installed major version (17/18/19, ...) and prefer the newest.
+# Installation folders are named "17"/"18"/... — [version]::TryParse rejects
+# a bare major number, so normalize it to a two-part version before parsing.
+$postgresRoot = Join-Path $env:ProgramFiles "PostgreSQL"
+$psqlDir = Get-ChildItem -LiteralPath $postgresRoot -Directory -ErrorAction SilentlyContinue |
+    Where-Object {
+        $version = $null
+        $dirVersion = $null
+        $name = $_.Name
+        $isVersionDir = (
+            [version]::TryParse($name, [ref]$version) -or
+            ([regex]::IsMatch($name, '^\d+$') -and [version]::TryParse("$name.0", [ref]$dirVersion))
+        )
+        (Test-Path -LiteralPath (Join-Path $_.FullName "bin\psql.exe")) -and $isVersionDir
+    } |
+    Sort-Object {
+        $v = $null
+        $name = $_.Name
+        if (-not [version]::TryParse($name, [ref]$v)) {
+            [void][version]::TryParse("$name.0", [ref]$v)
+        }
+        $v
+    } -Descending |
+    Select-Object -First 1
+if ($null -eq $psqlDir) {
+    throw "psql.exe was not found under $postgresRoot (any installed PostgreSQL major version works)"
 }
+$psql = Join-Path $psqlDir.FullName "bin\psql.exe"
 
 $adminCredential = Get-Credential `
     -UserName $AdminUser `

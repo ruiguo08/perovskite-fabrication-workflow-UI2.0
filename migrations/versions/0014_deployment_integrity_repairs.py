@@ -38,9 +38,10 @@ from __future__ import annotations
 
 import json
 import re
+from typing import Any
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision = "0014_deployment_integrity_repairs"
 down_revision = "0013_substrate_laser_marks"

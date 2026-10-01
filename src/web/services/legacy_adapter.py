@@ -44,7 +44,7 @@ def materialize_legacy_conditions(
     if not isinstance(groups, list):
         return []
 
-    inferred_layout, layout_is_ambiguous = _match_layout(layouts, 
+    inferred_layout, layout_is_ambiguous = _match_layout(layouts,
         device_recipe.get("substrate", {})
     )
     plans_by_group = _condition_plans_by_group(condition_plans)

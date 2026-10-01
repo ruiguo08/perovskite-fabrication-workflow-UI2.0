@@ -3,9 +3,9 @@
 Uses the real 20260916.csv (GBK) via the app's parser-with-label-fix
 transform, then renders figures with Pillow (no matplotlib installed).
 """
+import math
 import re
 import sys
-import math
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -73,7 +73,6 @@ def cmap_pce(v, vmin, vmax):
 def fig_substrate_map():
     pces = [x["pce"] for x in DEV]
     vmin, vmax = min(pces), max(pces)
-    groups = sorted(set(x["group"] for x in DEV))
     subs = sorted(set((x["group"], x["substrate"]) for x in DEV))
     cols = 5
     rows = math.ceil(len(subs) / cols)
@@ -138,7 +137,10 @@ def fig_distribution_compare():
 
     def panel(x0, x1, title, mode):
         top, bot = 70, H - 60
-        y = lambda v: bot - (v - lo) / (hi - lo) * (bot - top)
+
+        def y(v):
+            return bot - (v - lo) / (hi - lo) * (bot - top)
+
         for gv in range(lo, hi + 1, 2):
             dr.line([(x0, y(gv)), (x1, y(gv))], fill=(235, 235, 235))
             draw_text(dr, (x0 - 6, y(gv)), str(gv), FONT_S, (120, 120, 120), "rm")
@@ -199,8 +201,13 @@ def fig_jv_overlay():
                 pts.extend([(p[0], p[1]) for p in t["points"]])
     xlo, xhi = 0.0, max(p[0] for p in pts) * 1.03
     ylo, yhi = 0.0, max(p[1] for p in pts) * 1.06
-    X = lambda v: ml + (v - xlo) / (xhi - xlo) * (W - ml - mr)
-    Y = lambda j: (H - mb) - (j - ylo) / (yhi - ylo) * (H - mt - mb)
+
+    def X(v):
+        return ml + (v - xlo) / (xhi - xlo) * (W - ml - mr)
+
+    def Y(j):
+        return (H - mb) - (j - ylo) / (yhi - ylo) * (H - mt - mb)
+
     for i in range(6):
         xv = xlo + (xhi - xlo) * i / 5
         yv = ylo + (yhi - ylo) * i / 5

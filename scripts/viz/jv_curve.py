@@ -22,7 +22,6 @@ import csv
 import io
 import math
 import re
-import sys
 from pathlib import Path
 
 import matplotlib

@@ -35,6 +35,6 @@ jobs:
       - run: uv sync --locked --extra test --no-dev --no-editable
       - run: uv run --no-sync python -m unittest discover -s tests -v
         env:
-          # The real-Chrome suites run in the frontend job on Linux; skipping
+          # The real-Chrome suites run in the Ubuntu unittest job; skipping
           # them here cuts the Windows job roughly in half.
           PEROVSKITE_SKIP_BROWSER: "1"

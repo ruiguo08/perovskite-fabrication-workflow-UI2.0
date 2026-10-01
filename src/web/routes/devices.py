@@ -14,6 +14,11 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from ..models import (
+    DeviceJvScansResponse,
+    RepresentativeScanPayload,
+)
+from ..repository import WebRepository
 from .common import (
     AuthContext,
     _client_ip,
@@ -21,11 +26,6 @@ from .common import (
     require_csrf,
     require_user,
 )
-from ..models import (
-    DeviceJvScansResponse,
-    RepresentativeScanPayload,
-)
-from ..repository import WebRepository
 
 
 def create_devices_router(
