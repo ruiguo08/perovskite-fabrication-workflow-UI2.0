@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 from ..jv_parser import assign_substrates_to_groups
 from ..repository.records import UserRole
+from ..repository.result import apply_result_assignment
 from .errors import InvalidInput, RecordNotFound
 
 
@@ -122,7 +123,6 @@ async def save_result_analysis(
     exclusions_by_device = {
         item.analysis_device_id: item.reason for item in exclusions
     }
-    from ..repository.result import apply_result_assignment
 
     try:
         grouped_analysis = await asyncio.to_thread(

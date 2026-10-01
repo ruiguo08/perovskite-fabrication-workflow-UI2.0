@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any, Mapping
+
 from sqlalchemy import and_, insert, or_, select, update
 
 from ..database import (
@@ -15,10 +17,8 @@ from ..database import (
     materials,
 )
 from .helpers import _actor_role, _add_audit_event, _as_utc, _inserted_id, _utc_now
-from .records import MATERIAL_CATEGORIES, MATERIAL_STATUSES, ROLE_RANK
-from .records import UserRole
+from .records import MATERIAL_CATEGORIES, MATERIAL_STATUSES, ROLE_RANK, UserRole
 
-import json
 
 def _material_product_record(row: Mapping[str, Any]) -> dict[str, Any]:
     specification = row["specification"]

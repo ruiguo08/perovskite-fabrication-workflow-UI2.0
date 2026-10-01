@@ -16,11 +16,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select, update
+from test_web_app import TEST_PASSWORD, TEST_USERNAME, complete_guided_setup
 
-from web import create_app
-from web.condition_snapshot import build_condition_snapshot, canonical_hash
 from tests.layout_fixtures import fixture_layout, fixture_layouts, seed_standard_layouts
-from web.device_layouts import expected_device_count, layout_snapshot
+from web import create_app
 from web.execution_snapshots import snapshot_hash
 from web.repository import (
     BatchStatus,
@@ -30,7 +29,6 @@ from web.repository import (
     PreparationStatus,
     UserRole,
 )
-from test_web_app import TEST_USERNAME, TEST_PASSWORD, complete_guided_setup, VALID_RECIPE
 
 
 def _recipe_with_standalone_group() -> tuple[dict, dict]:
@@ -435,6 +433,7 @@ class FabricationBatchCreationTests(unittest.TestCase):
     # 6. Non-released Plan rejects
     def test_non_released_plan_rejected(self) -> None:
         import asyncio
+
         from perovskite_bo import DepositionRecipe, deposition_recipe_from_process
         asyncio.run(self.repository.create_campaign(
             code="no-release", display_name="No release", description="", actor_user_id=1
@@ -455,6 +454,7 @@ class FabricationBatchCreationTests(unittest.TestCase):
     # 7. Manual review condition rejects
     def test_manual_review_condition_rejected(self) -> None:
         import asyncio
+
         from perovskite_bo import DepositionRecipe, deposition_recipe_from_process
         asyncio.run(self.repository.create_campaign(
             code="manual-review", display_name="Manual review", description="", actor_user_id=1
@@ -467,8 +467,6 @@ class FabricationBatchCreationTests(unittest.TestCase):
         record = asyncio.run(self.repository.add_experiment(
             recipe, campaign_id="manual-review", actor_user_id=1
         ))
-        # Get conditions to verify one requires manual review
-        conditions = asyncio.run(self.repository.list_conditions_for_experiment(record.id))
         # Plan should have conditions but batch creation should fail because of manual review
         # Submitting for approval is blocked because a condition requires
         # manual review (the check runs for every non-cancelled target).
@@ -481,6 +479,7 @@ class FabricationBatchCreationTests(unittest.TestCase):
     def test_draft_cannot_be_released_directly(self) -> None:
         import asyncio
         import json
+
         from perovskite_bo import DepositionRecipe, deposition_recipe_from_process
         asyncio.run(self.repository.create_campaign(
             code="strict-flow", display_name="Strict", description="", actor_user_id=1
@@ -506,7 +505,7 @@ class FabricationBatchCreationTests(unittest.TestCase):
     # cleared only when a substantive field changes.
     def test_manual_review_flag_preserved_on_metadata_only_edit(self) -> None:
         import asyncio
-        import json
+
         from perovskite_bo import DepositionRecipe, deposition_recipe_from_process
         asyncio.run(self.repository.create_campaign(
             code="mr-flag", display_name="MR", description="", actor_user_id=1
@@ -554,6 +553,7 @@ class FabricationBatchCreationTests(unittest.TestCase):
     # 8. <3 substrates without approval rejects
     def test_less_than_3_substrates_without_approval_rejected(self) -> None:
         import asyncio
+
         from perovskite_bo import DepositionRecipe, deposition_recipe_from_process
         asyncio.run(self.repository.create_campaign(
             code="low-count", display_name="Low count", description="", actor_user_id=1
@@ -600,7 +600,6 @@ class FabricationBatchCreationTests(unittest.TestCase):
             ))
             substrates = asyncio.run(self.repository.get_fabrication_substrates_for_batch(batch.id))
             devices = asyncio.run(self.repository.get_fabrication_devices_for_batch(batch.id))
-            batch_conditions = asyncio.run(self.repository.get_fabrication_batch_conditions(batch.id))
             # 2 conditions, each with 3 substrates
             self.assertEqual(len(substrates), 2 * 3, f"layout {layout.code} should have 6 substrates")
             expected_devices = 2 * 3 * layout.devices_per_substrate
@@ -612,7 +611,6 @@ class FabricationBatchCreationTests(unittest.TestCase):
     # 10. 25x25_six_010, 3 substrates = 18 devices per condition
     def test_25x25_six_010_generates_18_devices(self) -> None:
         import asyncio
-        layout = fixture_layout("25x25_six_010")
         exp_id = asyncio.run(
             _create_released_experiment_with_conditions(
                 self.repository, "layout-25x25", layout_code="25x25_six_010"
@@ -621,7 +619,6 @@ class FabricationBatchCreationTests(unittest.TestCase):
         batch = asyncio.run(self.repository.create_fabrication_batch(
             exp_id, actor_user_id=1,
         ))
-        batch_conditions = asyncio.run(self.repository.get_fabrication_batch_conditions(batch.id))
         devices = asyncio.run(self.repository.get_fabrication_devices_for_batch(batch.id))
         # 2 conditions, each with 3 substrates x 6 devices = 18
         self.assertEqual(len(devices), 2 * 18)
@@ -637,7 +634,6 @@ class FabricationBatchCreationTests(unittest.TestCase):
         batch = asyncio.run(self.repository.create_fabrication_batch(
             exp_id, actor_user_id=1,
         ))
-        batch_conditions = asyncio.run(self.repository.get_fabrication_batch_conditions(batch.id))
         devices = asyncio.run(self.repository.get_fabrication_devices_for_batch(batch.id))
         # 2 conditions, each with 3 substrates x 2 devices = 6
         self.assertEqual(len(devices), 2 * 6)
@@ -645,6 +641,7 @@ class FabricationBatchCreationTests(unittest.TestCase):
     # 12. Approved 1 or 2 substrates generates correct counts
     def test_approved_2_substrates_generates_correct_count(self) -> None:
         import asyncio
+
         from perovskite_bo import DepositionRecipe, deposition_recipe_from_process
         asyncio.run(self.repository.create_campaign(
             code="approved-2", display_name="Approved 2", description="", actor_user_id=1
@@ -708,7 +705,6 @@ class FabricationBatchCreationTests(unittest.TestCase):
         ))
         conditions = asyncio.run(self.repository.get_fabrication_batch_conditions(batch.id))
         self.assertGreater(len(conditions), 0)
-        cond_code = conditions[0].condition_code
         substrates = asyncio.run(self.repository.get_fabrication_substrates_for_batch(batch.id))
         substrate_codes = [s.substrate_code for s in substrates]
         substrate_marks = [s.substrate_mark for s in substrates]
@@ -755,8 +751,8 @@ class FabricationBatchCreationTests(unittest.TestCase):
         batch2 = asyncio.run(self.repository.create_fabrication_batch(
             self._experiment_id, actor_user_id=1, notes="Second",
         ))
-        self.assertEqual(batch1.batch_code, f"fab-test-v1-B01")
-        self.assertEqual(batch2.batch_code, f"fab-test-v1-B02")
+        self.assertEqual(batch1.batch_code, "fab-test-v1-B01")
+        self.assertEqual(batch2.batch_code, "fab-test-v1-B02")
         self.assertNotEqual(batch1.batch_code, batch2.batch_code)
         first_marks = [
             device.device_mark
@@ -2012,8 +2008,9 @@ class BatchCompletionAtomicityTests(unittest.TestCase):
         )
 
     def test_audit_event_records_completion_counts_and_new_rows(self) -> None:
-        from web.database import audit_events
         from sqlalchemy import select
+
+        from web.database import audit_events
 
         self._terminate_steps()
         self._complete_with_shortfalls([
@@ -2042,8 +2039,9 @@ class BatchCompletionAtomicityTests(unittest.TestCase):
         self.assertEqual(details["new_execution_members"], 0)
 
     def test_audit_records_real_member_count_on_actual_above_planned(self) -> None:
-        from web.database import audit_events
         from sqlalchemy import select
+
+        from web.database import audit_events
 
         self._terminate_steps()
         asyncio.run(
@@ -2072,8 +2070,9 @@ class BatchCompletionAtomicityTests(unittest.TestCase):
         self.assertGreater(details["new_execution_members"], 0)
 
     def test_missing_execution_group_rolls_back_completion(self) -> None:
-        from web.database import process_execution_members
         from sqlalchemy import delete
+
+        from web.database import process_execution_members
 
         self._terminate_steps()
         # Delete all execution members for the control condition so the
@@ -2106,8 +2105,10 @@ class BatchCompletionAtomicityTests(unittest.TestCase):
         """Keep one execution group but delete another required layer's group.
         Completion with actual > planned must fail before inserting anything
         because not all required layer ordinals have groups."""
+        from sqlalchemy import delete
+        from sqlalchemy import select as sa_select
+
         from web.database import process_execution_members
-        from sqlalchemy import delete, select as sa_select
 
         self._terminate_steps()
         # Find the distinct layer ordinals that have execution members.
@@ -2167,12 +2168,19 @@ class BatchCompletionAtomicityTests(unittest.TestCase):
         is missing a required layer group.  The full-condition pre-check must
         reject the completion BEFORE any substrate, device, or member is
         inserted for EITHER condition — no partial writes."""
+        from sqlalchemy import delete
+        from sqlalchemy import func as sa_func
+        from sqlalchemy import select as sa_select
+
+        from web.database import (
+            fabrication_devices as fd_table,
+        )
         from web.database import (
             fabrication_substrates as fs_table,
-            fabrication_devices as fd_table,
+        )
+        from web.database import (
             process_execution_members as pem_table,
         )
-        from sqlalchemy import delete, select as sa_select, func as sa_func
 
         self._terminate_steps()
         # Count rows before the attempt.
@@ -2272,12 +2280,19 @@ class BatchCompletionAtomicityTests(unittest.TestCase):
         """Two conditions: control has groups and would pass, but target has
         ZERO execution groups (all members deleted).  The full-condition
         pre-check must reject before any write for either condition."""
+        from sqlalchemy import delete
+        from sqlalchemy import func as sa_func
+        from sqlalchemy import select as sa_select
+
+        from web.database import (
+            fabrication_devices as fd_table,
+        )
         from web.database import (
             fabrication_substrates as fs_table,
-            fabrication_devices as fd_table,
+        )
+        from web.database import (
             process_execution_members as pem_table,
         )
-        from sqlalchemy import delete, select as sa_select, func as sa_func
 
         self._terminate_steps()
         # Wipe ALL execution members for the target condition.
@@ -2702,8 +2717,8 @@ class FabricationBatchGuardTests(unittest.TestCase):
         asyncio.run(run())
 
     def test_zero_batch_guard_passes_once_a_batch_exists(self) -> None:
-        from web.repository.condition import _require_fabrication_batches
         from web.database import fabrication_batches
+        from web.repository.condition import _require_fabrication_batches
 
         batch = asyncio.run(self.repository.create_fabrication_batch(
             self._experiment_id, actor_user_id=1,

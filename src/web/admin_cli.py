@@ -350,7 +350,6 @@ async def _collect_catalog_export(repository: Any) -> dict[str, Any]:
     from sqlalchemy import and_, select
 
     from web import database as db
-    from web.services.catalog_service import list_device_layouts
     from web.repository import (
         _baseline_record,
         _baseline_statement,
@@ -358,6 +357,7 @@ async def _collect_catalog_export(repository: Any) -> dict[str, Any]:
         _layer_preset_statement,
         _material_record,
     )
+    from web.services.catalog_service import list_device_layouts
 
     async with repository.database.engine.connect() as connection:
         layouts = await list_device_layouts(connection)
@@ -644,7 +644,7 @@ async def _run_import_catalog(
                 created["device_layouts"] += 1
             except ValueError as error:
                 print(f"device layout {layout.get('code')!r} rejected: {error}")
-                raise SystemExit(1)
+                raise SystemExit(1) from error
         await connection.commit()
 
     for material in document.get("materials", []):
@@ -672,7 +672,7 @@ async def _run_import_catalog(
                 material_id = record["id"]
             except ValueError as error:
                 print(f"material {material.get('name')!r} rejected: {error}")
-                raise SystemExit(1)
+                raise SystemExit(1) from error
         for product in material.get("products", []):
             product_exists = await _existing_product_id(
                 database, material_id, product["vendor"], product["catalog_number"]
@@ -693,7 +693,7 @@ async def _run_import_catalog(
                 print(
                     f"product {product.get('catalog_number')!r} rejected: {error}"
                 )
-                raise SystemExit(1)
+                raise SystemExit(1) from error
 
     for preset in document.get("layer_presets", []):
         if await _existing_preset_id(database, preset["name"], preset.get("scope") or "shared") is not None:
@@ -710,7 +710,7 @@ async def _run_import_catalog(
             created["layer_presets"] += 1
         except (ValueError, PermissionError) as error:
             print(f"layer preset {preset.get('name')!r} rejected: {error}")
-            raise SystemExit(1)
+            raise SystemExit(1) from error
 
     for baseline in document.get("baselines", []):
         if await _existing_baseline_id(database, baseline["name"]) is not None:
@@ -720,8 +720,8 @@ async def _run_import_catalog(
             # Same validation as the API path (_baseline_values): an import
             # document is untrusted input, so the stored snapshot must pass
             # full recipe/process validation, not just the schema version.
-            from web.routes import _baseline_values
             from web.models import BaselinePayload
+            from web.routes import _baseline_values
 
             normalized = _baseline_values(
                 BaselinePayload.model_validate(
@@ -741,7 +741,7 @@ async def _run_import_catalog(
             created["baselines"] += 1
         except ValueError as error:
             print(f"baseline {baseline.get('name')!r} rejected: {error}")
-            raise SystemExit(1)
+            raise SystemExit(1) from error
 
     print(f"Created {created}.")
     print(f"Skipped {skipped} already-existing record(s).")

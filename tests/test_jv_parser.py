@@ -565,7 +565,7 @@ def _raw_blocks_csv(
         rows[1].extend(["[Information]", "", "[Volt (V)]", "[J (mA/cm^2)]", ""])
         rows[2].extend(["Name", label, "", "", ""])
         for row_index, (voltage, current_density) in enumerate(
-            zip(voltages, current_densities), start=1
+            zip(voltages, current_densities, strict=True), start=1
         ):
             rows[2 + row_index].extend(["", "", str(voltage), str(current_density), ""])
     return "\n".join(",".join(row) for row in rows) + "\n"

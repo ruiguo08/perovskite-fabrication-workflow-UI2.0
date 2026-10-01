@@ -6,12 +6,25 @@ logic lives here."""
 
 from __future__ import annotations
 
-from typing import Any, Mapping
-from sqlalchemy.ext.asyncio import AsyncConnection
-from perovskite_bo import ExperimentStatus
-from sqlalchemy import and_, select, update
+import hashlib
+import json
+import math
 from datetime import datetime, timezone
+from typing import Any, Mapping
 
+from sqlalchemy import and_, select, update
+from sqlalchemy.ext.asyncio import AsyncConnection
+
+from perovskite_bo import ExperimentStatus
+
+# Audit persistence lives in the low-level web.audit_trail module so the
+# services layer can share it without an import cycle; this alias keeps
+# the historical repository call sites unchanged. Re-exported on purpose.
+from ..audit_trail import add_audit_event as _add_audit_event  # noqa: F401
+
+# Audit persistence lives in the low-level web.audit_trail module so the
+# services layer can share it without an import cycle; this alias keeps
+# the historical repository call sites unchanged.
 from ..database import (
     DISPLAY_NAME_MAX_LENGTH,
     baseline_versions,
@@ -19,15 +32,8 @@ from ..database import (
     experiments,
     users,
 )
-# Audit persistence lives in the low-level web.audit_trail module so the
-# services layer can share it without an import cycle; this alias keeps
-# the historical repository call sites unchanged.
-from ..audit_trail import add_audit_event as _add_audit_event
 from .records import UserRole
 
-import hashlib
-import json
-import math
 
 async def _actor_role(
     connection: AsyncConnection, actor_user_id: int | None

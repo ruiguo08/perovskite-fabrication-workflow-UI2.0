@@ -137,8 +137,14 @@ class BayesianStrategy:
             mean = sum(completed_scores) / len(completed_scores)
             variance = 0.0
         else:
-            mean = sum(weight * score for weight, score in zip(weights, completed_scores)) / weight_sum
-            variance = sum(weight * (score - mean) ** 2 for weight, score in zip(weights, completed_scores)) / weight_sum
+            mean = sum(
+                weight * score
+                for weight, score in zip(weights, completed_scores, strict=True)
+            ) / weight_sum
+            variance = sum(
+                weight * (score - mean) ** 2
+                for weight, score in zip(weights, completed_scores, strict=True)
+            ) / weight_sum
         uncertainty = math.sqrt(max(variance, 0.0)) / math.sqrt(1.0 + weight_sum)
         feasibility = self._feasibility(candidate, failed_vectors)
         return (mean + self.exploration_weight * uncertainty) * feasibility
@@ -158,6 +164,7 @@ def _grid_values(search_space: SearchSpace, limit: int) -> list[dict[str, Any]]:
     value_options: list[list[Any]] = []
     total = 1
     for parameter in search_space.parameters:
+        options: list[Any]
         if isinstance(parameter, IntegerParameter):
             options = list(range(parameter.lower, parameter.upper + 1))
         elif isinstance(parameter, ChoiceParameter):
@@ -172,7 +179,7 @@ def _grid_values(search_space: SearchSpace, limit: int) -> list[dict[str, Any]]:
             return []
         value_options.append(options)
     return [
-        {parameter.name: value for parameter, value in zip(search_space.parameters, values)}
+        {parameter.name: value for parameter, value in zip(search_space.parameters, values, strict=True)}
         for values in product(*value_options)
     ]
 
@@ -211,4 +218,4 @@ def _rbf_similarity(left: list[float], right: list[float]) -> float:
 
 
 def _euclidean_distance(left: list[float], right: list[float]) -> float:
-    return math.sqrt(sum((a - b) ** 2 for a, b in zip(left, right)))
+    return math.sqrt(sum((a - b) ** 2 for a, b in zip(left, right, strict=True)))

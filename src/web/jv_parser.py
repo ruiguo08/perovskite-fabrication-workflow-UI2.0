@@ -1545,7 +1545,7 @@ def _interpolate_y_at_x_zero(points: list[JVPoint]) -> float | None:
     for point in ordered:
         if point.voltage == 0:
             return point.current_density
-    for left, right in zip(ordered, ordered[1:]):
+    for left, right in zip(ordered, ordered[1:], strict=False):
         if left.voltage <= 0 <= right.voltage or right.voltage <= 0 <= left.voltage:
             return _linear_interpolate(0.0, left.voltage, left.current_density, right.voltage, right.current_density)
     return None
@@ -1564,7 +1564,7 @@ def _interpolate_x_at_y_zero(points: list[JVPoint]) -> float | None:
     crossings: list[float] = [
         point.voltage for point in ordered if point.current_density == 0
     ]
-    for left, right in zip(ordered, ordered[1:]):
+    for left, right in zip(ordered, ordered[1:], strict=False):
         if left.current_density <= 0 <= right.current_density or right.current_density <= 0 <= left.current_density:
             crossings.append(
                 _linear_interpolate(0.0, left.current_density, left.voltage, right.current_density, right.voltage)

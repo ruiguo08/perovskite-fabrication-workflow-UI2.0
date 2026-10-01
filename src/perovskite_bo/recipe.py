@@ -27,10 +27,10 @@ class _FrozenDict(dict[str, Any]):
     __delitem__ = _immutable
     clear = _immutable
     pop = _immutable
-    popitem = _immutable
+    popitem = _immutable  # type: ignore[assignment]  # deliberately raises
     setdefault = _immutable
     update = _immutable
-    __ior__ = _immutable
+    __ior__ = _immutable  # type: ignore[assignment]  # deliberately raises
 
     def __copy__(self) -> _FrozenDict:
         return self
@@ -38,7 +38,7 @@ class _FrozenDict(dict[str, Any]):
     def __deepcopy__(self, memo: dict[int, Any]) -> _FrozenDict:
         return self
 
-    def __reduce__(self):
+    def __reduce__(self) -> tuple[type[_FrozenDict], tuple[dict[str, Any]]]:
         return (type(self), (dict(self),))
 
 

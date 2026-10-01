@@ -37,7 +37,9 @@ jobs:
       - run: uv sync --locked --extra test --no-dev --no-editable
       - run: uv run --no-sync python -m unittest discover -s tests -v
         env:
-          # The real-Chrome suites run in the frontend job on Linux.
+          # "1" is the only value that skips, so "0" intentionally keeps all
+          # four real-Chrome test classes running in this job (Linux runners ship
+          # Chrome); no other job re-runs them.
           PEROVSKITE_SKIP_BROWSER: "0"
 
   postgresql:
@@ -101,6 +103,14 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
+      - name: Resolve the pnpm store path
+        working-directory: frontend
+        run: corepack enable && echo "PNPM_STORE_PATH=$(corepack pnpm store path)" >> "$GITHUB_ENV"
+      - name: Cache pnpm store
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.PNPM_STORE_PATH }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
@@ -130,11 +140,33 @@ jobs:
         run: corepack pnpm build
       - name: Vite proxy smoke
         run: PEROVSKITE_VITE_SMOKE=1 uv run --no-sync python -m unittest tests.test_vite_proxy_smoke -v
-      - name: Browser tests (real Chrome)
-        run: uv run --no-sync python -m unittest tests.test_browser_results tests.test_browser_cutover -v
       - name: Fail if the committed bundle is stale
         run: git diff --exit-code -- src/web/static-app
       - name: Build Python wheel
         run: uv build
       - name: Installed-wheel smoke test
         run: uv run --no-sync python -m unittest tests.test_installed_wheel_smoke -v
+
+  python-static:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    name: ruff + mypy / Python 3.14
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - run: python -m pip install uv==0.12.1
+      - name: Cache uv downloads
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/uv
+            ~\AppData\Local\uv\cache
+          key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+      - run: uv sync --locked --no-editable
+      - run: uv run --no-sync ruff check .
+      # No path argument: the checked scope comes from pyproject's mypy
+      # `files` setting (a bare `mypy src` would override it and pull in the
+      # web layer before its typing migration is done).
+      - run: uv run --no-sync mypy

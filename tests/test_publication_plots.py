@@ -3,22 +3,19 @@ from __future__ import annotations
 import unittest
 from copy import deepcopy
 from datetime import datetime, timezone
-from pathlib import Path
 
+from tests.test_jv_parser import instrument_named_csv
 from web.jv_parser import assign_substrates_to_groups, parse_jv_analysis
-from web.repository.result import _result_record
-
 from web.publication_plots import (
     PlotInputError,
     _render_boxplot,
-    _trace_points,
     _render_jv,
     _render_uniformity,
     _representative_trace,
+    _trace_points,
     render_publication_figure,
 )
-
-from tests.test_jv_parser import instrument_named_csv
+from web.repository.result import _result_record
 
 
 def device(device_id: str, position: int, group_id: str = "control") -> dict:

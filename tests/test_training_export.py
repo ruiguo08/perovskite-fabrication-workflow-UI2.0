@@ -19,8 +19,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from fastapi.testclient import TestClient
 
+from tests.test_fabrication_batches import _create_released_experiment_with_conditions
+from tests.test_jv_parser import channel_labeled_csv, multi_device_csv
 from web import create_app
-from web.admin_cli import parser as admin_parser, run_command
+from web.admin_cli import parser as admin_parser
+from web.admin_cli import run_command
 from web.jv_parser import _flat_metrics_from_analysis
 from web.repository import (
     BatchStatus,
@@ -28,9 +31,6 @@ from web.repository import (
     PreparationStatus,
     UserRole,
 )
-
-from tests.test_fabrication_batches import _create_released_experiment_with_conditions
-from tests.test_jv_parser import channel_labeled_csv, multi_device_csv
 
 TEST_USERNAME = "training-export-admin"
 TEST_PASSWORD = "correct horse battery staple"

@@ -48,7 +48,61 @@ version = { attr = "web.version.__version__" }
 [dependency-groups]
 dev = [
     "ipykernel>=7.3.0",
+    "mypy>=1.18,<2",
+    "ruff>=0.14,<0.15",
 ]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+extend-exclude = ["frontend", "src/web/static-app"]
+
+[tool.ruff.lint]
+# Baseline gate adopted 2026-09: E501 stays unenforced until a dedicated
+# formatting pass reflows the ~270 existing long lines; F403/F405 are
+# tolerated only in the routes package, which re-exports the shared helpers
+# via `from .common import *` until that import is made explicit.
+extend-ignore = ["E501"]
+select = ["E", "F", "W", "I", "B"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI declares request dependencies as call results in parameter
+# defaults; that idiom is immutable by contract, not a computed default.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Header",
+    "fastapi.Cookie",
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi.File",
+    "fastapi.Form",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/web/routes/*" = ["F403", "F405"]
+# Test modules bootstrap sys.path before their imports.
+"tests/*" = ["E402"]
+# The CDP teardown blocks deliberately keep their compact
+# `session.close(); process.kill()` one-liner style.
+"tests/test_browser_cutover.py" = ["E701", "E702"]
+
+[tool.mypy]
+# The core domain package is pure (stdlib + pydantic) and carries the strict
+# gate. The web layer joins the gate after the routes' star-import cleanup
+# and JSON-boundary annotations land; enabling it today only produces noise
+# from `from .common import *` re-exports and untyped JSON shapes.
+files = ["src/perovskite_bo"]
+mypy_path = "src"
+python_version = "3.14"
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["pydantic.*", "pydantic"]
+# pydantic v2 ships types, but its decorator rewrites and model_dump surface
+# stay partly Any-typed.
+disallow_any_generics = false
+warn_return_any = false
 
 [project.scripts]
 perovskite-workflow-web = "web.app:main"

@@ -8,10 +8,10 @@ bundle, the VCD snapshot PATCH validation, and the 320px responsive layout.
 """
 
 from __future__ import annotations
-import os
 
 import asyncio
 import json
+import os
 import socket
 import subprocess
 import tempfile
@@ -23,12 +23,11 @@ from pathlib import Path
 import uvicorn
 from fastapi.testclient import TestClient
 
-from web import create_app
-from web.repository import UserRole
-
 from tests.cdp_driver import evaluate, launch_chrome_with_viewport, wait_for_expression
 from tests.layout_fixtures import seed_standard_layouts
 from tests.test_browser_builder import chrome_path
+from web import create_app
+from web.repository import UserRole
 
 ADMIN_USERNAME = "run-sheet-admin"
 ADMIN_PASSWORD = "Run sheet administrator password 2026!"

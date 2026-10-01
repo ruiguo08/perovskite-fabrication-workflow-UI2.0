@@ -13,12 +13,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from fastapi.testclient import TestClient
+from layout_fixtures import fixture_layout, fixture_layouts, seed_standard_layouts
+from test_web_app import VALID_RECIPE
 
 from web import create_app
 from web.device_layouts import expected_device_count
 from web.repository import UserRole
-from layout_fixtures import fixture_layout, fixture_layouts, seed_standard_layouts
-from test_web_app import VALID_RECIPE
 
 TEST_USERNAME = "admin"
 TEST_PASSWORD = "Adm1n!password"

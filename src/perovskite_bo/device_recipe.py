@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 from typing import Annotated, Any, Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-DEVICE_RECIPE_SCHEMA_VERSION = 2
+DEVICE_RECIPE_SCHEMA_VERSION: Literal[2] = 2
 DEFAULT_BASELINE_SEED_ID = "ito_niox_spin_pcbm_sno2_v1"
 MAX_SOLID_CHEMICALS = 20
 MAX_SOLVENTS = 10
@@ -491,7 +490,8 @@ def validate_layer_sequence(layers: list[DeviceLayer], architecture: str = "pin"
 
 
 class DeviceRecipe(RecipeModel):
-    schema_version: Literal[DEVICE_RECIPE_SCHEMA_VERSION] = DEVICE_RECIPE_SCHEMA_VERSION
+    # Keep the literal in sync with DEVICE_RECIPE_SCHEMA_VERSION.
+    schema_version: Literal[2] = DEVICE_RECIPE_SCHEMA_VERSION
     setup_mode: SetupMode
     junction_type: Literal["single_junction", "tandem"] = "single_junction"
     perovskite_bandgap: Literal[
@@ -506,7 +506,8 @@ class DeviceRecipe(RecipeModel):
     ] | None = None
     architecture: Literal["pin", "nip"] = "pin"
     experimental_groups: list[ExperimentalGroup] = Field(
-        default_factory=_default_experimental_groups,
+        # pydantic coerces the seed dicts into ExperimentalGroup models.
+        default_factory=_default_experimental_groups,  # type: ignore[arg-type]
     )
     substrate: SubstrateRecipe
     layers: list[DeviceLayer] = Field(min_length=5, max_length=20)
@@ -615,8 +616,8 @@ def _require_complete_solution(layer: DeviceLayer) -> None:
             raise ValueError(
                 f"{layer.layer_type} solid chemical {index} requires a name and weight in mg"
             )
-    for index, ingredient in enumerate(solution.solvents, start=1):
-        if not ingredient.solvent or ingredient.volume_ml is None:
+    for index, solvent in enumerate(solution.solvents, start=1):
+        if not solvent.solvent or solvent.volume_ml is None:
             raise ValueError(
                 f"{layer.layer_type} solvent {index} requires a name and volume in mL"
             )
@@ -630,8 +631,8 @@ def _require_complete_process(layer: DeviceLayer) -> None:
         for index, step in enumerate(process.spin_steps, start=1):
             if None in (step.rpm, step.seconds, step.acceleration_rpm_per_s):
                 raise ValueError(f"{layer.layer_type} spin step {index} is incomplete")
-        for index, step in enumerate(process.anneal_steps, start=1):
-            if None in (step.temperature_c, step.seconds):
+        for index, anneal in enumerate(process.anneal_steps, start=1):
+            if None in (anneal.temperature_c, anneal.seconds):
                 raise ValueError(f"{layer.layer_type} anneal step {index} is incomplete")
         return
     if isinstance(process, SputteringProcess):
@@ -639,7 +640,7 @@ def _require_complete_process(layer: DeviceLayer) -> None:
             raise ValueError(
                 "sputtering gas 2 and its flow rate must be supplied together"
             )
-        values = (
+        values: tuple[Any, ...] = (
             process.sputter_mode,
             process.power_w,
             process.pressure_pa,
@@ -724,8 +725,8 @@ def _require_complete_deposition_process(
         process.gas_backfill_stages,
         prefix=f"{group_name} perovskite ",
     )
-    for index, step in enumerate(process.anneal_steps, start=1):
-        if None in (step.temperature_c, step.seconds):
+    for index, anneal in enumerate(process.anneal_steps, start=1):
+        if None in (anneal.temperature_c, anneal.seconds):
             raise ValueError(f"{group_name} perovskite anneal step {index} is incomplete")
 
 
@@ -774,8 +775,8 @@ def validate_deposition_process(values: Mapping[str, Any]) -> dict[str, Any]:
         if stage.pressure_pa is None or stage.seconds is None:
             raise ValueError(f"perovskite VCD stage {index} is incomplete")
     _require_complete_gas_backfill_stages(process.gas_backfill_stages)
-    for index, step in enumerate(process.anneal_steps, start=1):
-        if None in (step.temperature_c, step.seconds):
+    for index, anneal in enumerate(process.anneal_steps, start=1):
+        if None in (anneal.temperature_c, anneal.seconds):
             raise ValueError(f"perovskite anneal step {index} is incomplete")
     return process.model_dump(mode="python")
 

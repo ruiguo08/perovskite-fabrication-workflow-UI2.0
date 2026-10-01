@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Sequence
-from sqlalchemy.ext.asyncio import AsyncConnection
+import hashlib
+import json
+import math
 from datetime import datetime
+from typing import Any, Mapping, Sequence
+
 from sqlalchemy import delete, func, insert, select, text, update
+from sqlalchemy.ext.asyncio import AsyncConnection
 
 from ..condition_snapshot import (
     canonical_hash as condition_canonical_hash,
+)
+from ..condition_snapshot import (
     validate_condition_snapshot,
 )
 from ..database import (
@@ -23,7 +29,6 @@ from ..database import (
     fabrication_substrates,
     process_execution_members,
     process_executions,
-    result_device_assignments,
     result_files,
     solution_preparation_uses,
     solution_preparations,
@@ -36,6 +41,9 @@ from ..execution_snapshots import (
     validate_process_snapshot,
     validate_solution_snapshot,
 )
+from ..services.catalog_service import (
+    resolve_layout as _resolve_layout,
+)
 from .helpers import (
     _actor_role,
     _add_audit_event,
@@ -44,11 +52,8 @@ from .helpers import (
     _optional_utc,
     _utc_now,
 )
-from ..services.catalog_service import (
-    resolve_layout as _resolve_layout,
-)
-from .records import DEVIATION_TYPES
 from .records import (
+    DEVIATION_TYPES,
     BatchStatus,
     ExceptionDecision,
     ExecutionDeviationRecord,
@@ -66,9 +71,6 @@ from .records import (
 )
 from .result import _result_assignment_statement, _result_record
 
-import hashlib
-import json
-import math
 
 async def _attach_substrates_to_condition_executions(
     connection: AsyncConnection,

@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from perovskite_bo.device_recipe import deposition_recipe_from_process
-
 from typing import Any, Iterable, Mapping, Sequence
-from perovskite_bo import DepositionRecipe, ExperimentRecord, ExperimentStatus
+
 from sqlalchemy import exists, func, insert, select, text
+
+from perovskite_bo import DepositionRecipe, ExperimentRecord, ExperimentStatus
+from perovskite_bo.device_recipe import deposition_recipe_from_process
 
 from ..condition_snapshot import (
     canonical_hash as condition_canonical_hash,
+)
+from ..condition_snapshot import (
     validate_condition_snapshot,
 )
 from ..database import (
@@ -20,8 +23,6 @@ from ..database import (
     experiments,
 )
 from ..device_layouts import DeviceLayout, expected_device_count, layout_snapshot
-from ..services.catalog_service import list_device_layouts
-from ..services.legacy_adapter import materialize_legacy_conditions
 from .helpers import (
     _actor_role,
     _add_audit_event,
@@ -33,6 +34,7 @@ from .helpers import (
     _validate_baseline_version_for_condition,
 )
 from .records import CampaignStatus, ConditionRole, PlanStatus
+
 
 def _control_recipe_snapshot_subquery() -> Any:
     """Correlated subquery yielding the hash-verified control snapshot.
@@ -176,7 +178,9 @@ class ExperimentsMixin:
                 raise ValueError(
                     f"campaign {normalized_campaign_id!r} is not active"
                 )
-            actor_role = await _actor_role(connection, actor_user_id)
+            # _actor_role validates an authenticated, active actor; the role
+            # value itself is unused here.
+            await _actor_role(connection, actor_user_id)
             # source_baseline_version_id is provenance only — every condition
             # stores its own complete recipe snapshot, so a student may plan
             # from scratch without referencing any baseline.

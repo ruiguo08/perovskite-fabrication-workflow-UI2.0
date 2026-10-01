@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
-from ..device_layouts import expected_device_count
 
 # Semantic deviation types consumed by the workflow gates (mirrors the
 # ck_execution_deviations_valid_deviation_type database check).

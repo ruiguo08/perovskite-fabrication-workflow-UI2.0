@@ -26,8 +26,8 @@ Create Date: 2026-09-19
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision = "0016_device_scan_stats"
