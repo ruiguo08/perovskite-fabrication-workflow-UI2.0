@@ -41,7 +41,7 @@ async def update_batch_status(
     try:
         batch = await repository.get_fabrication_batch(batch_id)
     except KeyError as error:
-        raise RecordNotFound(str(error)) from error
+        raise RecordNotFound(*error.args) from error
     if actor_role is not None:
         owner_scope = actor_user_id if actor_role == UserRole.STUDENT else None
         try:
@@ -49,7 +49,7 @@ async def update_batch_status(
                 int(batch.experiment_id), owner_user_id=owner_scope
             )
         except KeyError as error:
-            raise RecordNotFound(str(error)) from error
+            raise RecordNotFound(*error.args) from error
 
     # --- Transaction -----------------------------------------------------
     try:
@@ -68,5 +68,10 @@ async def update_batch_status(
     except ValueError as error:
         raise InvalidInput(str(error)) from error
     except KeyError as error:
-        raise RecordNotFound(str(error)) from error
-    return await repository.get_fabrication_batch(batch_id)
+        raise RecordNotFound(*error.args) from error
+    try:
+        return await repository.get_fabrication_batch(batch_id)
+    except KeyError as error:
+        # The readback runs after the commit; a concurrent delete must not
+        # escape as an unhandled 500.
+        raise RecordNotFound(*error.args) from error

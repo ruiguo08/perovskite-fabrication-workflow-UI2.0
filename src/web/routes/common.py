@@ -23,7 +23,6 @@ from perovskite_bo import (
     MAX_SOLID_CHEMICALS,
     MAX_SOLVENTS,
     VCD_VALVES,
-    DepositionRecipe,
     ExperimentRecord,
     validate_deposition_process,
     validate_device_recipe,
@@ -144,21 +143,6 @@ _ALLOWED_RESULT_CONTENT_TYPES = frozenset(
         "text/plain",
     }
 )
-
-async def _condition_for_actor(
-    repository: WebRepository,
-    condition_id: int,
-    auth_context: AuthContext,
-) -> Any:
-    try:
-        condition = await repository.get_condition(condition_id)
-    except KeyError as error:
-        raise HTTPException(status_code=404, detail=str(error)) from error
-    await _get_record_or_404(
-        repository, condition.experiment_id, auth_context
-    )
-    return condition
-
 
 async def _batch_for_actor_or_404(
     repository: WebRepository,
@@ -436,32 +420,6 @@ def _baseline_values(
     )
     return name, normalized, deposition_process
 
-
-async def _create_experiment(
-    repository: WebRepository,
-    recipe_values: dict[str, Any],
-    *,
-    campaign_id: str | None,
-    source_baseline_version_id: int | None,
-    condition_plans: list[dict[str, Any]] | None = None,
-    actor_user_id: int,
-    client_ip: str | None,
-) -> ExperimentRecord:
-    complete_values = dict(recipe_values)
-    if complete_values.get("device_recipe") is None:
-        raise ValueError(
-            "a complete device_recipe is required; baselines and presets must be "
-            "expanded before an experiment is saved"
-        )
-    recipe = DepositionRecipe.from_mapping(complete_values)
-    return await repository.add_experiment(
-        recipe,
-        campaign_id=campaign_id,
-        source_baseline_version_id=source_baseline_version_id,
-        condition_plans=condition_plans,
-        actor_user_id=actor_user_id,
-        client_ip=client_ip,
-    )
 
 
 async def _read_result_file(result_file: UploadFile) -> bytes:
@@ -769,7 +727,7 @@ __all__ = [
     "MAX_SOLID_CHEMICALS",
     "MAX_SOLVENTS",
     "VCD_VALVES",
-    "DepositionRecipe",
+
     "ExperimentRecord",
     "validate_deposition_process",
     "validate_device_recipe",
@@ -868,7 +826,7 @@ __all__ = [
     "MAX_RESULT_FILE_BYTES",
     "_RESULT_READ_CHUNK_BYTES",
     "_ALLOWED_RESULT_CONTENT_TYPES",
-    "_condition_for_actor",
+
     "_batch_for_actor_or_404",
     "_result_for_actor_or_404",
     "_result_detail_response",
@@ -881,7 +839,6 @@ __all__ = [
     "_campaign_response",
     "_control_only_baseline_recipe",
     "_baseline_values",
-    "_create_experiment",
     "_read_result_file",
     "validate_result_upload_metadata",
     "_batch_result_groups",

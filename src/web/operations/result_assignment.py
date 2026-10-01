@@ -76,7 +76,7 @@ async def save_result_analysis(
     try:
         result = await repository.get_result(file_id)
     except KeyError as error:
-        raise RecordNotFound(str(error)) from error
+        raise RecordNotFound(*error.args) from error
     if actor_role is not None:
         owner_scope = actor_user_id if actor_role == UserRole.STUDENT else None
         try:
@@ -84,7 +84,7 @@ async def save_result_analysis(
                 int(result["experiment_id"]), owner_user_id=owner_scope
             )
         except KeyError as error:
-            raise RecordNotFound(str(error)) from error
+            raise RecordNotFound(*error.args) from error
 
     # --- Input validation (messages preserved from the historical route) --
     submitted_ids = [item.analysis_substrate_id for item in assignments]
@@ -160,4 +160,9 @@ async def save_result_analysis(
             )
     except (KeyError, TypeError, ValueError) as error:
         raise InvalidInput(str(error)) from error
-    return await repository.get_result(file_id)
+    try:
+        return await repository.get_result(file_id)
+    except KeyError as error:
+        # The readback runs after the commit; a concurrent delete must not
+        # escape as an unhandled 500.
+        raise RecordNotFound(*error.args) from error

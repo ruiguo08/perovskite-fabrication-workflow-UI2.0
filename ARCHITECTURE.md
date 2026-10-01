@@ -15,7 +15,8 @@ React browser app (frontend/src)
   ↓ HTTP/JSON
 FastAPI routes (src/web/routes)
   ↓ selected state-changing use cases
-Application operations (batch lifecycle and result assignment);
+Application operations (batch lifecycle, result assignment,
+conditions/substrate exceptions, and experiment creation);
 other routes call repository methods directly
   ↓
 Async SQLAlchemy repository
@@ -29,8 +30,8 @@ Result routes also use the J-V CSV parser and publication-figure renderer. Read-
 
 The web package is layered so that authorization, validation, transactions,
 and audit cannot be forgotten when a workflow changes. The diagram is the
-**target** architecture for operations-covered flows; the ledger below states exactly how much
-of it is realized today:
+**target** architecture for operations-covered flows; the ledger below states
+exactly how much of it is realized today:
 
 ~~~
 HTTP routes (web/routes/<domain>.py)
@@ -57,11 +58,17 @@ invariants made it pay first:
   completion, which records actual substrate counts, shortfall deviations,
   and materialized substrates atomically);
 - ``operations/result_assignment.py`` — substrate-to-condition assignment and
-  device exclusions (including experiment completion in the same transaction).
+  device exclusions (including experiment completion in the same transaction);
+- ``operations/conditions.py`` — condition create/update/delete, plan-status
+  transitions, and substrate-exception requests and decisions (role-scoped
+  existence and ownership pre-checks, validation-first delegates, and six
+  connection-level ``apply_*`` functions);
+- ``operations/experiment_creation.py`` — experiment creation (campaign-state
+  authorization, recipe validation, series allocation, and condition
+  materialization in one transaction).
 
-The remaining state-changing domain CRUD (conditions, plan status, substrate
-exceptions, campaigns, materials and supplier products, layer presets,
-baselines, device layouts, solution preparations, process executions,
+The remaining state-changing domain CRUD (campaigns, materials and supplier
+products, layer presets, baselines, device layouts, solution preparations, process executions,
 deviations) stays in ``WebRepository`` methods that open their own
 transaction and raise ``PermissionError``/``ValueError``/``KeyError`` for
 the routes to map onto 403/400/404. This is the **accepted steady state**
@@ -81,10 +88,10 @@ the operation's role.
 
 Rules enforced by ``tests/test_layering.py``:
 
-- ``web.repository`` never imports ``web.operations`` at module level. The two
-  deprecated repository methods (``update_result_analysis_and_complete``,
-  ``update_fabrication_batch_status``) are documented delegates that call the
-  operations lazily inside their bodies for backwards compatibility.
+- ``web.repository`` never imports ``web.operations`` at module level. The nine
+  deprecated delegates (six condition methods, experiment creation, batch
+  status update, and result assignment) are allowlisted and call operations
+  lazily inside their bodies for backwards compatibility.
 - ``web.services`` never imports ``web.repository``; shared low-level
   functionality (audit-event persistence) lives in ``web.audit_trail``, which
   depends only on the database metadata.
@@ -93,7 +100,8 @@ Rules enforced by ``tests/test_layering.py``:
   typed errors from ``web.operations.errors``
   (``RecordNotFound``, ``AccessDenied``, ``InvalidInput``, ``StateConflict``).
   ``InvalidInput`` subclasses ``ValueError`` and ``AccessDenied`` subclasses
-  ``PermissionError`` so historical exception contracts keep working.
+  ``PermissionError``; ``RecordNotFound`` subclasses ``KeyError`` so historical
+  exception contracts keep working.
 - ``perovskite_bo`` never imports ``web``.
 - The scan walks every ``.py`` file under each layer package, including
   subpackages added later.

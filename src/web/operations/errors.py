@@ -14,9 +14,14 @@ class OperationError(Exception):
     """Base class for expected business failures inside an operation."""
 
 
-class RecordNotFound(OperationError):
+class RecordNotFound(OperationError, KeyError):
     """The referenced record does not exist, or the caller must not learn
-    whether it exists (ownership isolation reports the same error)."""
+    whether it exists (ownership isolation reports the same error).
+
+    Also subclasses :class:`KeyError` so handlers and delegates that
+    historically caught the repository's raw ``KeyError("unknown ... id")``
+    keep working while the codebase migrates to the typed errors.
+    """
 
 
 class AccessDenied(OperationError, PermissionError):

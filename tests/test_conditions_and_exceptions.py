@@ -219,6 +219,69 @@ class ConditionRepositoryTests(unittest.TestCase):
             with self.subTest(write=write):
                 self.assertEqual(asyncio.run(scenario(write)), wanted)
 
+    def test_delegate_reports_input_validation_before_record_lookup(self) -> None:
+        """Historical delegate contract: on the no-role path, input
+        validation precedes any record lookup — an unknown condition id must
+        not shadow the blank-name ValueError (regression for the operations
+        migration, which briefly pre-read the condition unconditionally)."""
+
+        import asyncio
+
+        with self.assertRaisesRegex(ValueError, "condition name must not be blank"):
+            asyncio.run(self.repository.update_condition(
+                99999,
+                condition_name="",
+                recipe_snapshot={},
+                source_baseline_version_id=None,
+                device_layout_code="15x15_dual_005",
+                planned_substrate_count=2,
+                actor_user_id=None,
+            ))
+
+    def test_update_readback_failure_maps_to_record_not_found_after_commit(self) -> None:
+        """A concurrent delete between the committed update and the response
+        readback surfaces as RecordNotFound (the historical route mapped the
+        raw KeyError to 404) — and the committed update stands."""
+
+        import asyncio
+
+        from web.operations.conditions import update_condition
+        from web.operations.errors import RecordNotFound
+
+        class _ConcurrentlyDeleted:
+            """Everything delegates to the real repository except the
+            post-commit condition readback, which simulates a concurrent
+            delete winning the race."""
+
+            def __init__(self, inner):
+                self._inner = inner
+                self.database = inner.database
+
+            def __getattr__(self, name):
+                return getattr(self._inner, name)
+
+            async def get_condition(self, condition_id):
+                raise KeyError(f"unknown condition id: {condition_id}")
+
+        wrapper = _ConcurrentlyDeleted(self.repository)
+        experiment_id = asyncio.run(self._create_fresh_experiment())
+        condition_id = asyncio.run(
+            self.repository.list_conditions_for_experiment(experiment_id)
+        )[0].id
+        with self.assertRaises(RecordNotFound):
+            asyncio.run(update_condition(
+                wrapper,
+                condition_id,
+                condition_name="Renamed before concurrent delete",
+                recipe_snapshot=_condition_snapshot(),
+                source_baseline_version_id=None,
+                device_layout_code="15x15_dual_005",
+                planned_substrate_count=2,
+                actor_user_id=1,
+            ))
+        updated = asyncio.run(self.repository.get_condition(condition_id))
+        self.assertEqual(updated.condition_name, "Renamed before concurrent delete")
+
     def test_condition_create_resets_approved_plan_to_draft(self) -> None:
         """A new condition on an APPROVED plan must return it to draft: the
         condition has not been reviewed by an instructor, so keeping
