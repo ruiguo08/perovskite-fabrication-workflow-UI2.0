@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from typing import Any, Iterable, Mapping
-from sqlalchemy.exc import IntegrityError
+
 from sqlalchemy import insert, select, update
+from sqlalchemy.exc import IntegrityError
 
 from ..database import CAMPAIGN_CODE_MAX_LENGTH, campaigns
 from .helpers import (
@@ -16,6 +17,7 @@ from .helpers import (
     _utc_now,
 )
 from .records import CampaignRecord, CampaignStatus
+
 
 def _campaign_record(row: Mapping[str, Any]) -> CampaignRecord:
     return CampaignRecord(

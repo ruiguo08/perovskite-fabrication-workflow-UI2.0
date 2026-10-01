@@ -28,13 +28,11 @@ from perovskite_bo import (
     VCD_VALVES,
     deposition_recipe_from_process,
 )
+from tests.layout_fixtures import seed_standard_layouts
+from tests.test_jv_parser import channel_labeled_csv, multi_device_csv
+from tests.test_web_app import complete_guided_setup
 from web import create_app
 from web.repository import ExecutionStatus, PreparationStatus, UserRole
-
-from tests.test_jv_parser import channel_labeled_csv, multi_device_csv
-from tests.layout_fixtures import seed_standard_layouts
-from tests.test_web_app import complete_guided_setup
-
 
 ADMIN_USERNAME = "phase3-admin"
 ADMIN_PASSWORD = "Phase 3 administrator password 2026"
@@ -1513,7 +1511,6 @@ class Phase3ApiTests(unittest.TestCase):
         directly, independent of Pydantic response-model filtering.
         """
 
-        from web.database import result_files
         from web.repository import _result_summary_statement
 
         statement = _result_summary_statement(owner_user_id=None)

@@ -15,13 +15,11 @@ from perovskite_bo import (
     deposition_recipe_from_process,
     validate_deposition_process,
 )
+from tests.layout_fixtures import seed_standard_layouts
 from tests.recipe_fixtures import FACTORY_LAYER_PRESETS as LAYER_PRESETS
+from tests.test_web_app import complete_guided_setup
 from web import create_app
 from web.repository import UserRole
-
-from tests.layout_fixtures import seed_standard_layouts
-from tests.test_web_app import complete_guided_setup
-
 
 ADMIN_USERNAME = "phase2-admin"
 ADMIN_PASSWORD = "Phase 2 administrator password 2026"

@@ -9,11 +9,11 @@ from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request, status
 from fastapi.exception_handlers import http_exception_handler
+from fastapi.responses import JSONResponse
+
 # FastAPI registers its default 400-for-anything handler under the
 # *Starlette* HTTPException key, so overriding it requires that exact class.
 from starlette.exceptions import HTTPException
-from fastapi.responses import JSONResponse
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import Response

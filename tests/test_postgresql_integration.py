@@ -11,14 +11,16 @@ from sqlalchemy import func, insert, select, text, update
 from sqlalchemy.exc import IntegrityError
 
 from perovskite_bo import DepositionRecipe, deposition_recipe_from_process
+from tests.layout_fixtures import seed_standard_layouts_async
 from tests.recipe_fixtures import FACTORY_LAYER_PRESETS as LAYER_PRESETS
+from tests.test_web_app import complete_guided_setup
 from web import create_app
 from web.auth import hash_password, normalize_username
 from web.database import (
     Database,
-    catalog_seed_versions,
     audit_events,
     baselines,
+    catalog_seed_versions,
     execution_deviations,
     experiment_conditions,
     experiments,
@@ -44,10 +46,6 @@ from web.repository import (
 )
 
 
-from tests.layout_fixtures import seed_standard_layouts_async
-from tests.test_web_app import complete_guided_setup
-
-
 @unittest.skipUnless(
     os.environ.get("PEROVSKITE_TEST_POSTGRESQL_URL"),
     "set PEROVSKITE_TEST_POSTGRESQL_URL to run PostgreSQL integration tests",
@@ -69,7 +67,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 # With no factory catalog, the instructor authors the first
                 # shared preset themselves.
                 layer = deepcopy(LAYER_PRESETS["sam_spin_v1"]["layer"])
-                seeded_shared = await repository.create_layer_preset(
+                await repository.create_layer_preset(
                     name=f"PostgreSQL shared catalog {suffix}",
                     layer=layer,
                     deposition_process=None,
@@ -336,7 +334,6 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             VCD_VALVES,
             deposition_recipe_from_process,
         )
-
         from web.database import result_files
 
         database = Database(os.environ["PEROVSKITE_TEST_POSTGRESQL_URL"])
@@ -751,9 +748,6 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         that escaped validation, and a validated edit cannot be silently
         overwritten by a racing status transition."""
 
-        from tests.test_fabrication_batches import (
-            _create_released_experiment_with_conditions,
-        )
 
         url = os.environ["PEROVSKITE_TEST_POSTGRESQL_URL"]
 
@@ -1020,8 +1014,8 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         commits first or is rejected — it can never downgrade a released
         plan back to draft."""
 
-        from web.repository import ConditionRole
         from web.condition_snapshot import build_condition_snapshot
+        from web.repository import ConditionRole
 
         url = os.environ["PEROVSKITE_TEST_POSTGRESQL_URL"]
         suffix = uuid4().hex[:12]
@@ -1186,11 +1180,14 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
 
         from alembic import command
         from alembic.config import Config as AlembicConfig
+
         from tests.test_fabrication_batches import (
             _create_released_experiment_with_conditions,
         )
         from web.database import (
             result_device_assignments as rda_table,
+        )
+        from web.database import (
             result_files as result_files_table,
         )
 
@@ -1423,12 +1420,17 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
 
         from alembic import command
         from alembic.config import Config
+
         from tests.test_fabrication_batches import (
             _create_released_experiment_with_conditions,
         )
         from web.database import (
             fabrication_batch_conditions as batch_conditions_table,
+        )
+        from web.database import (
             fabrication_devices,
+        )
+        from web.database import (
             result_files as result_files_table,
         )
 

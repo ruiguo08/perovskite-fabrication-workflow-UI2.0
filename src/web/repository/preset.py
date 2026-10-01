@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
+import json
+from copy import deepcopy
+from typing import Any, Mapping
+
+from sqlalchemy import and_, func, insert, or_, select, update
+
 from perovskite_bo.device_recipe import (
     DeviceLayer,
     PerovskiteDepositionProcess,
     validate_deposition_process,
 )
-
-from typing import Any, Mapping
-from sqlalchemy import and_, func, insert, or_, select, update
-from copy import deepcopy
 
 from ..database import (
     LAYER_PRESET_NAME_MAX_LENGTH,
@@ -19,10 +21,8 @@ from ..database import (
     layer_presets,
 )
 from .helpers import _actor_role, _add_audit_event, _as_utc, _canonical_hash, _inserted_id, _utc_now
-from .records import ROLE_RANK
-from .records import UserRole
+from .records import ROLE_RANK, UserRole
 
-import json
 
 def _layer_preset_record(row: Mapping[str, Any]) -> dict[str, Any]:
     snapshot = row["preset_snapshot"]

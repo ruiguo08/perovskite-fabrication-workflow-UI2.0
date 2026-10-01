@@ -8,17 +8,17 @@ record types live in :mod:`.records`, cross-domain SQL helpers in
 
 from __future__ import annotations
 
-from .experiment import ExperimentsMixin
-from .baseline import BaselinesMixin
-from .preset import LayerPresetsMixin
-from .material import MaterialsMixin
-from .result import ResultsMixin
-from .identity import UsersMixin
 from .admin import AdminMixin
+from .base import WebRepositoryBase
+from .baseline import BaselinesMixin
+from .batch import FabricationBatchesMixin
 from .campaign import CampaignsMixin
 from .condition import ConditionsMixin
-from .batch import FabricationBatchesMixin
-from .base import WebRepositoryBase
+from .experiment import ExperimentsMixin
+from .identity import UsersMixin
+from .material import MaterialsMixin
+from .preset import LayerPresetsMixin
+from .result import ResultsMixin
 
 
 class WebRepository(

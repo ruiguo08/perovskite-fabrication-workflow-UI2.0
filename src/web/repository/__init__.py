@@ -15,12 +15,11 @@ from __future__ import annotations
 # helpers now live beside their domain mixin; only cross-domain ones remain
 # in :mod:`.helpers`.
 from ..database import experiment_conditions, experiments
-from .helpers import _add_audit_event
 from .baseline import _baseline_record, _baseline_statement
-from .preset import _layer_preset_record, _layer_preset_statement
-from .material import _material_record
-from .result import _result_summary_statement
 from .batch import _batch_status_transitions
+from .helpers import _add_audit_event
+from .material import _material_record
+from .preset import _layer_preset_record, _layer_preset_statement
 from .records import (
     DEVIATION_TYPES,
     MATERIAL_CATEGORIES,
@@ -51,6 +50,7 @@ from .records import (
     UserRole,
 )
 from .repository import WebRepository
+from .result import _result_summary_statement
 
 __all__ = [
     "DEVIATION_TYPES",

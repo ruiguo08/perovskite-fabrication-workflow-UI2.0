@@ -125,7 +125,7 @@ class Phase4RedirectTests(unittest.TestCase):
         self.assertEqual(response.status_code, 303)
         location = response.headers["location"]
         self.assertIn("/app/login", location)
-        from urllib.parse import urlparse, parse_qs
+        from urllib.parse import parse_qs, urlparse
         params = parse_qs(urlparse(location).query)
         self.assertIn("next", params)
         self.assertEqual(params["next"][0], "/experiments")
@@ -150,7 +150,7 @@ class Phase4RedirectTests(unittest.TestCase):
         self.assertEqual(response.status_code, 303)
         location = response.headers["location"]
         self.assertIn("/app/login", location)
-        from urllib.parse import urlparse, parse_qs
+        from urllib.parse import parse_qs, urlparse
         parsed = urlparse(location)
         params = parse_qs(parsed.query)
         self.assertIn("next", params)

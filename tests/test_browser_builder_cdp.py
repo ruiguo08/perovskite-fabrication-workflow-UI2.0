@@ -13,9 +13,9 @@ persistence/detail step does not occur.
 """
 
 from __future__ import annotations
-import os
 
 import json
+import os
 import re
 import socket
 import subprocess
@@ -28,17 +28,15 @@ from pathlib import Path
 import uvicorn
 from fastapi.testclient import TestClient
 
-from web import create_app
-from web.repository import UserRole
-
 from tests.cdp_driver import (
     click_center,
     evaluate,
-    get_cookies,
     launch_chrome_with_viewport,
     wait_for_expression,
 )
 from tests.test_browser_builder import chrome_path
+from web import create_app
+from web.repository import UserRole
 
 ADMIN_USERNAME = "builder-cdp-admin"
 ADMIN_PASSWORD = "Builder CDP admin password 2026!"
@@ -253,7 +251,6 @@ class BuilderCdpBrowserTests(unittest.TestCase):
             # specific layer/chemical we intend to edit. Scope to the layer name
             # and chemical to avoid editing an unrelated layer's weight.
             layer_name = self.edit_layer_name
-            chemical_name = self.edit_chemical
             original_weight = evaluate(
                 session,
                 f"(function(){{"

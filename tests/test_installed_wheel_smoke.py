@@ -43,6 +43,7 @@ sys.path.insert(0, str(REPO_ROOT / "tests"))
 from test_web_app import (  # noqa: E402  (import order guarded below)
     complete_guided_setup,
 )
+
 from perovskite_bo import deposition_recipe_from_process  # noqa: E402
 
 ADMIN_USERNAME = "wheel-smoke-admin"

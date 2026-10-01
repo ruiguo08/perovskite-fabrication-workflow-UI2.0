@@ -13,8 +13,8 @@ Create Date: 2026-08-16
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision = "0012_baseline_scope_owner"
 down_revision = "0011_device_layout_versions"
