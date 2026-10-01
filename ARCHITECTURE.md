@@ -14,8 +14,10 @@ Optimization code remains available as an optional future consumer of the stored
 React browser app (frontend/src)
   ↓ HTTP/JSON
 FastAPI routes (src/web/routes)
-  ↓ state-changing use cases
-Application operations and canonical recipe validation
+  ↓ selected state-changing use cases
+Application operations (batch lifecycle, result assignment,
+conditions/substrate exceptions, and experiment creation);
+other routes call repository methods directly
   ↓
 Async SQLAlchemy repository
   ↓
@@ -27,7 +29,9 @@ Result routes also use the J-V CSV parser and publication-figure renderer. Read-
 ## Module Responsibilities (application-operations layering)
 
 The web package is layered so that authorization, validation, transactions,
-and audit cannot be forgotten when a workflow changes:
+and audit cannot be forgotten when a workflow changes. The diagram is the
+**target** architecture for operations-covered flows; the ledger below states
+exactly how much of it is realized today:
 
 ~~~
 HTTP routes (web/routes/<domain>.py)
@@ -35,38 +39,80 @@ HTTP routes (web/routes/<domain>.py)
   maps typed OperationError failures onto status codes
   ↓
 Application operations (web/operations/)
-  one function per state-changing use case; owns authorization, input and
-  domain validation, the transaction boundary, and the audit record
+  selected state-changing use cases; owns authorization, validation, the
+  transaction boundary, and the audit record for those use cases
   ↓
 Connection-level data functions (web/repository/*.py, web/audit_trail.py)
-  queries, row locks, and writes; every function receives the operation's
-  connection and never opens its own transaction
+  queries, row locks, and writes; connection-level functions receive the
+  operation's connection, while repository-owned mutations open transactions
   ↓
 web.database (schema) / PostgreSQL
 ~~~
 
+### Layering policy for legacy domain CRUD (decided 2026-10)
+
+The operations layer is realized for the use cases where multi-entity
+invariants made it pay first:
+
+- ``operations/batch_lifecycle.py`` — batch status transitions (including
+  completion, which records actual substrate counts, shortfall deviations,
+  and materialized substrates atomically);
+- ``operations/result_assignment.py`` — substrate-to-condition assignment and
+  device exclusions (including experiment completion in the same transaction);
+- ``operations/conditions.py`` — condition create/update/delete, plan-status
+  transitions, and substrate-exception requests and decisions (role-scoped
+  existence and ownership pre-checks, validation-first delegates, and six
+  connection-level ``apply_*`` functions);
+- ``operations/experiment_creation.py`` — experiment creation (campaign-state
+  authorization, recipe validation, series allocation, and condition
+  materialization in one transaction).
+
+The remaining state-changing domain CRUD (campaigns, materials and supplier
+products, layer presets, baselines, device layouts, solution preparations, process executions,
+deviations) stays in ``WebRepository`` methods that open their own
+transaction and raise ``PermissionError``/``ValueError``/``KeyError`` for
+the routes to map onto 403/400/404. This is the **accepted steady state**
+for those single-entity endpoints, not deferred migration debt. Their four
+responsibilities are distributed, not co-located: route-level pre-checks
+(existence plus ownership isolation, role dependencies) run before the
+repository method, input validation typically runs inside or just before
+the repository method's transaction, and the transaction and audit record
+live in the method itself — the layering tests pin that import direction.
+
+The operations requirement is therefore **forward-looking**: every new
+state-changing use case must be implemented as an application operation, and
+any legacy flow that grows cross-entity invariants moves to the operations
+layer at that point. Until then, the diagram above reads routes →
+repository for the legacy endpoints, with the repository method playing
+the operation's role.
+
 Rules enforced by ``tests/test_layering.py``:
 
-- ``web.repository`` never imports ``web.operations`` at module level. The two
-  deprecated repository methods (``update_result_analysis_and_complete``,
-  ``update_fabrication_batch_status``) are documented delegates that call the
-  operations lazily inside their bodies for backwards compatibility.
+- ``web.repository`` never imports ``web.operations`` at module level. The nine
+  deprecated delegates (six condition methods, experiment creation, batch
+  status update, and result assignment) are allowlisted and call operations
+  lazily inside their bodies for backwards compatibility.
 - ``web.services`` never imports ``web.repository``; shared low-level
   functionality (audit-event persistence) lives in ``web.audit_trail``, which
   depends only on the database metadata.
 - Application operations never raise HTTP exceptions and never import the
-  routes; they raise the typed errors from ``web.operations.errors``
+  routes (checked at any import depth, not only module level); they raise the
+  typed errors from ``web.operations.errors``
   (``RecordNotFound``, ``AccessDenied``, ``InvalidInput``, ``StateConflict``).
   ``InvalidInput`` subclasses ``ValueError`` and ``AccessDenied`` subclasses
-  ``PermissionError`` so historical exception contracts keep working.
+  ``PermissionError``; ``RecordNotFound`` subclasses ``KeyError`` so historical
+  exception contracts keep working.
 - ``perovskite_bo`` never imports ``web``.
+- The scan walks every ``.py`` file under each layer package, including
+  subpackages added later.
 
 ### Transaction and error boundaries
 
-Each application operation opens exactly one transaction and passes that
-connection to every data function, so authorization, state checks, locks,
-writes, and the audit record commit or roll back together. Multi-row locks
-follow the documented order (experiment -> batch -> result file). The routes
+Each application operation opens one transaction and passes its connection
+to the relevant data functions. Repository-owned mutations open their own
+transactions. Batch execution edits lock the experiment, then parent batch, before individual
+preparation or execution rows; bulk edits lock children by ascending ID.
+Result assignment locks experiment -> batch -> result file. The routes
 map typed errors as: ``RecordNotFound`` -> 404, ``AccessDenied`` -> 403,
 ``InvalidInput`` -> 400, ``StateConflict`` -> 409; message texts pass through
 unchanged, and unexpected exceptions keep normal 500 handling. Ownership
@@ -286,12 +332,14 @@ Persist raw bytes, analysis, uploader, and digest in result_files
   ↓
 Assign every parsed substrate to a frozen batch condition
   ↓
-Save assignments and device exclusions with an audit record
+Save substrate assignments; later corrections require a reason and audit the old/new mapping
+  ↓
+Save manual device exclusions with audited reasons; apply automatic thresholds only for the current analysis view
   ↓
 Calculate directional group statistics and render J-V, distribution, and uniformity figures
 ~~~
 
-The upload does not complete the experiment automatically. Statistics and substrate uniformity require complete substrate assignments; J-V curves remain available before that step. Device exclusions affect the filtered statistics, distributions, and uniformity view, while all parsed J-V traces remain available. See [Result analysis](docs/result-analysis.md) for the exact analysis scope and metric selection rules.
+The upload does not complete the experiment automatically. Statistics and substrate uniformity require complete substrate assignments; J-V curves remain available before that step. Forward and reverse scans have separate group statistics. Manual exclusions persist; automatic threshold matches are temporary analysis filters. Both affect the filtered statistics, distributions, and uniformity view, while all parsed J-V traces remain available. See [Result analysis](docs/result-analysis.md) for the exact analysis scope and metric selection rules.
 
 ## Design Constraints
 
@@ -320,5 +368,8 @@ The upload does not complete the experiment automatically. Statistics and substr
 
 - structured result export;
 - instrument-specific parsers;
-- optional analytical and Bayesian-optimization consumers;
+- optional analytical and Bayesian-optimization consumers — the BO search
+  space and its snapshot mapping are per-campaign configuration data
+  (`perovskite_bo.bo_config`), so additional campaigns are new data rows,
+  not code changes;
 - broader browser-level end-to-end coverage.

@@ -6,6 +6,10 @@ measured per-device J-V metrics. This adapter maps a condition onto the shared
 BO search space (:func:`default_search_space`) and aggregates the device
 metrics into a ``(X, y)`` training row per condition.
 
+The search space itself, its mapping onto stored snapshots, and the campaign
+it belongs to are configuration data (:mod:`perovskite_bo.bo_config`), not
+code: this module only interprets the configuration.
+
 ``web`` imports ``perovskite_bo`` and never the reverse, so this module only uses
 the core package and stdlib. Callers fetch raw rows from the web database and hand
 them in; nothing here fabricates missing values.
@@ -16,46 +20,33 @@ from __future__ import annotations
 from statistics import fmean, median
 from typing import Any, Mapping, Sequence
 
+from .bo_config import BO_CONFIGS, DEFAULT_CAMPAIGN_ID
 from .search_space import (
-    ChoiceParameter,
-    IntegerParameter,
     SearchSpace,
+    search_space_from_spec,
 )
 
-DEFAULT_WEB_CAMPAIGN_ID = "usual_v1"
+DEFAULT_WEB_CAMPAIGN_ID = DEFAULT_CAMPAIGN_ID
+
+
+def search_space_for_campaign(campaign_id: str = DEFAULT_WEB_CAMPAIGN_ID) -> SearchSpace:
+    """Return the BO search space configured for one campaign."""
+
+    try:
+        config = BO_CONFIGS[campaign_id]
+    except KeyError as error:
+        raise ValueError(f"no BO configuration for campaign {campaign_id!r}") from error
+    return search_space_from_spec(config["parameters"])
 
 
 def default_search_space() -> SearchSpace:
-    """Return the deposition-only Bayesian search space.
+    """Return the seed campaign's deposition-only Bayesian search space.
 
     VCD pressure uses integer Pa so laboratory setpoints such as 150 Pa are
     representable without duplicating a differently scaled mbar field.
     """
 
-    return SearchSpace(
-        [
-            IntegerParameter("spin_cast_rpm", 500, 1_000),
-            IntegerParameter("spin_cast_seconds", 60, 60),
-            IntegerParameter("spin_cast_acceleration_rpm_per_s", 100, 1_000),
-            IntegerParameter("spin_spread_rpm", 1_000, 3_000),
-            IntegerParameter("spin_spread_seconds", 5, 20),
-            IntegerParameter("spin_spread_acceleration_rpm_per_s", 100, 2_000),
-            IntegerParameter("spin_thin_rpm", 3_000, 6_000),
-            IntegerParameter("spin_thin_seconds", 10, 40),
-            IntegerParameter("spin_thin_acceleration_rpm_per_s", 100, 3_000),
-            ChoiceParameter("vcd_stage1_valve", ["VV02", "VV03", "VV06"]),
-            IntegerParameter("vcd_stage1_pressure_pa", 1, 1_000),
-            IntegerParameter("vcd_stage1_seconds", 5, 60),
-            ChoiceParameter("vcd_stage2_valve", ["VV02", "VV03", "VV06"]),
-            IntegerParameter("vcd_stage2_pressure_pa", 1, 1_000),
-            IntegerParameter("vcd_stage2_seconds", 5, 60),
-            ChoiceParameter("vcd_stage3_valve", ["VV02", "VV03", "VV06"]),
-            IntegerParameter("vcd_stage3_pressure_pa", 1, 1_000),
-            IntegerParameter("vcd_stage3_seconds", 5, 60),
-            IntegerParameter("anneal_stage1_temperature_c", 90, 150),
-            IntegerParameter("anneal_stage1_seconds", 300, 1_800),
-        ]
-    )
+    return search_space_for_campaign()
 
 
 def bo_parameter_names() -> frozenset[str]:
@@ -64,29 +55,11 @@ def bo_parameter_names() -> frozenset[str]:
     return frozenset(parameter.name for parameter in default_search_space().parameters)
 
 # (search-space name, process container, step index, process field name).
-# Mirrors default_search_space(): a 3-step spin coat, a 3-stage VCD, and a
-# 2-step anneal (only the first anneal step is tuned).
-_FEATURE_SPECS: tuple[tuple[str, str, int, str], ...] = (
-    ("spin_cast_rpm", "spin_steps", 0, "rpm"),
-    ("spin_cast_seconds", "spin_steps", 0, "seconds"),
-    ("spin_cast_acceleration_rpm_per_s", "spin_steps", 0, "acceleration_rpm_per_s"),
-    ("spin_spread_rpm", "spin_steps", 1, "rpm"),
-    ("spin_spread_seconds", "spin_steps", 1, "seconds"),
-    ("spin_spread_acceleration_rpm_per_s", "spin_steps", 1, "acceleration_rpm_per_s"),
-    ("spin_thin_rpm", "spin_steps", 2, "rpm"),
-    ("spin_thin_seconds", "spin_steps", 2, "seconds"),
-    ("spin_thin_acceleration_rpm_per_s", "spin_steps", 2, "acceleration_rpm_per_s"),
-    ("vcd_stage1_valve", "vcd_stages", 0, "valve"),
-    ("vcd_stage1_pressure_pa", "vcd_stages", 0, "pressure_pa"),
-    ("vcd_stage1_seconds", "vcd_stages", 0, "seconds"),
-    ("vcd_stage2_valve", "vcd_stages", 1, "valve"),
-    ("vcd_stage2_pressure_pa", "vcd_stages", 1, "pressure_pa"),
-    ("vcd_stage2_seconds", "vcd_stages", 1, "seconds"),
-    ("vcd_stage3_valve", "vcd_stages", 2, "valve"),
-    ("vcd_stage3_pressure_pa", "vcd_stages", 2, "pressure_pa"),
-    ("vcd_stage3_seconds", "vcd_stages", 2, "seconds"),
-    ("anneal_stage1_temperature_c", "anneal_steps", 0, "temperature_c"),
-    ("anneal_stage1_seconds", "anneal_steps", 0, "seconds"),
+# Derived from the seed campaign's feature mapping: a 3-step spin coat, a
+# 3-stage VCD, and a 2-step anneal (only the first anneal step is tuned).
+_FEATURE_SPECS: tuple[tuple[str, str, int, str], ...] = tuple(
+    (str(entry[0]), str(entry[1]), int(entry[2]), str(entry[3]))
+    for entry in BO_CONFIGS[DEFAULT_CAMPAIGN_ID]["feature_mapping"]
 )
 _PARAMETER_NAMES = tuple(spec[0] for spec in _FEATURE_SPECS)
 _METRIC_NAMES = ("voc", "jsc", "ff", "pce")
@@ -102,25 +75,43 @@ def search_space_parameter_names() -> tuple[str, ...]:
     return _PARAMETER_NAMES
 
 
+def _resolve_feature_mapping(
+    feature_mapping: Sequence[Sequence[Any]] | None,
+) -> tuple[tuple[str, str, int, str], ...]:
+    """Normalize a feature mapping (default: the seed campaign's mapping)."""
+
+    if feature_mapping is None:
+        return _FEATURE_SPECS
+    return tuple(
+        (str(entry[0]), str(entry[1]), int(entry[2]), str(entry[3]))
+        for entry in feature_mapping
+    )
+
+
 def extract_condition_features(
     recipe_snapshot: Mapping[str, Any] | None,
+    *,
+    feature_mapping: Sequence[Sequence[Any]] | None = None,
 ) -> dict[str, Any]:
     """Map a condition recipe snapshot onto the web BO search space.
 
     Returns one key per search-space parameter. A step that is absent from the
     stored recipe (e.g. a 2-spin recipe has no ``spin_thin_*``) maps to ``None``
     rather than an invented value; a present field is returned unchanged.
+    ``feature_mapping`` overrides the seed campaign's mapping (bo_config
+    shape: ``[parameter_name, process_container, step_index, field_name]``).
     """
 
+    specs = _resolve_feature_mapping(feature_mapping)
     process = (
         recipe_snapshot.get("deposition_process")
         if isinstance(recipe_snapshot, Mapping)
         else None
     )
     if not isinstance(process, Mapping):
-        return {name: None for name in _PARAMETER_NAMES}
+        return {name: None for name, *_rest in specs}
     features: dict[str, Any] = {}
-    for name, container_key, index, field in _FEATURE_SPECS:
+    for name, container_key, index, field in specs:
         container = process.get(container_key)
         if isinstance(container, Sequence) and not isinstance(container, (str, bytes)):
             step = container[index] if index < len(container) else None
@@ -159,6 +150,8 @@ def training_parameter_methods() -> dict[str, str]:
 
 def extract_actual_process_features(
     actual_snapshots_by_method: Mapping[str, Any],
+    *,
+    feature_mapping: Sequence[Sequence[Any]] | None = None,
 ) -> dict[str, Any] | None:
     """Map recorded *actual* perovskite process snapshots onto the search space.
 
@@ -169,6 +162,7 @@ def extract_actual_process_features(
     mirroring :func:`extract_condition_features`.
     """
 
+    specs = _resolve_feature_mapping(feature_mapping)
     combined: dict[str, Any] = {}
     for method, container_key in (
         ("spin_coating", "spin_steps"),
@@ -181,7 +175,7 @@ def extract_actual_process_features(
     if not combined:
         return None
     features: dict[str, Any] = {}
-    for name, container_key, index, field in _FEATURE_SPECS:
+    for name, container_key, index, field in specs:
         container = combined.get(container_key)
         if isinstance(container, Sequence) and not isinstance(container, (str, bytes)):
             step = container[index] if index < len(container) else None
