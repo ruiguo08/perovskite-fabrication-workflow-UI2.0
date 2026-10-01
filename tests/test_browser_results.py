@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import socket
 import subprocess
 import tempfile
@@ -30,7 +29,7 @@ from tests.cdp_driver import (
     wait_for_expression,
 )
 from tests.layout_fixtures import seed_standard_layouts
-from tests.test_browser_builder import chrome_path
+from tests.test_browser_builder import should_skip_browser_tests
 from web import create_app
 from web.repository import BatchStatus, ExecutionStatus, PreparationStatus, UserRole
 
@@ -67,7 +66,7 @@ def multi_device_csv(currents: list[float]) -> str:
     return "\n".join(",".join(row) for row in rows) + "\n"
 
 
-@unittest.skipIf(chrome_path() is None and not os.environ.get("CI"), "install Google Chrome to run browser tests")
+@unittest.skipIf(should_skip_browser_tests(), "browser tests opted out or Google Chrome is unavailable locally")
 class ResultBrowserTests(unittest.TestCase):
     """Verify the React result upload, assignment, and analysis flow at 320px."""
 

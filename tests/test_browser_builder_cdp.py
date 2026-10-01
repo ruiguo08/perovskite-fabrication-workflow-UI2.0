@@ -15,7 +15,6 @@ persistence/detail step does not occur.
 from __future__ import annotations
 
 import json
-import os
 import re
 import socket
 import subprocess
@@ -34,7 +33,7 @@ from tests.cdp_driver import (
     launch_chrome_with_viewport,
     wait_for_expression,
 )
-from tests.test_browser_builder import chrome_path
+from tests.test_browser_builder import should_skip_browser_tests
 from web import create_app
 from web.repository import UserRole
 
@@ -52,7 +51,7 @@ def _js_escape(value: object) -> str:
     return json.dumps(value)
 
 
-@unittest.skipIf(chrome_path() is None and not os.environ.get("CI"), "install Google Chrome to run browser tests")
+@unittest.skipIf(should_skip_browser_tests(), "browser tests opted out or Google Chrome is unavailable locally")
 class BuilderCdpBrowserTests(unittest.TestCase):
     """Verify the React experiment-builder end-to-end via genuine CDP."""
 
