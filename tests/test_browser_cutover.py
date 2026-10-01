@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import socket
 import subprocess
 import tempfile
@@ -31,7 +30,7 @@ from tests.cdp_driver import (
     wait_for_expression,
 )
 from tests.layout_fixtures import seed_standard_layouts
-from tests.test_browser_builder import chrome_path
+from tests.test_browser_builder import should_skip_browser_tests
 from web import create_app
 from web.repository import UserRole
 
@@ -53,7 +52,7 @@ def _js_escape(value: object) -> str:
     return json.dumps(value)
 
 
-@unittest.skipIf(chrome_path() is None and not os.environ.get("CI"), "install Google Chrome to run browser tests")
+@unittest.skipIf(should_skip_browser_tests(), "browser tests opted out or Google Chrome is unavailable locally")
 class CutoverBrowserTests(unittest.TestCase):
     """Verify canonical redirects, visible login, destination return, and 320px."""
 
