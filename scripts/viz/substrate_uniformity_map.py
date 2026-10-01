@@ -29,7 +29,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Rectangle
 
-ROOT = Path(__file__).resolve().parent
+# The scripts live in scripts/viz/; repo-root paths (docs/test-data)
+# stay stable relative to the repository, not the script location.
+ROOT = Path(__file__).resolve().parents[2]
 RAW = ROOT / "docs/test-data/20260916.csv"
 OUT = ROOT / "docs/test-data/viz-mockups"
 

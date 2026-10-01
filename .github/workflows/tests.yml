@@ -38,7 +38,7 @@ jobs:
       - run: uv run --no-sync python -m unittest discover -s tests -v
         env:
           # "1" is the only value that skips, so "0" intentionally keeps all
-          # five real-Chrome suites running in this job (Linux runners ship
+          # four real-Chrome test classes running in this job (Linux runners ship
           # Chrome); no other job re-runs them.
           PEROVSKITE_SKIP_BROWSER: "0"
 

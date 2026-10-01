@@ -21,7 +21,7 @@ def available_port() -> int:
 
 def chrome_path() -> Path | None:
     # CI matrix jobs can opt out of the (slow) real-browser suites with
-    # PEROVSKITE_SKIP_BROWSER=1; the frontend job still runs them on Linux.
+    # PEROVSKITE_SKIP_BROWSER=1; the Ubuntu unittest job runs them on Linux.
     if os.environ.get("PEROVSKITE_SKIP_BROWSER") == "1":
         return None
     return next((path for path in CHROME_PATHS if path.exists()), None)

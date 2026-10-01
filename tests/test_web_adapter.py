@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 import unittest
+from random import Random
 
+from perovskite_bo.bo_config import BO_CONFIGS, DEFAULT_CAMPAIGN_ID
+from perovskite_bo.device_recipe import VCD_VALVES
+from perovskite_bo.search_space import search_space_from_spec
 from perovskite_bo.web_adapter import (
     build_training_rows,
+    extract_actual_process_features,
     extract_condition_features,
     extract_result_metrics,
+    search_space_for_campaign,
     search_space_parameter_names,
     training_export_header,
 )
@@ -186,6 +192,110 @@ class WebAdapterTests(unittest.TestCase):
 
         unmeasured = build_training_rows(conditions, device_metrics_by_condition={})
         self.assertIsNone(unmeasured[0]["metrics"])
+
+
+class CampaignConfigTests(unittest.TestCase):
+    """The BO space is configuration data: a second campaign config must
+    drive the same search-space and extraction machinery without touching
+    web_adapter code."""
+
+    TINY_SPEC = [
+        {"name": "valve", "kind": "choice", "choices": ["A", "B"]},
+        {"name": "anneal_temperature_c", "kind": "int", "lower": 90, "upper": 150},
+    ]
+    TINY_MAPPING = [
+        ["valve", "vcd_stages", 0, "valve"],
+        ["anneal_temperature_c", "anneal_steps", 0, "temperature_c"],
+    ]
+
+    def test_seed_config_is_internally_consistent(self) -> None:
+        config = BO_CONFIGS[DEFAULT_CAMPAIGN_ID]
+        parameter_names = [entry["name"] for entry in config["parameters"]]
+        mapping_names = [entry[0] for entry in config["feature_mapping"]]
+        self.assertEqual(parameter_names, mapping_names)
+        self.assertEqual(len(set(parameter_names)), len(parameter_names))
+        space = search_space_for_campaign()
+        self.assertEqual([parameter.name for parameter in space.parameters], parameter_names)
+        self.assertEqual(list(search_space_parameter_names()), parameter_names)
+
+    def test_seed_valve_choices_stay_within_the_builder_vocabulary(self) -> None:
+        for entry in BO_CONFIGS[DEFAULT_CAMPAIGN_ID]["parameters"]:
+            if entry["name"].endswith("_valve"):
+                self.assertTrue(set(entry["choices"]).issubset(VCD_VALVES))
+
+    def test_alternative_campaign_config_drives_extraction(self) -> None:
+        space = search_space_from_spec(self.TINY_SPEC)
+        self.assertEqual(
+            [parameter.name for parameter in space.parameters],
+            ["valve", "anneal_temperature_c"],
+        )
+
+        features = extract_condition_features(
+            _snapshot(), feature_mapping=self.TINY_MAPPING
+        )
+        self.assertEqual(features, {"valve": "VV02", "anneal_temperature_c": 120})
+
+        actual = extract_actual_process_features(
+            {"annealing": {"anneal_steps": [{"temperature_c": 100, "seconds": 60}]}},
+            feature_mapping=self.TINY_MAPPING,
+        )
+        self.assertEqual(actual, {"valve": None, "anneal_temperature_c": 100})
+
+    def test_search_space_from_spec_rejects_malformed_entries(self) -> None:
+        with self.assertRaises(ValueError):
+            search_space_from_spec([{"name": "x", "kind": "bool"}])
+        with self.assertRaises(ValueError):
+            search_space_from_spec([{"name": "x", "kind": "int"}])
+        with self.assertRaises(ValueError):
+            search_space_from_spec([{"name": "x", "kind": "choice", "choices": []}])
+        with self.assertRaises(ValueError):
+            search_space_from_spec([{"name": "", "kind": "int", "lower": 0, "upper": 1}])
+
+    def test_int_spec_rejects_non_integer_bounds_at_construction(self) -> None:
+        # A float bound would make IntegerParameter.sample raise TypeError at
+        # sampling time; construction must reject it instead.
+        with self.assertRaises(ValueError):
+            search_space_from_spec(
+                [{"name": "x", "kind": "int", "lower": 0.5, "upper": 2.5}]
+            )
+        with self.assertRaises(ValueError):
+            search_space_from_spec(
+                [{"name": "x", "kind": "int", "lower": True, "upper": 2}]
+            )
+
+    def test_float_spec_rejects_nonfinite_bounds_at_construction(self) -> None:
+        with self.assertRaises(ValueError):
+            search_space_from_spec(
+                [{"name": "x", "kind": "float", "lower": float("nan"), "upper": 1.0}]
+            )
+        with self.assertRaises(ValueError):
+            search_space_from_spec(
+                [{"name": "x", "kind": "float", "lower": 0.0, "upper": float("inf")}]
+            )
+        with self.assertRaises(ValueError):
+            search_space_from_spec(
+                [{"name": "x", "kind": "float", "lower": False, "upper": 1.0}]
+            )
+
+    def test_spec_numeric_bounds_success_cases(self) -> None:
+        space = search_space_from_spec(
+            [
+                {"name": "i", "kind": "int", "lower": 1, "upper": 5},
+                {"name": "f", "kind": "float", "lower": 0.5, "upper": 2},
+                {"name": "c", "kind": "choice", "choices": ["a", "b"]},
+            ]
+        )
+        by_name = {parameter.name: parameter for parameter in space.parameters}
+        self.assertEqual((by_name["i"].lower, by_name["i"].upper), (1, 5))
+        self.assertEqual((by_name["f"].lower, by_name["f"].upper), (0.5, 2))
+        self.assertEqual(by_name["c"].choices, ["a", "b"])
+        values = space.sample(Random(7))
+        search_space = space
+        search_space.validate(values)
+
+    def test_unknown_campaign_raises_value_error(self) -> None:
+        with self.assertRaises(ValueError):
+            search_space_for_campaign("no_such_campaign")
 
 
 if __name__ == "__main__":
