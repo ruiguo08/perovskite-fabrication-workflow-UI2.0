@@ -47,9 +47,9 @@ Connection-level data functions (web/repository/*.py, web/audit_trail.py)
 web.database (schema) / PostgreSQL
 ~~~
 
-### Migration status (honest ledger, 2026-09)
+### Layering policy for legacy domain CRUD (decided 2026-10)
 
-The operations layer is realized today for the use cases where multi-entity
+The operations layer is realized for the use cases where multi-entity
 invariants made it pay first:
 
 - ``operations/batch_lifecycle.py`` — batch status transitions (including
@@ -61,14 +61,20 @@ invariants made it pay first:
 The remaining state-changing domain CRUD (conditions, plan status, substrate
 exceptions, campaigns, materials and supplier products, layer presets,
 baselines, device layouts, solution preparations, process executions,
-deviations) still lives in ``WebRepository`` methods that open their own
+deviations) stays in ``WebRepository`` methods that open their own
 transaction, perform the authorization and validation inside it, and raise
 ``PermissionError``/``ValueError``/``KeyError`` for the routes to map onto
-403/400/404. That style is **transitional, not an invitation**: new
-state-changing use cases must be implemented as application operations, and
-existing ones migrate domain by domain (start with the flows that carry
-lifecycle invariants across entities). Until a domain migrates, the diagram
-above reads routes → repository for it, with the repository method playing
+403/400/404. This is the **accepted steady state** for those single-entity
+endpoints, not deferred migration debt: they carry no cross-entity
+invariants, their four responsibilities (authorization, validation,
+transaction, audit) live inside one repository method where review can see
+them together, and the layering tests pin their import direction.
+
+The operations requirement is therefore **forward-looking**: every new
+state-changing use case must be implemented as an application operation, and
+any legacy flow that grows cross-entity invariants moves to the operations
+layer at that point. Until then, the diagram above reads routes →
+repository for the legacy endpoints, with the repository method playing
 the operation's role.
 
 Rules enforced by ``tests/test_layering.py``:
