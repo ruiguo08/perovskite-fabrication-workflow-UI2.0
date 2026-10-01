@@ -3,8 +3,8 @@ import hashlib
 import sqlite3
 import tempfile
 import unittest
-from copy import deepcopy
 from contextlib import closing
+from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -46,11 +46,6 @@ def _create_active_material(client, name: str) -> dict:
         material = activated.json()
     return material
 from tests.layout_fixtures import seed_standard_layouts
-from web import create_app
-from web.auth import authenticate_credentials, issue_session, hash_password
-from web.database import Database
-from web.repository import UserRole, WebRepository
-
 from tests.test_web_app import (
     TEST_PASSWORD,
     TEST_USERNAME,
@@ -58,6 +53,10 @@ from tests.test_web_app import (
     complete_guided_setup,
     releasable_result_recipe,
 )
+from web import create_app
+from web.auth import authenticate_credentials, hash_password, issue_session
+from web.database import Database
+from web.repository import UserRole, WebRepository
 
 
 class AuthenticationSecurityTests(unittest.TestCase):
@@ -914,6 +913,7 @@ class AuthenticationSecurityTests(unittest.TestCase):
             )
         )
         from sqlalchemy import update
+
         from web.database import experiments
 
         async def assign_owner() -> None:

@@ -95,7 +95,9 @@ class ReleaseConfigurationTests(unittest.TestCase):
 
         from alembic import command
         from alembic.config import Config as AlembicConfig
-        from web.admin_cli import parser as admin_parser, run_command
+
+        from web.admin_cli import parser as admin_parser
+        from web.admin_cli import run_command
         from web.database import Database
 
         previous_url = os.environ.get("PEROVSKITE_DATABASE_URL")

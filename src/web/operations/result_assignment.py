@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 from ..jv_parser import assign_substrates_to_groups
 from ..repository.records import UserRole
+from ..repository.result import apply_result_assignment
 from .errors import InvalidInput, RecordNotFound
 
 
@@ -56,6 +57,7 @@ async def save_result_analysis(
     assignments: Sequence[ResultAssignmentInput],
     exclusions: Sequence[ResultExclusionInput],
     group_assignment: str | None,
+    correction_reason: str | None = None,
     actor_user_id: int,
     actor_role: UserRole | None,
     client_ip: str | None = None,
@@ -121,7 +123,6 @@ async def save_result_analysis(
     exclusions_by_device = {
         item.analysis_device_id: item.reason for item in exclusions
     }
-    from ..repository.result import apply_result_assignment
 
     try:
         grouped_analysis = await asyncio.to_thread(
@@ -153,6 +154,7 @@ async def save_result_analysis(
                     for key, value in assignments_by_substrate.items()
                 },
                 group_assignment=group_assignment,
+                correction_reason=correction_reason,
                 actor_user_id=actor_user_id,
                 client_ip=client_ip,
             )

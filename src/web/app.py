@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from starlette import status as _status
 
-from .auth import AuthSettings, hash_password, normalize_username, safe_next_path
+from .auth import AuthSettings, hash_password, normalize_username
 from .auth_routes import create_auth_router
 from .database import Database, is_postgresql_url, normalize_database_url
 from .middleware import configure_middleware

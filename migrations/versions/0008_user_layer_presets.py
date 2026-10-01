@@ -7,10 +7,9 @@ Create Date: 2026-08-10
 
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
-
 
 revision: str = "0008_user_layer_presets"
 down_revision: Union[str, None] = "0007_fabrication_batches"

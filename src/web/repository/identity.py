@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping
-from sqlalchemy import and_, case, delete, func, insert, or_, select, text, update
 from datetime import datetime
+from typing import Any, Mapping
+
+from sqlalchemy import and_, case, delete, func, insert, or_, select, text, update
 
 from ..database import sessions, users
 from .helpers import (
@@ -16,6 +17,7 @@ from .helpers import (
     _utc_now,
 )
 from .records import SessionRecord, UserRecord, UserRole
+
 
 def _user_record(row: Mapping[str, Any]) -> UserRecord:
     return UserRecord(

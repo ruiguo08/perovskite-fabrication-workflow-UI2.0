@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import math
+from decimal import Decimal
 from typing import Any, Literal
 
-from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from perovskite_bo.device_recipe import (
@@ -14,6 +14,7 @@ from perovskite_bo.device_recipe import (
     PerovskiteDepositionProcess,
 )
 
+from .condition_snapshot import ConditionRecipeSnapshot
 from .database import (
     BASELINE_NAME_MAX_LENGTH,
     CAMPAIGN_CODE_MAX_LENGTH,
@@ -26,7 +27,6 @@ from .database import (
     MATERIAL_NAME_MAX_LENGTH,
     MATERIAL_VENDOR_MAX_LENGTH,
 )
-from .condition_snapshot import ConditionRecipeSnapshot
 from .device_layouts import LAYOUT_CODE_MAX_LENGTH
 
 
@@ -409,6 +409,7 @@ class ResultAssignmentsPayload(ApiModel):
 
     assignments: list[ResultAssignmentItem] = Field(..., min_length=1)
     exclusions: list[ResultDeviceExclusion] = Field(default_factory=list)
+    correction_reason: str | None = Field(default=None, max_length=500)
 
 
 class BaselinePayload(ApiModel):

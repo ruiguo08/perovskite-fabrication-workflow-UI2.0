@@ -14,7 +14,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from web import create_app
-from web.admin_cli import parser as admin_parser, run_command
+from web.admin_cli import parser as admin_parser
+from web.admin_cli import run_command
 from web.repository import UserRole
 
 TEST_USERNAME = "maintenance-admin"

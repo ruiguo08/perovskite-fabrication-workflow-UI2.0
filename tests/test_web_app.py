@@ -1,5 +1,4 @@
 import json
-import re
 import sqlite3
 import sys
 import tempfile
@@ -11,10 +10,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from fastapi.testclient import TestClient
 
 from perovskite_bo import deposition_recipe_from_process
-from tests.recipe_fixtures import REFERENCE_DEPOSITION_PROCESS, REFERENCE_DEVICE_RECIPE
 from tests.layout_fixtures import seed_standard_layouts
+from tests.recipe_fixtures import REFERENCE_DEPOSITION_PROCESS, REFERENCE_DEVICE_RECIPE
 from web import create_app
-from web.repository import ConditionRole, ExecutionStatus, PreparationStatus, UserRole
+from web.repository import ExecutionStatus, PreparationStatus, UserRole
 from web.routes import MAX_RESULT_FILE_BYTES
 from web.version import __version__
 
@@ -1669,7 +1668,7 @@ class BaselineSnapshotIntegrityTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_modify_and_save_condition_has_full_snapshot(self) -> None:
-        import asyncio, hashlib, json
+        import asyncio
         repo = self.app.state.repository
 
         # Load the baseline recipe and modify it.
@@ -1747,7 +1746,7 @@ class BaselineSnapshotIntegrityTests(unittest.TestCase):
     def test_legacy_fields_not_in_output(self) -> None:
         """Verify that DeviceRecipe model_dump, condition snapshot,
         and baseline API response do not contain old field names."""
-        from perovskite_bo.device_recipe import DeviceRecipe, normalize_device_recipe
+        from perovskite_bo.device_recipe import normalize_device_recipe
 
         # Build a recipe with old-style fields to test normalization.
         raw = dict(self.dr)

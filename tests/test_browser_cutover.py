@@ -8,10 +8,10 @@ role-specific navigation, export verification, healthz non-shadowing, and 320px.
 """
 
 from __future__ import annotations
-import os
 
 import asyncio
 import json
+import os
 import socket
 import subprocess
 import tempfile
@@ -23,10 +23,6 @@ from pathlib import Path
 import uvicorn
 from fastapi.testclient import TestClient
 
-from web import create_app
-from tests.layout_fixtures import seed_standard_layouts
-from web.repository import UserRole
-
 from tests.cdp_driver import (
     click_center,
     evaluate,
@@ -34,7 +30,10 @@ from tests.cdp_driver import (
     launch_chrome_with_viewport,
     wait_for_expression,
 )
+from tests.layout_fixtures import seed_standard_layouts
 from tests.test_browser_builder import chrome_path
+from web import create_app
+from web.repository import UserRole
 
 ADMIN_USERNAME = "cutover-admin"
 ADMIN_PASSWORD = "Cutover admin password 2026!"
@@ -238,7 +237,7 @@ class CutoverBrowserTests(unittest.TestCase):
             self.assertEqual(path, "/app/login", f"expected /app/login, got {path}")
 
             # Decode next from the URL and assert it equals the original destination.
-            from urllib.parse import urlparse, parse_qs
+            from urllib.parse import parse_qs
             search = evaluate(session, "location.search")
             # The search string starts with '?' — strip it before parsing.
             if search.startswith("?"):

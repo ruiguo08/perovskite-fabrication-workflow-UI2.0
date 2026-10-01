@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
+from tests.test_fabrication_batches import _create_released_experiment_with_conditions
 from web import create_app
 from web.database import (
     audit_events,
@@ -30,8 +31,6 @@ from web.repository import (
     PreparationStatus,
     UserRole,
 )
-
-from tests.test_fabrication_batches import _create_released_experiment_with_conditions
 
 TEST_USERNAME = "device-scans-admin"
 TEST_PASSWORD = "correct horse battery staple"

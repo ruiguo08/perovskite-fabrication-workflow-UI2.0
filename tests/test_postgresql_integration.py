@@ -11,22 +11,26 @@ from sqlalchemy import func, insert, select, text, update
 from sqlalchemy.exc import IntegrityError
 
 from perovskite_bo import DepositionRecipe, deposition_recipe_from_process
+from tests.layout_fixtures import seed_standard_layouts_async
 from tests.recipe_fixtures import FACTORY_LAYER_PRESETS as LAYER_PRESETS
+from tests.test_web_app import complete_guided_setup
 from web import create_app
 from web.auth import hash_password, normalize_username
 from web.database import (
     Database,
-    catalog_seed_versions,
     audit_events,
     baselines,
+    catalog_seed_versions,
     execution_deviations,
     experiment_conditions,
     experiments,
     fabrication_batch_conditions,
+    fabrication_batches,
     fabrication_substrates,
     layer_presets,
     result_device_assignments,
     result_files,
+    solution_preparations,
 )
 from web.jv_parser import (
     _flat_metrics_from_analysis,
@@ -44,15 +48,95 @@ from web.repository import (
 )
 
 
-from tests.layout_fixtures import seed_standard_layouts_async
-from tests.test_web_app import complete_guided_setup
-
-
 @unittest.skipUnless(
     os.environ.get("PEROVSKITE_TEST_POSTGRESQL_URL"),
     "set PEROVSKITE_TEST_POSTGRESQL_URL to run PostgreSQL integration tests",
 )
 class PostgreSQLIntegrationTests(unittest.TestCase):
+    def test_plan_start_and_last_batch_cancellation_cannot_both_succeed(self) -> None:
+        from tests.test_fabrication_batches import _create_released_experiment_with_conditions
+
+        async def run() -> None:
+            database = Database(os.environ["PEROVSKITE_TEST_POSTGRESQL_URL"])
+            repository = WebRepository(database)
+            await seed_standard_layouts_async(database)
+            suffix = uuid4().hex[:12]
+            try:
+                actor = await repository.create_user(
+                    username=f"pg-batch-guard-{suffix}", display_name="Batch guard test",
+                    password_hash=hash_password(f"batch guard secret {suffix}"),
+                    role=UserRole.INSTRUCTOR,
+                )
+                experiment_id = await _create_released_experiment_with_conditions(
+                    repository, f"pg-batch-guard-{suffix}", actor_user_id=actor.id,
+                )
+                batch = await repository.create_fabrication_batch(experiment_id, actor_user_id=actor.id)
+                start = asyncio.create_task(repository.update_plan_status(
+                    experiment_id, PlanStatus.IN_PROGRESS, actor_user_id=actor.id,
+                ))
+                cancel = asyncio.create_task(repository.update_fabrication_batch_status(
+                    batch.id, BatchStatus.CANCELLED, actor_user_id=actor.id,
+                ))
+                outcomes = await asyncio.wait_for(
+                    asyncio.gather(start, cancel, return_exceptions=True), timeout=10,
+                )
+                self.assertEqual(sum(outcome is None for outcome in outcomes), 1, outcomes)
+                self.assertEqual(sum(isinstance(outcome, ValueError) for outcome in outcomes), 1, outcomes)
+                async with database.engine.connect() as connection:
+                    plan_status = await connection.scalar(select(experiments.c.plan_status).where(
+                        experiments.c.id == experiment_id,
+                    ))
+                    batch_status = await connection.scalar(select(fabrication_batches.c.status).where(
+                        fabrication_batches.c.id == batch.id,
+                    ))
+                self.assertFalse(plan_status == PlanStatus.IN_PROGRESS.value and batch_status == BatchStatus.CANCELLED.value)
+            finally:
+                await database.dispose()
+
+        asyncio.run(run())
+
+    def test_individual_preparation_waits_for_batch_before_locking_child(self) -> None:
+        """Bulk parent lock must not race an individual child-first edit."""
+        from sqlalchemy.exc import OperationalError
+
+        from tests.test_fabrication_batches import _create_released_experiment_with_conditions
+
+        url = os.environ["PEROVSKITE_TEST_POSTGRESQL_URL"]
+        suffix = uuid4().hex[:12]
+
+        async def run() -> None:
+            database = Database(url)
+            repository = WebRepository(database)
+            await seed_standard_layouts_async(database)
+            try:
+                actor = await repository.create_user(
+                    username=f"pg-prep-lock-{suffix}", display_name="Preparation lock test",
+                    password_hash=hash_password(f"lock secret {suffix}"), role=UserRole.INSTRUCTOR,
+                )
+                experiment_id = await _create_released_experiment_with_conditions(
+                    repository, f"pg-prep-lock-{suffix}", actor_user_id=actor.id,
+                )
+                batch = await repository.create_fabrication_batch(experiment_id, actor_user_id=actor.id)
+                preparation = (await repository.list_solution_preparations(batch.id))[0]
+                async with database.begin() as parent_connection:
+                    await parent_connection.execute(select(fabrication_batches.c.id).where(
+                        fabrication_batches.c.id == batch.id).with_for_update())
+                    pending = asyncio.create_task(repository.update_solution_preparation(
+                        preparation.id, actual_matches_planned=True,
+                        fabrication_batch_id=batch.id, actor_user_id=actor.id,
+                    ))
+                    await asyncio.sleep(0.25)
+                    try:
+                        async with database.begin() as probe_connection:
+                            await probe_connection.execute(select(solution_preparations.c.id).where(
+                                solution_preparations.c.id == preparation.id).with_for_update(nowait=True))
+                    except OperationalError as error:
+                        self.fail(f"individual edit locked the preparation before the batch: {error}")
+                await asyncio.wait_for(pending, timeout=5)
+            finally:
+                await database.dispose()
+
+        asyncio.run(run())
     def test_catalog_scope_and_current_version_integrity_use_postgresql(self) -> None:
         async def exercise_catalog() -> None:
             database = Database(os.environ["PEROVSKITE_TEST_POSTGRESQL_URL"])
@@ -69,7 +153,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 # With no factory catalog, the instructor authors the first
                 # shared preset themselves.
                 layer = deepcopy(LAYER_PRESETS["sam_spin_v1"]["layer"])
-                seeded_shared = await repository.create_layer_preset(
+                await repository.create_layer_preset(
                     name=f"PostgreSQL shared catalog {suffix}",
                     layer=layer,
                     deposition_process=None,
@@ -336,7 +420,6 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             VCD_VALVES,
             deposition_recipe_from_process,
         )
-
         from web.database import result_files
 
         database = Database(os.environ["PEROVSKITE_TEST_POSTGRESQL_URL"])
@@ -751,9 +834,6 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         that escaped validation, and a validated edit cannot be silently
         overwritten by a racing status transition."""
 
-        from tests.test_fabrication_batches import (
-            _create_released_experiment_with_conditions,
-        )
 
         url = os.environ["PEROVSKITE_TEST_POSTGRESQL_URL"]
 
@@ -1020,8 +1100,8 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         commits first or is rejected — it can never downgrade a released
         plan back to draft."""
 
-        from web.repository import ConditionRole
         from web.condition_snapshot import build_condition_snapshot
+        from web.repository import ConditionRole
 
         url = os.environ["PEROVSKITE_TEST_POSTGRESQL_URL"]
         suffix = uuid4().hex[:12]
@@ -1186,11 +1266,14 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
 
         from alembic import command
         from alembic.config import Config as AlembicConfig
+
         from tests.test_fabrication_batches import (
             _create_released_experiment_with_conditions,
         )
         from web.database import (
             result_device_assignments as rda_table,
+        )
+        from web.database import (
             result_files as result_files_table,
         )
 
@@ -1423,12 +1506,17 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
 
         from alembic import command
         from alembic.config import Config
+
         from tests.test_fabrication_batches import (
             _create_released_experiment_with_conditions,
         )
         from web.database import (
             fabrication_batch_conditions as batch_conditions_table,
+        )
+        from web.database import (
             fabrication_devices,
+        )
+        from web.database import (
             result_files as result_files_table,
         )
 

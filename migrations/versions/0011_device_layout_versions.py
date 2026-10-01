@@ -6,8 +6,8 @@ Revises: 0010_catalog_integrity
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision = "0011_device_layout_versions"
 down_revision = "0010_catalog_integrity"

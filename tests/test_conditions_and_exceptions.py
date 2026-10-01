@@ -12,6 +12,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from fastapi.testclient import TestClient
+from layout_fixtures import fixture_layouts
+from test_web_app import complete_guided_setup
 
 from web import create_app
 from web.condition_snapshot import (
@@ -25,8 +27,6 @@ from web.repository import (
     PlanStatus,
     UserRole,
 )
-from layout_fixtures import fixture_layouts
-from test_web_app import complete_guided_setup
 
 TEST_USERNAME = "admin"
 TEST_PASSWORD = "Adm1n!password"
@@ -638,7 +638,7 @@ class LegacyAdapterTests(unittest.TestCase):
 
     def setUp(self) -> None:
         from test_web_app import complete_guided_setup
-        from perovskite_bo import DepositionRecipe
+
         self.device_recipe, self.deposition_process = complete_guided_setup()
         # Build a legacy recipe dict (the old flat format).
         self.legacy_recipe = {

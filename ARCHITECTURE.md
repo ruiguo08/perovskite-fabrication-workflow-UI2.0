@@ -14,8 +14,9 @@ Optimization code remains available as an optional future consumer of the stored
 React browser app (frontend/src)
   ↓ HTTP/JSON
 FastAPI routes (src/web/routes)
-  ↓ state-changing use cases
-Application operations and canonical recipe validation
+  ↓ selected state-changing use cases
+Application operations (batch lifecycle and result assignment);
+other routes call repository methods directly
   ↓
 Async SQLAlchemy repository
   ↓
@@ -28,7 +29,7 @@ Result routes also use the J-V CSV parser and publication-figure renderer. Read-
 
 The web package is layered so that authorization, validation, transactions,
 and audit cannot be forgotten when a workflow changes. The diagram is the
-**target** architecture; the migration status below states exactly how much
+**target** architecture for operations-covered flows; the ledger below states exactly how much
 of it is realized today:
 
 ~~~
@@ -37,12 +38,12 @@ HTTP routes (web/routes/<domain>.py)
   maps typed OperationError failures onto status codes
   ↓
 Application operations (web/operations/)
-  one function per state-changing use case; owns authorization, input and
-  domain validation, the transaction boundary, and the audit record
+  selected state-changing use cases; owns authorization, validation, the
+  transaction boundary, and the audit record for those use cases
   ↓
 Connection-level data functions (web/repository/*.py, web/audit_trail.py)
-  queries, row locks, and writes; every function receives the operation's
-  connection and never opens its own transaction
+  queries, row locks, and writes; connection-level functions receive the
+  operation's connection, while repository-owned mutations open transactions
   ↓
 web.database (schema) / PostgreSQL
 ~~~
@@ -99,10 +100,11 @@ Rules enforced by ``tests/test_layering.py``:
 
 ### Transaction and error boundaries
 
-Each application operation opens exactly one transaction and passes that
-connection to every data function, so authorization, state checks, locks,
-writes, and the audit record commit or roll back together. Multi-row locks
-follow the documented order (experiment -> batch -> result file). The routes
+Each application operation opens one transaction and passes its connection
+to the relevant data functions. Repository-owned mutations open their own
+transactions. Batch execution edits lock the experiment, then parent batch, before individual
+preparation or execution rows; bulk edits lock children by ascending ID.
+Result assignment locks experiment -> batch -> result file. The routes
 map typed errors as: ``RecordNotFound`` -> 404, ``AccessDenied`` -> 403,
 ``InvalidInput`` -> 400, ``StateConflict`` -> 409; message texts pass through
 unchanged, and unexpected exceptions keep normal 500 handling. Ownership
@@ -322,12 +324,14 @@ Persist raw bytes, analysis, uploader, and digest in result_files
   ↓
 Assign every parsed substrate to a frozen batch condition
   ↓
-Save assignments and device exclusions with an audit record
+Save substrate assignments; later corrections require a reason and audit the old/new mapping
+  ↓
+Save manual device exclusions with audited reasons; apply automatic thresholds only for the current analysis view
   ↓
 Calculate directional group statistics and render J-V, distribution, and uniformity figures
 ~~~
 
-The upload does not complete the experiment automatically. Statistics and substrate uniformity require complete substrate assignments; J-V curves remain available before that step. Device exclusions affect the filtered statistics, distributions, and uniformity view, while all parsed J-V traces remain available. See [Result analysis](docs/result-analysis.md) for the exact analysis scope and metric selection rules.
+The upload does not complete the experiment automatically. Statistics and substrate uniformity require complete substrate assignments; J-V curves remain available before that step. Forward and reverse scans have separate group statistics. Manual exclusions persist; automatic threshold matches are temporary analysis filters. Both affect the filtered statistics, distributions, and uniformity view, while all parsed J-V traces remain available. See [Result analysis](docs/result-analysis.md) for the exact analysis scope and metric selection rules.
 
 ## Design Constraints
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Mapping, Sequence
 
+from ..repository.batch import apply_batch_status_update
 from ..repository.records import BatchStatus, FabricationBatchRecord, UserRole
 from .errors import AccessDenied, InvalidInput, RecordNotFound
 
@@ -51,8 +52,6 @@ async def update_batch_status(
             raise RecordNotFound(str(error)) from error
 
     # --- Transaction -----------------------------------------------------
-    from ..repository.batch import apply_batch_status_update
-
     try:
         async with repository.database.begin() as connection:
             await apply_batch_status_update(
