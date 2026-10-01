@@ -27,6 +27,14 @@ def chrome_path() -> Path | None:
     return next((path for path in CHROME_PATHS if path.exists()), None)
 
 
+def should_skip_browser_tests() -> bool:
+    # An explicit matrix opt-out takes precedence over CI's missing-Chrome
+    # fail-fast behavior. Ubuntu opts in and must still run the browser tests.
+    return os.environ.get("PEROVSKITE_SKIP_BROWSER") == "1" or (
+        chrome_path() is None and not os.environ.get("CI")
+    )
+
+
 
 if __name__ == "__main__":
     unittest.main()
