@@ -1,9 +1,42 @@
 """Characterization results: upload, listing, detail, and assignment saving."""
 
+import csv
 import gzip
+from typing import Annotated
 
-from fastapi import Query
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
+from fastapi.responses import Response
+from starlette.concurrency import run_in_threadpool
 
+from ..auth import (
+    AuthContext,
+    require_csrf,
+    require_user,
+)
+from ..jv_parser import parse_jv_analysis
+from ..models import (
+    ResultAssignmentRowResponse,
+    ResultAssignmentsPayload,
+    ResultDetailResponse,
+    ResultListItemResponse,
+    UploadedResultResponse,
+)
+from ..operations.errors import OperationError
+from ..operations.result_assignment import (
+    ResultAssignmentInput,
+    ResultExclusionInput,
+    save_result_analysis,
+)
 from ..publication_plots import (
     MEDIA_TYPES,
     PlotInputError,
@@ -11,8 +44,21 @@ from ..publication_plots import (
     figure_filename,
     render_publication_figure,
 )
-from .common import *  # noqa: F401,F403
-from .common import _flat_metrics_from_analysis  # underscore name: not re-exported by *
+from ..repository import WebRepository
+from .common import (
+    _batch_for_actor_or_404,
+    _client_ip,
+    _flat_metrics_from_analysis,  # underscore name: not re-exported by *
+    _get_record_or_404,
+    _operation_error_to_http,
+    _read_result_file,
+    _result_assignment_row_response,
+    _result_detail_response,
+    _result_for_actor_or_404,
+    _result_list_item_response,
+    _student_owner_id,
+    validate_result_upload_metadata,
+)
 
 
 def create_results_router(

@@ -1,6 +1,85 @@
 """Fabrication batches: freezing, run sheets, lifecycle, and exports."""
 
-from .common import *  # noqa: F401,F403
+from typing import (
+    Annotated,
+    Any,
+)
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Request,
+    status,
+)
+from fastapi.responses import Response
+from starlette.concurrency import run_in_threadpool
+
+from perovskite_bo import (
+    MAX_SOLID_CHEMICALS,
+    MAX_SOLVENTS,
+    VCD_VALVES,
+)
+
+from ..auth import (
+    AuthContext,
+    require_csrf,
+    require_user,
+)
+from ..models import (
+    DeviationCreatePayload,
+    DeviationResponse,
+    EditorConfigResponse,
+    FabricationBatchCreatePayload,
+    FabricationBatchListItemResponse,
+    FabricationBatchResponse,
+    FabricationBatchStatusUpdatePayload,
+    FabricationDeviceResponse,
+    FabricationSubstrateResponse,
+    FrozenBatchConditionResponse,
+    MembershipMergePayload,
+    MembershipSplitPayload,
+    ProcessExecutionCreatePayload,
+    ProcessExecutionMemberResponse,
+    ProcessExecutionResponse,
+    ProcessExecutionUpdatePayload,
+    RecordAsPlannedResponse,
+    RunSheetExecutionResponse,
+    RunSheetPreparationResponse,
+    RunSheetResponse,
+    SolutionPreparationCreatePayload,
+    SolutionPreparationResponse,
+    SolutionPreparationUpdatePayload,
+    SolutionPreparationUseResponse,
+)
+from ..operations.batch_lifecycle import update_batch_status
+from ..operations.errors import OperationError
+from ..plan_export import (
+    canonical_batch_json,
+    render_batch_pdf,
+)
+from ..repository import (
+    BatchStatus,
+    ExecutionStatus,
+    PreparationStatus,
+    WebRepository,
+)
+from .common import (
+    _batch_for_actor_or_404,
+    _build_batch_export_payload,
+    _client_ip,
+    _deviation_response,
+    _fabrication_batch_list_item_response,
+    _fabrication_batch_response,
+    _fabrication_device_response,
+    _fabrication_substrate_response,
+    _frozen_batch_condition_response,
+    _get_record_or_404,
+    _operation_error_to_http,
+    _process_execution_response,
+    _solution_preparation_response,
+    _student_owner_id,
+)
 
 
 def create_batches_router(

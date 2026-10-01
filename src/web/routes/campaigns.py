@@ -1,6 +1,35 @@
 """Campaign directory management."""
 
-from .common import *  # noqa: F401,F403
+from typing import Annotated
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Request,
+    status,
+)
+
+from ..auth import (
+    AuthContext,
+    require_csrf,
+    require_role,
+    require_user,
+)
+from ..models import (
+    CampaignCreatePayload,
+    CampaignResponse,
+    CampaignUpdatePayload,
+)
+from ..repository import (
+    CampaignStatus,
+    UserRole,
+    WebRepository,
+)
+from .common import (
+    _campaign_response,
+    _client_ip,
+)
 
 
 def create_campaigns_router(

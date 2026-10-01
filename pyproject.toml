@@ -59,9 +59,7 @@ extend-exclude = ["frontend", "src/web/static-app"]
 
 [tool.ruff.lint]
 # Baseline gate adopted 2026-09: E501 stays unenforced until a dedicated
-# formatting pass reflows the ~270 existing long lines; F403/F405 are
-# tolerated only in the routes package, which re-exports the shared helpers
-# via `from .common import *` until that import is made explicit.
+# formatting pass reflows the ~270 existing long lines.
 extend-ignore = ["E501"]
 select = ["E", "F", "W", "I", "B"]
 
@@ -80,7 +78,6 @@ extend-immutable-calls = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"src/web/routes/*" = ["F403", "F405"]
 # Test modules bootstrap sys.path before their imports.
 "tests/*" = ["E402"]
 # viz_mockups bootstraps the repository src tree before its imports.
@@ -91,9 +88,8 @@ extend-immutable-calls = [
 
 [tool.mypy]
 # The core domain package is pure (stdlib + pydantic) and carries the strict
-# gate. The web layer joins the gate after the routes' star-import cleanup
-# and JSON-boundary annotations land; enabling it today only produces noise
-# from `from .common import *` re-exports and untyped JSON shapes.
+# gate. The web layer joins the gate after the JSON-boundary annotations
+# land; enabling it today only produces noise from untyped JSON shapes.
 files = ["src/perovskite_bo"]
 mypy_path = "src"
 python_version = "3.14"

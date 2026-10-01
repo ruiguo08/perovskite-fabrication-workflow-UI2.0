@@ -1,6 +1,59 @@
 """Input-time catalog data: baselines, layer presets, materials, device layouts, and editor configuration."""
 
-from .common import *  # noqa: F401,F403
+from typing import (
+    Annotated,
+    Any,
+)
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Request,
+    status,
+)
+from sqlalchemy.exc import IntegrityError
+
+from perovskite_bo import (
+    MAX_SOLID_CHEMICALS,
+    MAX_SOLVENTS,
+    VCD_VALVES,
+)
+
+from ..auth import (
+    AuthContext,
+    require_csrf,
+    require_role,
+    require_user,
+)
+from ..models import (
+    BaselinePayload,
+    BaselinePromotePayload,
+    BaselineResponse,
+    BaselineVersionResponse,
+    DeviceLayoutCreatePayload,
+    EditorConfigResponse,
+    LayerPresetPayload,
+    LayerPresetResponse,
+    LayerPresetVersionResponse,
+    MaterialCreatePayload,
+    MaterialProductCreatePayload,
+    MaterialProductUpdatePayload,
+    MaterialResponse,
+    MaterialUpdatePayload,
+)
+from ..repository import (
+    UserRole,
+    WebRepository,
+)
+from ..services.catalog_service import (
+    create_device_layout,
+    list_device_layouts,
+)
+from .common import (
+    _baseline_values,
+    _client_ip,
+)
 
 
 def create_catalogs_router(
