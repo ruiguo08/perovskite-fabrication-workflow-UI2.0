@@ -62,13 +62,14 @@ The remaining state-changing domain CRUD (conditions, plan status, substrate
 exceptions, campaigns, materials and supplier products, layer presets,
 baselines, device layouts, solution preparations, process executions,
 deviations) stays in ``WebRepository`` methods that open their own
-transaction, perform the authorization and validation inside it, and raise
-``PermissionError``/``ValueError``/``KeyError`` for the routes to map onto
-403/400/404. This is the **accepted steady state** for those single-entity
-endpoints, not deferred migration debt: they carry no cross-entity
-invariants, their four responsibilities (authorization, validation,
-transaction, audit) live inside one repository method where review can see
-them together, and the layering tests pin their import direction.
+transaction and raise ``PermissionError``/``ValueError``/``KeyError`` for
+the routes to map onto 403/400/404. This is the **accepted steady state**
+for those single-entity endpoints, not deferred migration debt. Their four
+responsibilities are distributed, not co-located: route-level pre-checks
+(existence plus ownership isolation, role dependencies) run before the
+repository method, input validation typically runs inside or just before
+the repository method's transaction, and the transaction and audit record
+live in the method itself — the layering tests pin that import direction.
 
 The operations requirement is therefore **forward-looking**: every new
 state-changing use case must be implemented as an application operation, and
