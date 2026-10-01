@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from random import Random
-from typing import Any, Protocol, Sequence
+from typing import Any, Mapping, Protocol, Sequence
 
 
 class Parameter(Protocol):
@@ -97,3 +98,69 @@ class SearchSpace:
         for parameter in self.parameters:
             if not parameter.contains(values[parameter.name]):
                 raise ValueError(f"{parameter.name} is outside the configured search space")
+
+
+def search_space_from_spec(spec: Sequence[Mapping[str, Any]]) -> SearchSpace:
+    """Build a :class:`SearchSpace` from JSON-able parameter specs.
+
+    The spec shape is the one stored in ``perovskite_bo.bo_config``:
+    ``{"name": str, "kind": "int"|"float", "lower": number, "upper": number}``
+    or ``{"name": str, "kind": "choice", "choices": [value, ...]}``. Specs
+    are plain data so a campaign's space can be supplied from configuration
+    (today a module dict, later a database row) without touching this module.
+    """
+
+    parameters: list[Parameter] = []
+    for entry in spec:
+        if not isinstance(entry, Mapping):
+            raise TypeError("each parameter spec must be a mapping")
+        name = entry.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("parameter spec requires a non-blank string name")
+        kind = entry.get("kind")
+        if kind == "int":
+            parameters.append(IntegerParameter(name, *_spec_bounds(name, entry, kind="int")))
+        elif kind == "float":
+            parameters.append(FloatParameter(name, *_spec_bounds(name, entry, kind="float")))
+        elif kind == "choice":
+            choices = entry.get("choices")
+            if (
+                not isinstance(choices, Sequence)
+                or isinstance(choices, (str, bytes))
+                or not choices
+            ):
+                raise ValueError(f"{name}: choice parameters require a non-empty choices list")
+            parameters.append(ChoiceParameter(name, list(choices)))
+        else:
+            raise ValueError(f"{name}: unsupported parameter kind {kind!r}")
+    return SearchSpace(parameters)
+
+
+def _spec_bounds(
+    name: str, entry: Mapping[str, Any], *, kind: str
+) -> tuple[Any, Any]:
+    """Validate and return the (lower, upper) bounds for a numeric spec.
+
+    ``int`` specs require genuinely integer bounds (a float bound such as
+    0.5 would make ``IntegerParameter.sample`` raise at sampling time —
+    reject it here, at construction). ``float`` specs accept int or float
+    bounds but reject non-finite values (NaN/inf would poison every
+    sampled candidate). Bools are rejected for both kinds.
+    """
+
+    lower = entry.get("lower")
+    upper = entry.get("upper")
+    for label, value in (("lower", lower), ("upper", upper)):
+        if kind == "int":
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise ValueError(f"{name}: {label} bound of an int parameter must be an integer")
+        else:
+            if (
+                not isinstance(value, (int, float))
+                or isinstance(value, bool)
+                or not math.isfinite(value)
+            ):
+                raise ValueError(
+                    f"{name}: {label} bound must be a finite number"
+                )
+    return lower, upper
