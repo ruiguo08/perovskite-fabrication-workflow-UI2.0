@@ -30,7 +30,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
-ROOT = Path(__file__).resolve().parent
+# The scripts live in scripts/viz/; repo-root paths (docs/test-data)
+# stay stable relative to the repository, not the script location.
+ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "docs/test-data/viz-mockups"
 
 # colors sampled from the user's reference figure
