@@ -185,7 +185,7 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onSaveDevia
 
   return (
     <Box data-runsheet-table="true">
-      <Stack direction="row" spacing={2} sx={{ alignItems: "center", bgcolor: "#f5f5f7", borderRadius: "12px", px: 2, py: 1.5, mb: 2 }}>
+      <Stack direction="row" spacing={2} sx={{ alignItems: "center", flexWrap: "wrap", bgcolor: "#f5f5f7", borderRadius: "12px", px: 2, py: 1.5, mb: 2 }}>
         <Typography sx={{ fontSize: 13.5, fontWeight: 600, letterSpacing: "-0.224px", whiteSpace: "nowrap" }}>
           {done} of {rows.length} recorded
         </Typography>
@@ -196,20 +196,22 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onSaveDevia
         </Button>
       </Stack>
 
-      <Table size="small" aria-label="Run sheet checklist">
-        <TableHead>
-          <TableRow>
-            <TableCell sx={{ width: 56 }}>Step</TableCell>
-            <TableCell>Detail</TableCell>
-            <TableCell sx={{ width: 170 }}>Status — click to cycle</TableCell>
-            <TableCell align="right" sx={{ width: 170 }} />
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {renderGroup("Solution preparations", prepRows)}
-          {renderGroup("Process executions", execRows)}
-        </TableBody>
-      </Table>
+      <Box sx={{ overflowX: "auto" }}>
+        <Table size="small" aria-label="Run sheet checklist">
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ width: 56 }}>Step</TableCell>
+              <TableCell>Detail</TableCell>
+              <TableCell sx={{ width: 170 }}>Status — click to cycle</TableCell>
+              <TableCell align="right" sx={{ width: 170 }} />
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {renderGroup("Solution preparations", prepRows)}
+            {renderGroup("Process executions", execRows)}
+          </TableBody>
+        </Table>
+      </Box>
 
       <Drawer
         anchor="right"

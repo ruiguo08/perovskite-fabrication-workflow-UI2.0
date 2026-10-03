@@ -11,7 +11,7 @@ from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from starlette import status as _status
@@ -224,7 +224,7 @@ def _mount_spa(app: FastAPI) -> None:
 
     @app.get("/app", include_in_schema=False)
     @app.get("/app/{path:path}", include_in_schema=False)
-    async def spa_entry(path: str = "", request: Request = None) -> HTMLResponse:
+    async def spa_entry(path: str = "", request: Request | None = None) -> HTMLResponse:
         # Read per request (the file is tiny): a cached template would keep
         # serving stale asset hashes after a frontend rebuild until restart.
         template = index_html.read_text(encoding="utf-8")
