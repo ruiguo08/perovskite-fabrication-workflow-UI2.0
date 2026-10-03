@@ -270,7 +270,6 @@ export function BatchDetailPage() {
       title: solutionSummary(preparation.actual_solution_snapshot ?? preparation.planned_solution_snapshot) ||
         "Solution preparation",
       meta: "",
-      planned: "",
       status: preparation.status,
       recorded: preparation.actual_recording_mode !== null,
       notes: preparation.notes,
@@ -282,7 +281,6 @@ export function BatchDetailPage() {
       title: `${execution.method.replace(/_/g, " ")} · ${execution.layer_name}`,
       meta: processSummary(execution.actual_process_snapshot ?? execution.planned_process_snapshot) ||
         execution.layer_type.replace(/_/g, " "),
-      planned: "",
       status: execution.status,
       recorded: execution.actual_recording_mode !== null,
       notes: execution.notes,

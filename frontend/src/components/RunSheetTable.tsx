@@ -55,7 +55,6 @@ export interface RunSheetRow {
   code: string;
   title: string;
   meta: string;
-  planned: string;
   status: string;
   recorded: boolean;
   notes: string;
@@ -80,7 +79,7 @@ function dot(status: string) {
   return (
     <Box
       component="span"
-      sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: DOT_COLOR[tone], display: "inline-block", mr: 1 }}
+      sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: DOT_COLOR[tone], display: "inline-block" }}
       aria-hidden
     />
   );
@@ -131,7 +130,7 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onSaveDevia
     group.length > 0 ? (
       <>
         <TableRow sx={{ "& td": { border: 0, pb: 0.5, pt: 2 } }}>
-          <TableCell colSpan={5}>
+          <TableCell colSpan={4}>
             <Typography sx={{ fontSize: 14, fontWeight: 600, letterSpacing: "-0.224px" }}>{title}</Typography>
           </TableCell>
         </TableRow>
@@ -142,7 +141,6 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onSaveDevia
               <Typography sx={{ fontSize: 13, fontWeight: 600, letterSpacing: "-0.12px" }}>{row.title}</Typography>
               <Typography sx={{ fontSize: 12, color: "rgba(0,0,0,.48)", letterSpacing: "-0.12px" }}>{row.meta}</Typography>
             </TableCell>
-            <TableCell align="right" sx={{ color: "rgba(0,0,0,.8)", whiteSpace: "nowrap" }}>{row.planned}</TableCell>
             <TableCell sx={{ whiteSpace: "nowrap" }}>
               <Chip
                 data-runsheet-status={`${row.kind}-${row.id}`}
@@ -154,8 +152,9 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onSaveDevia
                   cursor: disabled || submitting ? "default" : "pointer",
                   bgcolor: "transparent",
                   border: 0,
-                  pl: 0.5,
-                  "& .MuiChip-label": { px: 0.5 },
+                  px: 1,
+                  "& .MuiChip-icon": { ml: 0, mr: "7px" },
+                  "& .MuiChip-label": { px: 0 },
                 }}
               />
             </TableCell>
@@ -202,7 +201,6 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onSaveDevia
           <TableRow>
             <TableCell sx={{ width: 56 }}>Step</TableCell>
             <TableCell>Detail</TableCell>
-            <TableCell align="right" sx={{ width: 90 }}>Planned</TableCell>
             <TableCell sx={{ width: 170 }}>Status — click to cycle</TableCell>
             <TableCell align="right" sx={{ width: 170 }} />
           </TableRow>

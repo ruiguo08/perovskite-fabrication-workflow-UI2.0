@@ -222,14 +222,12 @@ def _mount_spa(app: FastAPI) -> None:
             name="app-assets",
         )
 
-    template: str | None = None
-
     @app.get("/app", include_in_schema=False)
     @app.get("/app/{path:path}", include_in_schema=False)
     async def spa_entry(path: str = "", request: Request = None) -> HTMLResponse:
-        nonlocal template
-        if template is None:
-            template = index_html.read_text(encoding="utf-8")
+        # Read per request (the file is tiny): a cached template would keep
+        # serving stale asset hashes after a frontend rebuild until restart.
+        template = index_html.read_text(encoding="utf-8")
         nonce = secrets.token_urlsafe(32)
         if request is not None:
             request.state.csp_nonce = nonce
