@@ -322,7 +322,7 @@
   overflow-x: auto;
   padding: var(--space-2) 0;
   margin-bottom: var(--space-4);
-  border-bottom: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--hairline);
 }
 
 .analysis-preview-banner {
@@ -358,11 +358,12 @@
 .result-section-nav__button,
 .result-figure-nav__button {
   flex: 0 0 auto;
-  border: 1px solid transparent;
-  border-radius: var(--radius);
+  border: 0;
+  border-radius: 980px;
   background: transparent;
   color: var(--steel);
-  font-weight: 600;
+  font-weight: 400;
+  letter-spacing: var(--track-tight);
   cursor: pointer;
 }
 
@@ -371,9 +372,9 @@
 }
 
 .result-section-nav__button--active {
-  color: var(--accent-strong);
+  color: var(--accent);
+  font-weight: 600;
   background: var(--accent-soft);
-  border-color: var(--accent-soft);
 }
 
 .result-section-nav__button:disabled,
@@ -397,14 +398,15 @@
 
 .result-figure-nav__button {
   padding: 6px var(--space-3);
-  border-color: var(--border-strong);
-  background: var(--surface);
+  background: #fafafc;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04);
+  border-radius: var(--radius-input);
 }
 
 .result-figure-nav__button--active {
   color: var(--surface);
   background: var(--accent);
-  border-color: var(--accent);
+  box-shadow: none;
 }
 
 .figure-scope-pair__item + .figure-scope-pair__item {
@@ -590,6 +592,12 @@
 .device-scan-picker {
   max-width: 28rem;
   margin-bottom: var(--space-3);
+}
+
+.chart-export__label {
+  font-size: 0.78rem;
+  color: var(--link);
+  letter-spacing: var(--track-tight);
 }
 
 .device-scan-details {

@@ -259,12 +259,19 @@ def configure_middleware(
         response.headers["Permissions-Policy"] = (
             "camera=(), geolocation=(), microphone=(), payment=(), usb=()"
         )
-        response.headers["Content-Security-Policy"] = (
+        csp = (
             "default-src 'self'; base-uri 'self'; connect-src 'self'; "
             "font-src 'self'; form-action 'self'; frame-ancestors 'none'; "
             "img-src 'self' data:; object-src 'none'; script-src 'self'; "
             "style-src 'self'"
         )
+        # The SPA entry route stores a per-request nonce on request.state when
+        # it serves the HTML template (Emotion needs it for its runtime
+        # <style> injection). Only that exact HTML response may use it.
+        nonce = getattr(request.state, "csp_nonce", None)
+        if nonce:
+            csp += f" 'nonce-{nonce}'"
+        response.headers["Content-Security-Policy"] = csp
         if request.url.path.startswith("/app/assets/") and response.status_code == 200:
             response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
         else:

@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light" />
     <meta name="theme-color" content="#172126" />
+    <!-- Per-request nonce written by the SPA entry route (src/web/app.py);
+         main.tsx feeds it to Emotion so MUI's runtime <style> tags satisfy
+         the CSP style-src nonce in middleware.py. -->
+    <meta name="csp-nonce" content="__CSP_NONCE__" />
     <title>Perovskite Solar Cell Fabrication Workflow</title>
   </head>
   <body>

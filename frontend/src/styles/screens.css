@@ -1055,7 +1055,9 @@
 .device-picker__menu { padding: 12px; border: 1px solid #cbd5e1; }
 .device-picker__options { display: grid; gap: 10px; max-height: 240px; overflow-y: auto; padding-top: 12px; }
 .device-picker__options label { display: flex; gap: 8px; align-items: center; }
-.publication-figure { margin: 12px 0 0; min-width: 0; }
+/* Publication figure: white card on the #f5f5f7 panel — elevation from
+   background contrast, no border, no shadow. */
+.publication-figure { margin: 12px 0 0; min-width: 0; background: var(--surface); border-radius: var(--radius-lg); padding: 10px; }
 .publication-figure img { display: block; width: 100%; max-height: 78vh; object-fit: contain; background: #fff; }
 .publication-figure__downloads { display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin-bottom: 8px; }
-.publication-figure figcaption { color: var(--color-text-muted); font-size: 0.82rem; margin-top: 6px; }
+.publication-figure figcaption { color: var(--steel-soft); font-size: 0.82rem; letter-spacing: var(--track-tight); margin-top: 6px; }
