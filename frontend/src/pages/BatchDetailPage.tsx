@@ -176,13 +176,99 @@ export function BatchDetailPage() {
   // Phase 1 checklist rows: one flat list for the MUI table. Status chips
   // cycle through the same machines the old per-row selects offered
   // (batch-detail/helpers.ts); "recorded" mirrors actual_recording_mode.
+  // Detail text is summarized from the planned snapshots so the checklist
+  // reads like the approved mock-up (materials / process parameters), not
+  // placeholder labels.
   const runSheetRows = useMemo<RunSheetRow[]>(() => {
     if (!activeSheet) return [];
+
+    function solutionSummary(snapshot: Record<string, unknown>): string {
+      const parts: string[] = [];
+      const solids = snapshot?.solids;
+      if (Array.isArray(solids)) {
+        const names = solids
+          .map((solid) =>
+            solid && typeof solid === "object" && typeof (solid as { chemical?: unknown }).chemical === "string"
+              ? (solid as { chemical: string; weight_mg?: unknown }).chemical +
+                (typeof (solid as { weight_mg?: unknown }).weight_mg === "number"
+                  ? ` ${solid.weight_mg} mg`
+                  : "")
+              : null,
+          )
+          .filter((name): name is string => name !== null);
+        if (names.length > 0) parts.push(names.join(" + "));
+      }
+      const solvents = snapshot?.solvents;
+      if (Array.isArray(solvents)) {
+        const names = solvents
+          .map((solvent) =>
+            solvent && typeof solvent === "object" && typeof (solvent as { solvent?: unknown }).solvent === "string"
+              ? (solvent as { solvent: string; volume_ml?: unknown }).solvent +
+                (typeof (solvent as { volume_ml?: unknown }).volume_ml === "number"
+                  ? ` ${solvent.volume_ml} mL`
+                  : "")
+              : null,
+          )
+          .filter((name): name is string => name !== null);
+        if (names.length > 0) parts.push(names.join(" + "));
+      }
+      const dispersion = snapshot?.stock_dispersion;
+      if (typeof dispersion === "string" && dispersion.trim() !== "") {
+        parts.push(`dispersion ${dispersion}`);
+      }
+      const stockVolume = snapshot?.stock_volume_ml;
+      if (typeof stockVolume === "number") {
+        parts.push(`stock ${stockVolume} mL`);
+      }
+      return parts.join(" · ");
+    }
+
+    function processSummary(snapshot: Record<string, unknown>): string {
+      const parts: string[] = [];
+      const spinSteps = snapshot?.spin_steps;
+      if (Array.isArray(spinSteps)) {
+        const steps = spinSteps
+          .map((step) =>
+            step && typeof step === "object"
+              ? [
+                  typeof (step as { rpm?: unknown }).rpm === "number" ? `${step.rpm} rpm` : null,
+                  typeof (step as { seconds?: unknown }).seconds === "number" ? `${step.seconds} s` : null,
+                  typeof (step as { acceleration_rpm_per_s?: unknown }).acceleration_rpm_per_s === "number"
+                    ? `${step.acceleration_rpm_per_s} rpm/s`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              : null,
+          )
+          .filter((text): text is string => text !== null && text !== "");
+        if (steps.length > 0) parts.push(`spin ${steps.join(" → ")}`);
+      }
+      const anneal = snapshot?.anneal;
+      if (anneal && typeof anneal === "object") {
+        const temperature = (anneal as { temperature_c?: unknown }).temperature_c;
+        const seconds = (anneal as { seconds?: unknown }).seconds;
+        if (typeof temperature === "number" || typeof seconds === "number") {
+          parts.push(
+            `anneal ${typeof temperature === "number" ? `${temperature} °C` : ""}${
+              typeof temperature === "number" && typeof seconds === "number" ? " · " : ""
+            }${typeof seconds === "number" ? `${seconds} s` : ""}`,
+          );
+        }
+      }
+      const method = snapshot?.method;
+      if (typeof method === "string" && method !== "spin_coating" && method !== "") {
+        parts.push(method.replace(/_/g, " "));
+      }
+      return parts.join(" · ");
+    }
+
     const prepRows = activeSheet.preparations.map(({ preparation }): RunSheetRow => ({
       kind: "preparation",
       id: preparation.id,
       code: preparation.preparation_code,
-      title: "Solution preparation",
+      title: solutionSummary(preparation.actual_solution_snapshot ?? preparation.planned_solution_snapshot) ||
+        "Solution preparation",
       meta: "",
       planned: "",
       status: preparation.status,
@@ -194,7 +280,8 @@ export function BatchDetailPage() {
       id: execution.id,
       code: execution.execution_code,
       title: `${execution.method.replace(/_/g, " ")} · ${execution.layer_name}`,
-      meta: execution.layer_type.replace(/_/g, " "),
+      meta: processSummary(execution.actual_process_snapshot ?? execution.planned_process_snapshot) ||
+        execution.layer_type.replace(/_/g, " "),
       planned: "",
       status: execution.status,
       recorded: execution.actual_recording_mode !== null,
