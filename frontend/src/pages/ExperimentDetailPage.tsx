@@ -282,8 +282,13 @@ export function ExperimentDetailPage() {
             {activeDetail.fabrication_batches.map((batch) => (
               <article className="batch-summary-card" key={batch.id}>
                 <div><Link className="record-link" to={`/experiments/${id}/batches/${batch.id}`}>{batch.batch_code}</Link><StatusBadge status={batch.status} /></div>
-                <code>{batch.condition_set_hash}</code>
                 <span>{batch.notes || "No notes"}</span>
+                <details className="provenance-disclosure">
+                  <summary>Provenance</summary>
+                  <div className="provenance-disclosure__body">
+                    <code title={batch.condition_set_hash}>{batch.condition_set_hash.slice(0, 16)}…</code>
+                  </div>
+                </details>
               </article>
             ))}
           </div>
