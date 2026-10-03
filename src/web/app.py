@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import logging
 import os
+import secrets
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import uvicorn
-from fastapi import FastAPI
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from starlette import status as _status
@@ -25,6 +26,14 @@ from .version import __version__
 
 STATIC_APP_DIR = Path(__file__).parent / "static-app"
 DEFAULT_EXPERIMENT_SERIES_ID = "usual_v1"
+
+# Emotion (MUI's CSS-in-JS runtime) injects <style> tags at runtime; the CSP
+# in middleware.py only allows 'self' stylesheets. The SPA entry template
+# carries __CSP_NONCE__ placeholders that get a per-request nonce substituted
+# here, and the same nonce rides the response header via request.state so the
+# middleware can append 'nonce-...' to style-src. One random nonce per HTML
+# response keeps the window for a replayed nonce at one page load.
+NONCE_PLACEHOLDER = "__CSP_NONCE__"
 
 
 def create_app(
@@ -213,10 +222,21 @@ def _mount_spa(app: FastAPI) -> None:
             name="app-assets",
         )
 
+    template: str | None = None
+
     @app.get("/app", include_in_schema=False)
     @app.get("/app/{path:path}", include_in_schema=False)
-    async def spa_entry(path: str = "") -> FileResponse:
-        return FileResponse(index_html, media_type="text/html")
+    async def spa_entry(path: str = "", request: Request = None) -> HTMLResponse:
+        nonlocal template
+        if template is None:
+            template = index_html.read_text(encoding="utf-8")
+        nonce = secrets.token_urlsafe(32)
+        if request is not None:
+            request.state.csp_nonce = nonce
+        return HTMLResponse(
+            template.replace(NONCE_PLACEHOLDER, nonce),
+            media_type="text/html",
+        )
 
 
 def main() -> None:
