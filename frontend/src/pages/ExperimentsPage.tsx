@@ -7,7 +7,7 @@ import { FormField } from "../components/FormField";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
-import { formatDateTime } from "../lib/format";
+import { formatRelativeTime } from "../lib/format";
 import { useApiResource } from "../lib/useApiResource";
 import type { Experiment } from "../types/api";
 
@@ -53,7 +53,7 @@ export function ExperimentsPage() {
     { key: "plan_status", header: "Plan", render: (row) => row.plan_status ? <StatusBadge status={row.plan_status} /> : "—" },
     { key: "status", header: "Record", render: (row) => <StatusBadge status={row.status} /> },
     { key: "stack", header: "Device stack", render: (row) => <span className="stack-summary" title={stackSummary(row)}>{stackSummary(row)}</span> },
-    { key: "updated_at", header: "Updated", render: (row) => formatDateTime(row.updated_at) },
+    { key: "updated_at", header: "Updated", render: (row) => formatRelativeTime(row.updated_at) },
   ];
 
   if (resource.status === "loading" && resource.data === null) {

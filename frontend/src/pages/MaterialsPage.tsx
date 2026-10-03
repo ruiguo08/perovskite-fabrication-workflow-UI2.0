@@ -9,7 +9,7 @@ import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { useToast } from "../components/Toast";
 import { apiFetch } from "../lib/api";
-import { formatDateTime, titleCase } from "../lib/format";
+import { formatRelativeTime, titleCase } from "../lib/format";
 import { useApiResource } from "../lib/useApiResource";
 import type { Material, MaterialProduct } from "../types/api";
 
@@ -267,7 +267,7 @@ function MaterialCard({ material, canManage, onChange }: MaterialCardProps) {
             {material.cas_number ? <span>CAS {material.cas_number}</span> : null}
           </p>
         </div>
-        <span className="material-card__updated">Updated {formatDateTime(material.updated_at)}</span>
+        <span className="material-card__updated">Updated {formatRelativeTime(material.updated_at)}</span>
       </header>
 
       {canManage ? (

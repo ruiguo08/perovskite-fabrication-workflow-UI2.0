@@ -4,7 +4,7 @@ import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { PageHeader } from "../components/PageHeader";
 import { apiFetch } from "../lib/api";
-import { formatDateTime } from "../lib/format";
+import { formatRelativeTime } from "../lib/format";
 import { useApiResource } from "../lib/useApiResource";
 import type { ResultListItem } from "../types/api";
 
@@ -107,21 +107,24 @@ export function ResultsPage() {
                   <Link className="record-link" to={`/results/${result.id}`}>
                     {result.filename}
                   </Link>
-                  <span className="run-sheet-muted">{formatDateTime(result.created_at)}</span>
+                  <span className="run-sheet-muted">{formatRelativeTime(result.created_at)}</span>
                 </div>
                 <span className="record-title">
                   {result.experiment_code ?? `Experiment ${result.experiment_id}`}
                 </span>
                 <span className="run-sheet-muted">{result.batch_code}</span>
-                <span className="run-sheet-muted">{result.size_bytes} bytes</span>
-                <code title={result.sha256}>{result.sha256.slice(0, 16)}…</code>
-                <span className="run-sheet-muted">Schema v{result.analysis_schema_version}</span>
-                {result.group_assignment ? (
-                  <span className="run-sheet-muted">Assigned</span>
-                ) : (
-                  <span className="run-sheet-muted">Unassigned</span>
-                )}
+                <span className="run-sheet-muted">
+                  {result.group_assignment ? "Assigned" : "Unassigned"}
+                </span>
                 <Link className="record-link" to={`/results/${result.id}`}>View direction-specific statistics</Link>
+                <details className="provenance-disclosure">
+                  <summary>Provenance</summary>
+                  <div className="provenance-disclosure__body">
+                    <span className="run-sheet-muted">{result.size_bytes} bytes</span>
+                    <code title={result.sha256}>{result.sha256.slice(0, 16)}…</code>
+                    <span className="run-sheet-muted">Schema v{result.analysis_schema_version}</span>
+                  </div>
+                </details>
               </article>
             ))}
           </div>

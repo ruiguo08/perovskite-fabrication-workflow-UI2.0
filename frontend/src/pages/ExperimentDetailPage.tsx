@@ -300,7 +300,6 @@ export function ExperimentDetailPage() {
             {activeDetail.results.map((result) => (
               <article className="result-summary-card" key={result.id} data-result-row={result.id}>
                 <Link className="record-link" to={`/results/${result.id}`}>{result.filename}</Link>
-                <code>{result.sha256}</code>
                 <Link className="record-link" to={`/results/${result.id}`}>View direction-specific statistics</Link>
               </article>
             ))}
