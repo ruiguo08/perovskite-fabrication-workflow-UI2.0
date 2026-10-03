@@ -9,7 +9,7 @@ import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { useToast } from "../components/Toast";
 import { apiFetch } from "../lib/api";
-import { formatDateTime } from "../lib/format";
+import { formatRelativeTime } from "../lib/format";
 import { useApiResource } from "../lib/useApiResource";
 import type { Campaign } from "../types/api";
 
@@ -92,7 +92,7 @@ export function CampaignsPage() {
     {
       key: "updated_at",
       header: "Updated",
-      render: (row) => formatDateTime(row.updated_at),
+      render: (row) => formatRelativeTime(row.updated_at),
     },
   ];
   if (canManage) {

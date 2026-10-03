@@ -1,24 +1,23 @@
 name: Tests
 
+# Deliberate CI (owner decision 2026-10-03): one manual run per PR before it
+# merges — Actions → Tests → Run workflow on the PR branch — plus Windows
+# validation on demand (windows.yml). Nothing runs automatically on PRs or
+# main pushes.
 on:
-  pull_request:
-    types: [opened, reopened, ready_for_review, synchronize]
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 # New commits cancel superseded runs for the same branch or PR.
-# Windows validation runs separately in windows.yml on PRs and main pushes.
+# Windows validation runs separately in windows.yml, manual dispatch only.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   unittest:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     name: ubuntu-latest / Python 3.14
     steps:
@@ -43,7 +42,6 @@ jobs:
           PEROVSKITE_SKIP_BROWSER: "0"
 
   postgresql:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -94,7 +92,6 @@ jobs:
         run: uv run --no-sync python -m unittest tests.test_postgresql_integration tests.test_release_config -v
 
   frontend:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     env:
       CI: "true"
@@ -148,7 +145,6 @@ jobs:
         run: uv run --no-sync python -m unittest tests.test_installed_wheel_smoke -v
 
   python-static:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     name: ruff + mypy / Python 3.14
     steps:

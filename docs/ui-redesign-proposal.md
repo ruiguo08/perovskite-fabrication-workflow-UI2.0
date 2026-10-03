@@ -180,6 +180,16 @@ Constraint notes: desktop-first stays (the 720px breakpoint and touch guardrails
 remain); CSP/self-hosted fonts unchanged; no component library introduced; public
 release parity handled per the release checklist when these land.
 
+Follow-ups (2026-10-03, during phase 0):
+
+- Font: the owner chose the OS system font stack (SF Pro on macOS, Segoe UI
+  Variable on Windows) over self-hosted IBM Plex to complete the direction A
+  look — this revises "self-hosted fonts unchanged" above. The woff2 files
+  stay in the tree for a one-line revert; CSP needs no font-src entry.
+- Component library: "no component library introduced" still holds for phase 0
+  (direction A, zero dependencies); a hand-rolled vs themed-MUI spike for the
+  phase 1 run sheet decides whether the constraint is relaxed in phase 1.
+
 ## 4. Evidence index
 
 | Screenshot | Page | Notes |

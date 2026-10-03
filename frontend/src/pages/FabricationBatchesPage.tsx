@@ -5,7 +5,7 @@ import { ErrorState } from "../components/ErrorState";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
-import { formatDateTime } from "../lib/format";
+import { formatRelativeTime } from "../lib/format";
 import { useApiResource } from "../lib/useApiResource";
 import type { FabricationBatchListItem } from "../types/api";
 
@@ -92,9 +92,14 @@ export function FabricationBatchesPage() {
                 <span className="record-title">
                   {batch.experiment_code ?? `Experiment ${batch.experiment_id}`}
                 </span>
-                <code>{batch.condition_set_hash}</code>
                 <span>{batch.notes || "No batch notes."}</span>
-                <span className="run-sheet-muted">Created {formatDateTime(batch.created_at)}</span>
+                <details className="provenance-disclosure">
+                  <summary>Provenance</summary>
+                  <div className="provenance-disclosure__body">
+                    <code title={batch.condition_set_hash}>{batch.condition_set_hash.slice(0, 16)}…</code>
+                    <span className="run-sheet-muted">Created {formatRelativeTime(batch.created_at)}</span>
+                  </div>
+                </details>
               </article>
             ))}
           </div>

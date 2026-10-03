@@ -8,6 +8,12 @@ const DATE_TIME_FORMAT = new Intl.DateTimeFormat("en-US", {
   minute: "2-digit",
 });
 
+const DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
+  year: "numeric",
+  month: "short",
+  day: "2-digit",
+});
+
 export function formatDateTime(value: string | null | undefined): string {
   if (!value) {
     return "—";
@@ -17,6 +23,39 @@ export function formatDateTime(value: string | null | undefined): string {
     return value;
   }
   return DATE_TIME_FORMAT.format(date);
+}
+
+/**
+ * Compact relative time for list rows ("2 h ago"); falls back to a short
+ * absolute date once a record is older than a week. Precision-critical
+ * surfaces (provenance, audit history, page-header metadata) keep
+ * {@link formatDateTime}.
+ */
+export function formatRelativeTime(value: string | null | undefined): string {
+  if (!value) {
+    return "—";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  const seconds = Math.round((Date.now() - date.getTime()) / 1000);
+  if (seconds < 45) {
+    return "just now";
+  }
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes} min ago`;
+  }
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) {
+    return `${hours} h ago`;
+  }
+  const days = Math.round(hours / 24);
+  if (days < 7) {
+    return `${days} d ago`;
+  }
+  return DATE_FORMAT.format(date);
 }
 
 export function titleCase(value: string): string {

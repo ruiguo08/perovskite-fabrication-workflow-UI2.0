@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useSession } from "../auth/session";
 import { apiFetch } from "../lib/api";
-import { formatDateTime } from "../lib/format";
+import { formatRelativeTime } from "../lib/format";
 import { DataTable, type Column } from "../components/DataTable";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
@@ -141,7 +141,7 @@ const COLUMNS: Column<Experiment>[] = [
   {
     key: "updated_at",
     header: "Updated",
-    render: (row) => formatDateTime(row.updated_at),
+    render: (row) => formatRelativeTime(row.updated_at),
   },
 ];
 

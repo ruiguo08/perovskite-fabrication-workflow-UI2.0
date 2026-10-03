@@ -10,7 +10,7 @@ import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { useToast } from "../components/Toast";
 import { apiFetch } from "../lib/api";
-import { formatDateTime } from "../lib/format";
+import { formatDateTime, formatRelativeTime } from "../lib/format";
 import { useApiResource } from "../lib/useApiResource";
 import { DeviationSection } from "./batch-detail/DeviationSection";
 import { ExecutionSection } from "./batch-detail/ExecutionSection";
@@ -569,7 +569,7 @@ export function BatchDetailPage() {
     <div data-run-sheet="true">
       <PageHeader
         title={batch.batch_code}
-        description={`Fabrication batch ${batch.batch_number} (frozen condition set ${batch.condition_set_hash.slice(0, 10)}…)`}
+        description={`Fabrication batch ${batch.batch_number} · frozen condition snapshot`}
         meta={`Created ${formatDateTime(batch.created_at)} · Updated ${formatDateTime(batch.updated_at)}`}
         actions={
           <>
@@ -661,9 +661,8 @@ export function BatchDetailPage() {
                 <th>Name</th>
                 <th>Role</th>
                 <th>Layout</th>
-                <th>Substrates</th>
-                <th>Devices</th>
-                <th>Source hash</th>
+                <th className="numeric-cell">Substrates</th>
+                <th className="numeric-cell">Devices</th>
               </tr>
             </thead>
             <tbody>
@@ -673,9 +672,8 @@ export function BatchDetailPage() {
                   <td>{condition.condition_name}</td>
                   <td><StatusBadge status={condition.role} /></td>
                   <td>{condition.device_layout_code}</td>
-                  <td>{condition.planned_substrate_count}</td>
-                  <td>{condition.expected_device_count}</td>
-                  <td><code>{condition.source_condition_hash.slice(0, 16)}…</code></td>
+                  <td className="numeric-cell">{condition.planned_substrate_count}</td>
+                  <td className="numeric-cell">{condition.expected_device_count}</td>
                 </tr>
               ))}
             </tbody>
@@ -701,12 +699,15 @@ export function BatchDetailPage() {
             <tbody>
               {activeSheet.substrates.map((substrate) => {
                 const devices = activeSheet.devices.filter((device) => device.substrate_id === substrate.id);
+                const marks = devices
+                  .map((device) => device.device_mark)
+                  .filter((mark): mark is string => mark !== null && mark !== "");
                 return (
                   <tr key={substrate.id}>
                     <td><code>{substrate.substrate_mark}</code></td>
                     <td>{substrate.substrate_code}</td>
                     <td><StatusBadge status={substrate.status} /></td>
-                    <td>{devices.map((device) => device.device_mark).join(", ")}</td>
+                    <td>{marks.length > 0 ? marks.join(", ") : devices.length > 0 ? `${devices.length} devices` : "—"}</td>
                   </tr>
                 );
               })}
@@ -790,7 +791,7 @@ export function BatchDetailPage() {
                     <td><StatusBadge status={deviation.deviation_type} /></td>
                     <td><StatusBadge status={deviation.severity} /></td>
                     <td>{deviation.description}</td>
-                    <td>{formatDateTime(deviation.recorded_at)}</td>
+                    <td>{formatRelativeTime(deviation.recorded_at)}</td>
                   </tr>
                 ))}
               </tbody>
