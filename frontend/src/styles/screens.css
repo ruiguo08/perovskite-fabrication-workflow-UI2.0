@@ -11,12 +11,12 @@
 
 .login-card {
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border: 0;
+  border-radius: var(--radius-lg);
   padding: 28px;
   width: 100%;
   max-width: 380px;
-  box-shadow: var(--shadow-1);
+  box-shadow: var(--shadow-2);
 }
 
 .login-card__title {
@@ -152,9 +152,9 @@
 }
 
 .builder-step--active {
-  background: var(--active-soft);
-  color: var(--ito-strong);
-  box-shadow: inset 0 -3px 0 var(--ito);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  box-shadow: inset 0 -3px 0 var(--accent);
 }
 
 .builder-workspace {
@@ -172,10 +172,9 @@
   position: sticky;
   top: 16px;
   padding: var(--space-4);
-  border: 1px solid var(--border);
-  border-top: 3px solid var(--perovskite);
-  border-radius: var(--radius);
-  background: var(--surface);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--fill-quiet);
 }
 
 .builder-workspace__stack .stack-rail {
@@ -201,14 +200,13 @@
 .builder-panel {
   min-width: 0;
   padding: var(--space-5);
-  border: 1px solid var(--border);
-  border-top: 3px solid var(--ito);
-  border-radius: var(--radius);
+  border: 0;
+  border-radius: var(--radius-lg);
   background: var(--surface);
 }
 
 .builder-panel--review {
-  border-top-color: var(--perovskite);
+  background: var(--surface);
 }
 
 .builder-panel__heading,
@@ -345,8 +343,8 @@
 
 .builder-facts div {
   padding: var(--space-2) var(--space-3);
-  border-left: 2px solid var(--ito);
-  background: var(--porcelain);
+  border-radius: var(--radius);
+  background: var(--fill-quiet);
 }
 
 .builder-facts dt,
@@ -383,10 +381,9 @@
 .builder-condition-card {
   min-width: 0;
   padding: var(--space-4);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--perovskite);
-  border-radius: var(--radius);
-  background: var(--surface);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--fill-quiet);
 }
 
 .builder-layer-card__header h3,
@@ -466,13 +463,13 @@
 .builder-subeditor {
   margin-top: var(--space-4);
   padding: var(--space-4);
-  border: 1px solid var(--border);
-  background: var(--porcelain);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--fill-quiet);
 }
 
 .builder-subeditor--perovskite {
   margin-top: 18px;
-  border-left: 3px solid var(--perovskite);
 }
 
 .builder-subeditor__heading {
@@ -534,7 +531,9 @@
   gap: 12px 20px;
   margin: 0 0 var(--space-3);
   padding: var(--space-3);
-  border: 1px solid var(--border);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--fill-quiet);
 }
 
 .builder-plan-type legend {
@@ -682,7 +681,9 @@
 .builder-review-grid article {
   min-width: 0;
   padding: var(--space-3);
-  border: 1px solid var(--border);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--fill-quiet);
 }
 
 .builder-review-grid dl {
@@ -792,8 +793,8 @@
 
 .dialog {
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border: 0;
+  border-radius: var(--radius-lg);
   padding: var(--space-5);
   width: min(440px, calc(100vw - 32px));
   box-shadow: var(--shadow-3);

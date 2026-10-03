@@ -15,11 +15,11 @@
 }
 
 .run-sheet-card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border: 0;
+  border-radius: var(--radius-lg);
   padding: var(--space-4);
   margin-top: var(--space-3);
-  background: var(--surface);
+  background: var(--fill-quiet);
 }
 
 /* Bench guardrail: full-size run-sheet controls stay reachable by touch
@@ -96,9 +96,9 @@
 /* Snapshot editor ---------------------------------------------------- */
 
 .snapshot-editor {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--porcelain);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
   padding: var(--space-3);
 }
 
@@ -138,9 +138,9 @@
 }
 
 .snapshot-array__card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--fill-quiet);
   padding: var(--space-3);
   margin-top: var(--space-2);
 }
@@ -228,9 +228,9 @@
 .result-inline-details {
   margin-bottom: var(--space-5);
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: var(--radius-lg);
-  background: var(--surface);
+  background: var(--fill-quiet);
 }
 
 .result-exclusions-details > summary,
@@ -334,9 +334,9 @@
 }
 
 .result-section-nav__button--active {
-  color: var(--ito-strong);
-  background: var(--active-soft);
-  border-color: var(--active-border);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
 }
 
 .result-section-nav__button:disabled,
@@ -366,8 +366,8 @@
 
 .result-figure-nav__button--active {
   color: var(--surface);
-  background: var(--ito);
-  border-color: var(--ito);
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 .figure-scope-pair__item + .figure-scope-pair__item {
@@ -421,9 +421,9 @@
 }
 
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  background: var(--fill-quiet);
+  border: 0;
+  border-radius: var(--radius-lg);
   padding: var(--space-3);
   display: flex;
   flex-direction: column;
@@ -621,6 +621,6 @@
 }
 
 .run-sheet-jump a {
-  color: var(--ito-strong);
+  color: var(--accent);
   text-underline-offset: 3px;
 }
