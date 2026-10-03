@@ -62,8 +62,8 @@ export function ResultsPage() {
   return (
     <>
       <PageHeader
-        title="Characterization results"
-        description="Every uploaded result file authorized for your role, newest first."
+        title="Results"
+        description="Uploaded result files across all campaigns, newest first."
         meta={`${results.length} records`}
       />
       <section className="panel" aria-labelledby="result-list-title">

@@ -53,7 +53,7 @@ export function FabricationBatchesPage() {
     <>
       <PageHeader
         title="Fabrication batches"
-        description="Every fabrication batch authorized for your role, newest first."
+        description="Fabrication batches across all campaigns, newest first."
         meta={`${batches.length} records`}
       />
       <section className="panel" aria-labelledby="batch-list-title">

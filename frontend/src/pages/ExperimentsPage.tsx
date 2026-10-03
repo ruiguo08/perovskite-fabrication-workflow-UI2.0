@@ -68,8 +68,8 @@ export function ExperimentsPage() {
   return (
     <>
       <PageHeader
-        title="Experiment records"
-        description="Authorized planning, fabrication, and characterization records."
+        title="Experiments"
+        description="Plans and records across all campaigns."
         actions={<Link className="button button--primary" to="/experiments/new">Plan new experiment</Link>}
       />
       <section className="panel experiment-filters" aria-label="Experiment filters">

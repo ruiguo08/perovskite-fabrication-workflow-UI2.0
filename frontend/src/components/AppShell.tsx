@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useSession, type Role } from "../auth/session";
+import { PipelineHeader } from "./PipelineHeader";
 import { useToast } from "./Toast";
 import { titleCase } from "../lib/format";
 
@@ -153,6 +154,7 @@ export function AppShell() {
           <span className="topbar__user">{user.display_name}</span>
           <LogoutButton />
         </header>
+        <PipelineHeader />
         <main id="main-content" className="shell__content" tabIndex={-1}>
           <Outlet />
         </main>
