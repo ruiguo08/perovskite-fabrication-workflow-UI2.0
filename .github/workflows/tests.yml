@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 # New commits cancel superseded runs for the same branch or PR.
-# Windows validation runs separately in windows.yml on PRs and main pushes.
+# Windows validation runs separately in windows.yml, manual dispatch only.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true

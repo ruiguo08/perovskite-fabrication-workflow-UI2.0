@@ -11,7 +11,9 @@ refactor. All user-interface redesign work happens here until it is stable.
   and never pull internal branches or history into this one — the two
   histories stay independent so this tree can later be re-published cleanly.
 - Work lands through feature branches and pull requests. CI runs the Ubuntu
-  and Windows suites on pull requests; merge when required checks pass. Draft
+  suite (unit, PostgreSQL, frontend, ruff+mypy) on pull requests; Windows
+  validation is **manual dispatch only** since 2026-10-03 (Actions →
+  Windows validation → Run workflow) — merge when required checks pass. Draft
   PRs skip CI and keep Actions minutes low.
 - The design record lives in `docs/ui-redesign-proposal.md` (diagnosis,
   phases 0-4, owner decisions of 2026-10-03: direction B as the base, the

@@ -1,10 +1,10 @@
 name: Windows validation
 
+# Manual only (owner decision 2026-10-03): the Windows runner is the most
+# expensive check and the owner develops on Windows locally, so this no
+# longer runs automatically on PRs or main pushes. Trigger it from
+# Actions → Windows validation → Run workflow, selecting a branch.
 on:
-  pull_request:
-    types: [opened, reopened, ready_for_review, synchronize]
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -16,7 +16,6 @@ concurrency:
 
 jobs:
   unittest-windows:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: windows-latest
     name: windows-latest / Python 3.14
     steps:
