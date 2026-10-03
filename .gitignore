@@ -20,3 +20,7 @@ demo-preview.sqlite3
 # never commit; the public repository must not contain real setpoints.
 docs/test-data/
 /node_modules/
+
+# UI work scratch: demo seeder, seeded SQLite, and review screenshots.
+# Regenerable via scratch_ui_demo/serve_demo.py.
+scratch_ui_demo/
