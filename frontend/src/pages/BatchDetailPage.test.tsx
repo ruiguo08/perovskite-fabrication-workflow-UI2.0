@@ -170,8 +170,17 @@ async function renderReadySheet() {
 }
 
 function preparationCard(): HTMLElement {
-  const strong = screen.getAllByText("interface-2026-v7-B01-P01")[0];
-  return strong.closest("article") as HTMLElement;
+  // The code appears twice now: once in the MUI checklist row, once in the
+  // advanced-form card (kept behind the disclosure). The card is the second
+  // match's closest <article>.
+  const strongs = screen.getAllByText("interface-2026-v7-B01-P01");
+  const article = strongs
+    .map((node) => node.closest("article"))
+    .find((node): node is HTMLElement => node !== null);
+  if (!article) {
+    throw new Error("Preparation card not rendered");
+  }
+  return article;
 }
 
 function recordingSelect(card: HTMLElement): HTMLSelectElement {
@@ -228,8 +237,10 @@ describe("BatchDetailPage", () => {
 
     expect(screen.getByRole("button", { name: "Mark ready" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Cancel batch" })).not.toBeInTheDocument();
-    expect(screen.getByText("interface-2026-v7-B01-P01")).toBeInTheDocument();
-    expect(screen.getByText("interface-2026-v7-B01-E01")).toBeInTheDocument();
+    // The preparation and execution codes now appear in both the MUI
+    // checklist and the advanced-form disclosure; assert both surfaces.
+    expect(screen.getAllByText("interface-2026-v7-B01-P01").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("interface-2026-v7-B01-E01").length).toBeGreaterThanOrEqual(1);
     expect(document.querySelectorAll(".data-table").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByRole("link", { name: "Export JSON" })).toHaveAttribute(
       "href",
@@ -681,7 +692,7 @@ it("ignores an old-route preparation save that resolves after navigation", async
       return undefined;
     });
     renderNavigablePage();
-    await screen.findByText("interface-2026-v7-B01-P01");
+    await screen.findAllByText("interface-2026-v7-B01-P01");
 
     // Begin a preparation save on batch A (deferred).
     const card = preparationCard();
@@ -733,7 +744,7 @@ it("ignores an old-route preparation save that resolves after navigation", async
       return undefined;
     });
     renderNavigablePage();
-    await screen.findByText("interface-2026-v7-B01-P01");
+    await screen.findAllByText("interface-2026-v7-B01-P01");
 
     // Begin A's status mutation (PATCH deferred) and navigate before it resolves.
     fireEvent.click(screen.getByRole("button", { name: "Mark ready" }));

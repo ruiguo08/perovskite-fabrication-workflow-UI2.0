@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useSession } from "../auth/session";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -7,6 +7,7 @@ import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { InlineFormError } from "../components/InlineFormError";
 import { PageHeader } from "../components/PageHeader";
+import { RunSheetTable, type DeviationDraft, type RunSheetRow } from "../components/RunSheetTable";
 import { StatusBadge } from "../components/StatusBadge";
 import { useToast } from "../components/Toast";
 import { apiFetch } from "../lib/api";
@@ -171,6 +172,36 @@ export function BatchDetailPage() {
       throw new Error(caught instanceof Error ? caught.message : "Unable to save the execution.");
     }
   }
+
+  // Phase 1 checklist rows: one flat list for the MUI table. Status chips
+  // cycle through the same machines the old per-row selects offered
+  // (batch-detail/helpers.ts); "recorded" mirrors actual_recording_mode.
+  const runSheetRows = useMemo<RunSheetRow[]>(() => {
+    if (!activeSheet) return [];
+    const prepRows = activeSheet.preparations.map(({ preparation }): RunSheetRow => ({
+      kind: "preparation",
+      id: preparation.id,
+      code: preparation.preparation_code,
+      title: "Solution preparation",
+      meta: "",
+      planned: "",
+      status: preparation.status,
+      recorded: preparation.actual_recording_mode !== null,
+      notes: preparation.notes,
+    }));
+    const execRows = activeSheet.executions.map(({ execution }): RunSheetRow => ({
+      kind: "execution",
+      id: execution.id,
+      code: execution.execution_code,
+      title: `${execution.method.replace(/_/g, " ")} · ${execution.layer_name}`,
+      meta: execution.layer_type.replace(/_/g, " "),
+      planned: "",
+      status: execution.status,
+      recorded: execution.actual_recording_mode !== null,
+      notes: execution.notes,
+    }));
+    return [...prepRows, ...execRows];
+  }, [activeSheet]);
 
   async function refetchSheet(message: string) {
     const generation = routeGeneration.current;
@@ -532,7 +563,6 @@ export function BatchDetailPage() {
     }
     return null;
   }
-
   const batch = activeSheet.batch;
   const planExperimentId = batch.experiment_id;
   if (experimentIdNumber !== planExperimentId) {
@@ -564,6 +594,39 @@ export function BatchDetailPage() {
         item.execution.actual_recording_mode === null &&
         !["completed", "failed", "cancelled"].includes(item.execution.status),
     ).length;
+
+  // Phase 1 checklist handlers: cycle a status chip (PATCH the row), save
+  // notes, and file a structured deviation attached to the row.
+  async function cycleRunSheetRow(row: RunSheetRow, nextStatus: string) {
+    if (row.kind === "preparation") {
+      const item = activeSheet?.preparations.find((entry) => entry.preparation.id === row.id);
+      if (!item) return;
+      await savePreparation(item.preparation, {
+        status: nextStatus,
+        actual_recording_mode: nextStatus === "consumed" || nextStatus === "discarded" ? "copied_from_plan" : null,
+        actual_quantity_value: null,
+      });
+    } else {
+      const item = activeSheet?.executions.find((entry) => entry.execution.id === row.id);
+      if (!item) return;
+      await saveExecution(item.execution, {
+        status: nextStatus,
+        ...(nextStatus === "completed" ? { actual_recording_mode: "copied_from_plan" } : {}),
+      });
+    }
+  }
+
+  async function saveRunSheetDeviation(row: RunSheetRow, draft: DeviationDraft) {
+    await addDeviation({
+      category: draft.category,
+      severity: draft.severity,
+      deviation_type: "general",
+      description: draft.description,
+      ...(row.kind === "preparation"
+        ? { solution_preparation_id: row.id }
+        : { process_execution_id: row.id }),
+    });
+  }
 
   return (
     <div data-run-sheet="true">
@@ -718,46 +781,51 @@ export function BatchDetailPage() {
 
       <section className="panel" aria-labelledby="preparation-directory-title">
         <div className="panel__heading">
-          <h2 className="panel__title" id="preparation-directory-title">Solution preparations</h2>
-          <span className="record-count">{activeSheet.preparations.length} records</span>
+          <h2 className="panel__title" id="preparation-directory-title">Run sheet</h2>
+          <span className="record-count">
+            {activeSheet.preparations.length} preparations · {activeSheet.executions.length} executions
+          </span>
         </div>
-        {activeSheet.preparations.length === 0 ? (
-          <EmptyState title="No solution preparations." />
+        {activeSheet.preparations.length === 0 && activeSheet.executions.length === 0 ? (
+          <EmptyState title="Nothing to record on this run sheet yet." />
         ) : (
-          activeSheet.preparations.map((item) => (
-            <PreparationSection
-              key={item.preparation.id}
-              item={item}
-              sheet={activeSheet}
-              onSave={savePreparation}
-              onSplit={splitPreparation}
-              onRequestMerge={requestMergePreparation}
-              disabled={submitting}
-            />
-          ))
+          <RunSheetTable
+            rows={runSheetRows}
+            disabled={terminal}
+            submitting={submitting}
+            onCycle={(row, nextStatus) => void cycleRunSheetRow(row, nextStatus)}
+            onSaveDeviation={(row, draft) => saveRunSheetDeviation(row, draft)}
+          />
         )}
-      </section>
-
-      <section className="panel" aria-labelledby="execution-directory-title">
-        <div className="panel__heading">
-          <h2 className="panel__title" id="execution-directory-title">Process executions</h2>
-          <span className="record-count">{activeSheet.executions.length} records</span>
-        </div>
-        {activeSheet.executions.length === 0 ? (
-          <EmptyState title="No process executions." />
-        ) : (
-          activeSheet.executions.map((item) => (
-            <ExecutionSection
-              key={item.execution.id}
-              item={item}
-              sheet={activeSheet}
-              onSave={saveExecution}
-              onSplit={splitExecution}
-              onRequestMerge={requestMergeExecution}
-              disabled={submitting}
-            />
-          ))
-        )}
+        {activeSheet.preparations.length > 0 || activeSheet.executions.length > 0 ? (
+          <details className="snapshot-disclosure" style={{ marginTop: 12 }}>
+            <summary>Advanced: split, merge, and full recording forms</summary>
+            <div style={{ marginTop: 12 }}>
+              {activeSheet.preparations.map((item) => (
+                <PreparationSection
+                  key={item.preparation.id}
+                  item={item}
+                  sheet={activeSheet}
+                  onSave={savePreparation}
+                  onSplit={splitPreparation}
+                  onRequestMerge={requestMergePreparation}
+                  disabled={submitting}
+                />
+              ))}
+              {activeSheet.executions.map((item) => (
+                <ExecutionSection
+                  key={item.execution.id}
+                  item={item}
+                  sheet={activeSheet}
+                  onSave={saveExecution}
+                  onSplit={splitExecution}
+                  onRequestMerge={requestMergeExecution}
+                  disabled={submitting}
+                />
+              ))}
+            </div>
+          </details>
+        ) : null}
       </section>
 
       <section className="panel" aria-labelledby="deviation-directory-title">
