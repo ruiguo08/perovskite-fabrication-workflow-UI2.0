@@ -166,3 +166,7 @@ jobs:
       # `files` setting (a bare `mypy src` would override it and pull in the
       # web layer before its typing migration is done).
       - run: uv run --no-sync mypy
+      # These two web boundaries are strictly typed. Imports are still checked,
+      # but diagnostics from the pending wider web typing migration stay silent.
+      - name: Strict SPA entrypoint and database typing
+        run: uv run --no-sync mypy --follow-imports=silent src/web/app.py src/web/database.py
