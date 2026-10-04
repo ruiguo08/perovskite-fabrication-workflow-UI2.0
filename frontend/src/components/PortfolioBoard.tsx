@@ -167,7 +167,11 @@ export function PortfolioBoard({ experiments, batches, results }: PortfolioBoard
 
   return (
     <Box data-portfolio-board="true">
-      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 1.5 }}>
+      <Box sx={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
+        gap: 1.5,
+      }}>
         {columns.map((column) => (
           <Box key={column.label} sx={{ bgcolor: "#f5f5f7", borderRadius: "12px", p: 1.5, minWidth: 0 }}>
             <Typography sx={{ fontSize: 11.5, fontWeight: 600, letterSpacing: ".05px",
