@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>领域状态色 — 是什么、为什么、怎么用</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f4f5f7; color: #1d1d1f;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text",
+      "Segoe UI", system-ui, "PingFang SC", "Microsoft YaHei UI", sans-serif;
+    font-size: 14px; line-height: 1.55; }
+  .doc { max-width: 1080px; margin: 0 auto; padding: 34px 24px 80px; }
+  h1 { font-size: 22px; font-weight: 700; letter-spacing: -.01em; margin: 0 0 6px; }
+  .lead { color: #5b6670; margin: 0 0 26px; max-width: 860px; }
+  h2 { font-size: 16px; font-weight: 650; margin: 34px 0 10px; }
+  p { margin: 0 0 12px; color: #3a3a3c; }
+
+  .defgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 8px; }
+  .defcard { background: #fff; border: 1px solid #e8eaee; border-radius: 12px; padding: 16px 18px; }
+  .defcard h3 { margin: 0 0 6px; font-size: 14px; font-weight: 650; }
+  .defcard p { margin: 0; font-size: 13px; color: #5b6670; }
+  .defcard .kw { font-family: ui-monospace, Consolas, monospace; font-size: 12px;
+    background: #f1f2f4; border-radius: 4px; padding: 1px 6px; }
+
+  /* the four domain tones */
+  .tones { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 14px 0 6px; }
+  .tone { border-radius: 12px; padding: 14px 16px; background: #fff; border: 1px solid #e8eaee; }
+  .tone .chip { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px;
+    font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+  .tone .chip i { width: 7px; height: 7px; border-radius: 50%; }
+  .tone h4 { margin: 10px 0 2px; font-size: 13.5px; }
+  .tone p { margin: 0; font-size: 12.5px; color: #5b6670; }
+  .tone .hex { font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; color: #8a97a0; }
+  .t-ito .chip { background: #e6f4f6; color: #0f6d7d; } .t-ito .chip i { background: #168a9d; }
+  .t-pv .chip { background: #f0ecfa; color: #6852b8; } .t-pv .chip i { background: #6852b8; }
+  .t-ok .chip { background: #e9f5ef; color: #1e7a4d; } .t-ok .chip i { background: #1e7a4d; }
+  .t-warn .chip { background: #fdf3e6; color: #b66a00; } .t-warn .chip i { background: #b66a00; }
+
+  /* lifecycle strip */
+  .lifecycle { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    background: #fff; border: 1px solid #e8eaee; border-radius: 12px; padding: 16px 18px; margin: 10px 0 8px; }
+  .lc-step { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 500;
+    padding: 4px 12px; border-radius: 999px; }
+  .lc-step i { width: 7px; height: 7px; border-radius: 50%; }
+  .lc-arrow { color: #c2cbd1; font-size: 13px; }
+  .lc-planned { background: #f0ecfa; color: #6852b8; } .lc-planned i { background: #6852b8; }
+  .lc-ready { background: #e6f4f6; color: #0f6d7d; } .lc-ready i { background: #168a9d; }
+  .lc-running { background: #e6f4f6; color: #0f6d7d; } .lc-running i { background: #168a9d; }
+  .lc-done { background: #e9f5ef; color: #1e7a4d; } .lc-done i { background: #1e7a4d; }
+  .lc-block { background: #fdf3e6; color: #b66a00; } .lc-block i { background: #b66a00; }
+  .lc-neutral { background: #eef1f2; color: #5b6670; } .lc-neutral i { background: #8a97a0; }
+
+  /* live screenshots comparison */
+  .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .shot { background: #fff; border: 1px solid #e8eaee; border-radius: 12px; overflow: hidden; }
+  .shot .bar { padding: 10px 14px; font-size: 12.5px; font-weight: 600; color: #5b6670;
+    border-bottom: 1px solid #e8eaee; background: #fafbfc; }
+  .shot .bar.bad { color: #b3261e; }
+  .shot .bar.good { color: #1e7a4d; }
+  .shot table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .shot td, .shot th { padding: 7px 12px; border-bottom: 1px solid #eef1f2; text-align: left; }
+  .shot th { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #8a97a0; }
+  .pill { display: inline-flex; font-size: 10.5px; font-weight: 600; padding: 1px 7px;
+    border-radius: 999px; margin-right: 4px; }
+  .pill.cyan { background: #e6f4f6; color: #0f6d7d; }
+  .pill.violet { background: #f0ecfa; color: #6852b8; }
+  .pill.green { background: #e9f5ef; color: #1e7a4d; }
+  .pill.amber { background: #fdf3e6; color: #b66a00; }
+  .pill.red { background: #fbeceb; color: #b3261e; }
+  .st { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
+  .st i { width: 7px; height: 7px; border-radius: 50%; }
+  .st.cyan i { background: #168a9d; } .st.violet i { background: #6852b8; }
+  .st.green i { background: #1e7a4d; } .st.amber i { background: #b66a00; }
+  .st.red i { background: #b3261e; }
+
+  /* interaction rules */
+  .rules { background: #fff; border: 1px solid #e8eaee; border-radius: 12px;
+    padding: 18px 20px; }
+  .rules ul { margin: 0; padding-left: 18px; }
+  .rules li { margin-bottom: 8px; font-size: 13.5px; }
+  .rules b { font-weight: 650; }
+  .rules .do { color: #1e7a4d; font-weight: 600; }
+  .rules .dont { color: #b3261e; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="doc">
+  <h1>领域状态色（Domain State Colors）</h1>
+  <p class="lead">这四组颜色不是装饰——它们是写进这个应用底层的状态语言，第 0 期之前就存在，
+    并已写进设计提案的“保留项”。这也是我在“切 Notion”讨论里反复提到它的原因。</p>
+
+  <h2>1 · 定义：四个颜色 = 四种含义，全应用一致</h2>
+  <div class="tones">
+    <div class="tone t-ito"><span class="chip"><i></i>ITO 青 #168a9d</span>
+      <h4>进行 / 活跃</h4>
+      <p>正在发生的事：running、released、ready。也是“主行动”色（Phase 0 前用它做主按钮）。</p>
+      <div class="hex">--ito: #168a9d</div></div>
+    <div class="tone t-pv"><span class="chip"><i></i>钙钛矿紫 #6852b8</span>
+      <h4>计划 / 配置</h4>
+      <p>还没发生的事：planned、draft、preparing、suggested。计划态的东西永远是紫，不会误读成进行中。</p>
+      <div class="hex">--perovskite: #6852b8</div></div>
+    <div class="tone t-ok"><span class="chip"><i></i>成功绿 #1e7a4d</span>
+      <h4>完成 / 通过</h4>
+      <p>completed、consumed、approved——已经落定、不需要你再管的记录。</p>
+      <div class="hex">--success: #1e7a4d</div></div>
+    <div class="tone t-warn"><span class="chip"><i></i>警示琥珀 #b66a00</span>
+      <h4>等待人 / 异常</h4>
+      <p>pending approval（等你批）、deviation（有偏差要看）。红 #b3261e 另有专职：失败/取消，量最少。</p>
+      <div class="hex">--amber: #b66a00</div></div>
+  </div>
+
+  <h2>2 · 为什么它重要：一个实验记录的完整生命周期</h2>
+  <p>把四色串起来看——你在列表页扫一眼，<b>颜色直接告诉你“哪些事在等谁”</b>：</p>
+  <div class="lifecycle">
+    <span class="lc-step lc-planned"><i></i>draft</span><span class="lc-arrow">→</span>
+    <span class="lc-step lc-block"><i></i>pending approval（等你批）</span><span class="lc-arrow">→</span>
+    <span class="lc-step lc-planned"><i></i>approved</span><span class="lc-arrow">→</span>
+    <span class="lc-step lc-ready"><i></i>released（可开工）</span><span class="lc-arrow">→</span>
+    <span class="lc-step lc-running"><i></i>in_progress（制备中）</span><span class="lc-arrow">→</span>
+    <span class="lc-step lc-done"><i></i>completed</span>
+    <span style="flex:1"></span>
+    <span class="lc-step lc-neutral"><i></i>cancelled（灰，淡出）</span>
+  </div>
+  <p style="color:#5b6670;font-size:13px">Phase 0 的圆点徽章用的就是这套映射；运行单里 planned=紫、running=青、
+    consumed=绿 也是它。颜色承担了“状态机可视化”的职责，所以任何新主题都不能把它抽掉。</p>
+
+  <h2>3 · 眼见为实：同一张列表的两种画法</h2>
+  <div class="shots">
+    <div class="shot">
+      <div class="bar bad">✗ 坏例子：颜色即背景（Notion/Airtable 品牌规范的纯药丸路线推到极端）</div>
+      <table>
+        <thead><tr><th>Experiment</th><th>Plan</th><th>Record</th></tr></thead>
+        <tbody>
+          <tr><td class="mono" style="font-family:ui-monospace,Consolas,monospace;font-size:12px">usual_v1-v1</td>
+            <td><span class="pill cyan">RELEASED</span></td><td><span class="pill green">COMPLETED</span></td></tr>
+          <tr><td class="mono" style="font-family:ui-monospace,Consolas,monospace;font-size:12px">usual_v1-v3</td>
+            <td><span class="pill amber">PENDING APPROVAL</span></td><td><span class="pill violet">SUGGESTED</span></td></tr>
+          <tr><td class="mono" style="font-family:ui-monospace,Consolas,monospace;font-size:12px">usual_v1-v2</td>
+            <td><span class="pill cyan">RELEASED</span></td><td><span class="pill red">FAILED</span></td></tr>
+        </tbody>
+      </table>
+      <p style="padding:10px 14px;font-size:12.5px;color:#5b6670;margin:0">一行六个色块，每个都在喊叫——
+        这就是诊断 V3 说的“徽章彩纸”。扫一眼分不出轻重：哪行在等我？没有答案。</p>
+    </div>
+    <div class="shot">
+      <div class="bar good">✓ 第 0 期做法：颜色即圆点，文字保持中性</div>
+      <table>
+        <thead><tr><th>Experiment</th><th>Plan</th><th>Record</th></tr></thead>
+        <tbody>
+          <tr><td class="mono" style="font-family:ui-monospace,Consolas,monospace;font-size:12px">usual_v1-v1</td>
+            <td><span class="st cyan"><i></i>released</span></td><td><span class="st green"><i></i>completed</span></td></tr>
+          <tr><td class="mono" style="font-family:ui-monospace,Consolas,monospace;font-size:12px">usual_v1-v3</td>
+            <td><span class="st amber"><i></i>pending approval</span></td><td><span class="st violet"><i></i>suggested</span></td></tr>
+          <tr><td class="mono" style="font-family:ui-monospace,Consolas,monospace;font-size:12px">usual_v1-v2</td>
+            <td><span class="st cyan"><i></i>released</span></td><td><span class="st red"><i></i>failed</span></td></tr>
+        </tbody>
+      </table>
+      <p style="padding:10px 14px;font-size:12.5px;color:#5b6670;margin:0">同样的四色语义，但视觉重量只有圆点那么大。
+        一眼扫去：琥珀点那行在等你；其他行可以略过。<b>这就是“一行最多一个强调色”的实际含义。</b></p>
+    </div>
+  </div>
+
+  <h2>4 · 对主题选型的约束（也是我推荐保 Apple 的核心理由）</h2>
+  <div class="rules">
+    <ul>
+      <li><b>必须保留</b>：四色语义 + “圆点优先、文字中性”。这条与品牌无关，是功能。</li>
+      <li><b>Apple 主题</b>：天然兼容——它本来就只有 #0071e3 一个交互色，状态色自成一层，零冲突。<span class="do">零改动。</span></li>
+      <li><b>Notion 主题</b>：其规范说“核心 UI 只允许一个饱和色（#0075de）”。要保留四色语义就得<span class="dont">打破它的 purity</span>——可以做成“交互色用 Notion 蓝，状态色作为功能层例外保留”，但这就不再是“严格按规范”，而是又一层折中（你已经否过一次折中）。</li>
+      <li><b>无论选谁</b>：四色语义进 theme.ts 的 semantic 层，MUI 组件通过 token 引用，不允许组件自定义状态色。</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>

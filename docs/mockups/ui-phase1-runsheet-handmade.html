@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 1 spike — 手写实现（复用第 0 期令牌）</title>
+<style>
+  /* Hand-rolled spike: same Phase 0 token values the app ships, no
+     dependencies. Interactions are real (click-to-cycle, bulk record,
+     deviation drawer) so the UX target can be judged, not just the paint. */
+  * { box-sizing: border-box; }
+  :root {
+    --porcelain: #f4f5f7; --surface: #ffffff; --graphite: #1d1d1f;
+    --steel: #5b6670; --steel-soft: #8a97a0; --hairline: #e8eaee;
+    --fill-quiet: #f1f2f4; --fill-quiet-strong: #e6e8ec;
+    --accent: #0071e3; --accent-strong: #0060c9; --accent-soft: #e8f1fd;
+    --ito: #168a9d; --perovskite: #6852b8; --amber: #b66a00;
+    --danger: #b3261e; --success: #1e7a4d;
+    --nav-bg: #ececee; --nav-text: #3a3a3c; --nav-dim: #86868b;
+    --radius: 6px; --radius-lg: 10px;
+    --shadow-1: 0 1px 2px rgba(29,29,31,.06), 0 1px 3px rgba(29,29,31,.04);
+    --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, "PingFang SC", "Microsoft YaHei UI", sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  }
+  body { margin: 0; background: var(--porcelain); color: var(--graphite);
+    font-family: var(--font-ui); font-size: 14px; line-height: 1.5; }
+  .note { max-width: 1160px; margin: 26px auto 10px; padding: 0 24px;
+    color: var(--steel); font-size: 13px; }
+  .note b { color: var(--graphite); }
+  .frame { max-width: 1160px; margin: 12px auto 60px; background: var(--surface);
+    border-radius: 14px; box-shadow: 0 10px 28px rgba(29,29,31,.10);
+    overflow: hidden; display: grid; grid-template-columns: 216px 1fr; }
+  .side { background: var(--nav-bg); padding: 18px 12px 22px; }
+  .brand { color: var(--graphite); font-weight: 650; font-size: 14.5px; padding: 0 10px 14px; }
+  .brand small { display: block; color: var(--nav-dim); font-weight: 400; font-size: 11px; }
+  .side h3 { margin: 16px 10px 5px; font-size: 11px; font-weight: 600; color: var(--nav-dim); }
+  .side a { display: block; padding: 7px 10px; margin: 1px 0; border-radius: 8px;
+    color: var(--nav-text); text-decoration: none; font-size: 13px; }
+  .side a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .main { padding: 26px 30px 40px; min-width: 0; }
+  .crumbs { color: var(--steel-soft); font-size: 12.5px; margin-bottom: 4px; }
+  h1.page { margin: 0 0 2px; font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+  .page-sub { color: var(--steel); font-size: 13.5px; margin: 0 0 18px; }
+
+  /* checkbar */
+  .checkbar { display: flex; align-items: center; gap: 14px; background: var(--fill-quiet);
+    border-radius: var(--radius-lg); padding: 12px 16px; margin-bottom: 16px; }
+  .checkbar b { font-size: 13.5px; }
+  .meter { flex: 1; height: 6px; border-radius: 999px; background: var(--fill-quiet-strong); overflow: hidden; }
+  .meter i { display: block; height: 100%; background: var(--accent); border-radius: 999px;
+    transition: width .3s ease; }
+  .btn { font: inherit; font-size: 13.5px; font-weight: 600; border: 0; cursor: pointer;
+    border-radius: 8px; padding: 8px 16px; }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .btn.primary:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.quiet { background: var(--surface); color: var(--graphite); box-shadow: inset 0 0 0 1px var(--hairline); }
+  .btn.quiet:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* checklist table */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 12px; font-weight: 600; color: var(--steel);
+    padding: 10px 12px; border-bottom: 1px solid var(--hairline); white-space: nowrap; }
+  td { padding: 9px 12px; border-bottom: 1px solid var(--hairline); vertical-align: middle; }
+  tr:hover td { background: #f7f7f8; }
+  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .code { font-family: var(--font-mono); font-size: 12px; color: var(--steel); }
+  .step-title { font-weight: 600; }
+  .step-meta { color: var(--steel); font-size: 12px; }
+  tr.group td { border-bottom: 0; padding-bottom: 2px; color: var(--steel);
+    font-size: 12px; font-weight: 600; }
+  .flag { font: inherit; font-size: 12px; font-weight: 600; color: var(--steel);
+    background: none; border: 0; cursor: pointer; padding: 3px 6px; border-radius: 5px; }
+  .flag:hover { background: var(--fill-quiet); color: var(--graphite); }
+
+  /* status = dot + text, click-to-cycle */
+  .st { display: inline-flex; align-items: center; gap: 7px; font-weight: 500;
+    white-space: nowrap; cursor: pointer; user-select: none; padding: 3px 6px;
+    margin-left: -6px; border-radius: 6px; }
+  .st:hover { background: var(--fill-quiet); }
+  .st i { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--steel-soft); }
+  .st[data-tone="success"] { color: var(--graphite); } .st[data-tone="success"] i { background: var(--success); }
+  .st[data-tone="active"]  { color: var(--graphite); } .st[data-tone="active"]  i { background: var(--ito); }
+  .st[data-tone="planned"] { color: var(--graphite); } .st[data-tone="planned"] i { background: var(--perovskite); }
+  .st[data-tone="warning"] { color: var(--graphite); } .st[data-tone="warning"] i { background: var(--amber); }
+  .st:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* deviation drawer */
+  .overlay { position: fixed; inset: 0; background: rgba(29,29,31,.35);
+    opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 40; }
+  .overlay.open { opacity: 1; pointer-events: auto; }
+  .drawer { position: fixed; top: 0; right: -420px; width: 400px; max-width: 92vw;
+    height: 100vh; background: var(--surface); z-index: 50;
+    box-shadow: -12px 0 32px rgba(29,29,31,.18); transition: right .22s ease;
+    padding: 22px 24px; overflow-y: auto; }
+  .drawer.open { right: 0; }
+  .drawer h2 { margin: 0 0 2px; font-size: 17px; font-weight: 650; }
+  .drawer .sub { color: var(--steel); font-size: 12.5px; margin: 0 0 18px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 5px; }
+  .field select, .field input, .field textarea {
+    width: 100%; font: inherit; font-size: 13.5px; padding: 8px 12px;
+    border: 1px solid transparent; border-radius: var(--radius); background: var(--fill-quiet); }
+  .field select:focus, .field input:focus, .field textarea:focus {
+    outline: none; border-color: var(--accent); background: var(--surface); }
+  .field textarea { min-height: 84px; resize: vertical; }
+  .drawer-actions { display: flex; gap: 10px; margin-top: 20px; }
+  .toast { position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 20px);
+    background: var(--graphite); color: #fff; font-size: 13.5px; padding: 10px 18px;
+    border-radius: 10px; opacity: 0; transition: all .25s; z-index: 60; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .dev-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px;
+    color: var(--amber); font-weight: 500; }
+  .dev-badge i { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); }
+</style>
+</head>
+<body>
+<p class="note"><b>Phase 1 spike · 手写实现</b> — 复用第 0 期设计令牌，零依赖。交互全部可点：
+  状态徽章<b>点击循环</b>（preparation: planned→preparing→ready→consumed；execution: planned→ready→running→completed）、
+  <b>Record all as planned</b> 一键批量、每行 <b>Deviation</b> 打开结构化抽屉（无 JSON 文本框）。
+  同一份交互在另一标签页由真实 MUI 组件实现（scratch_ui_demo/mui-spike，127.0.0.1:8767）。</p>
+
+<div class="frame">
+  <aside class="side">
+    <div class="brand">Perovskite Fabrication<small>workflow console</small></div>
+    <h3>Laboratory</h3>
+    <a href="#">Overview</a><a href="#">Experiments</a>
+    <a href="#" class="active">Run sheet · B01</a><a href="#">Results</a>
+    <h3>Library</h3><a href="#">Materials</a><a href="#">Layer presets</a>
+  </aside>
+  <div class="main">
+    <div class="crumbs">usual_v1-v1 › batch B01</div>
+    <h1 class="page">Run sheet <span class="code" style="font-size:16px">usual_v1-v1-B01</span></h1>
+    <p class="page-sub">Frozen plan snapshot · 2 conditions · 6 substrates · 12 devices · spike shows 9 of 22 steps</p>
+
+    <div class="checkbar">
+      <b id="progress-label">5 of 9 recorded</b>
+      <div class="meter"><i id="meter-fill" style="width:55.6%"></i></div>
+      <button class="btn primary" id="bulk-btn">Record all as planned</button>
+      <button class="btn quiet" id="reset-btn">Reset spike</button>
+    </div>
+
+    <table aria-label="Run sheet checklist">
+      <thead><tr>
+        <th>Step</th><th>Detail</th><th class="num">Planned</th><th>Status — click to cycle</th><th></th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="overlay" id="overlay"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+  <h2 id="drawer-title">Record deviation</h2>
+  <p class="sub" id="drawer-sub">—</p>
+  <div class="field">
+    <label for="dev-category">Category</label>
+    <select id="dev-category">
+      <option>Parameter deviation</option><option>Equipment issue</option>
+      <option>Material issue</option><option>Process deviation</option><option>Other</option>
+    </select>
+  </div>
+  <div class="field">
+    <label for="dev-severity">Severity</label>
+    <select id="dev-severity"><option>Minor</option><option selected>Major</option><option>Critical</option></select>
+  </div>
+  <div class="field">
+    <label for="dev-change">What changed</label>
+    <input id="dev-change" placeholder="e.g. spin speed 4000 rpm instead of 5000 rpm" />
+  </div>
+  <div class="field">
+    <label for="dev-note">Notes</label>
+    <textarea id="dev-note" placeholder="Free-text context for the record"></textarea>
+  </div>
+  <div class="drawer-actions">
+    <button class="btn primary" id="dev-save">Save deviation</button>
+    <button class="btn quiet" id="dev-cancel">Cancel</button>
+  </div>
+</aside>
+<div class="toast" id="toast"></div>
+
+<script>
+  const CYCLES = {
+    preparation: ["planned", "preparing", "ready", "consumed"],
+    execution: ["planned", "ready", "running", "completed"],
+  };
+  const TONES = {
+    planned: "planned", preparing: "planned", ready: "active",
+    running: "active", completed: "success", consumed: "success",
+  };
+  const TERMINAL = new Set(["consumed", "completed"]);
+  // Seed mirrors the demo instance (excerpt of the 22-step sheet).
+  let steps = [
+    { kind: "group", label: "Solution preparations · 4" },
+    { id: "P01", kind: "preparation", title: "NiOx dispersion", meta: "5 mg/mL in DI · stir 30 min", planned: "0.5 mL", status: "consumed" },
+    { id: "P02", kind: "preparation", title: "SAM · IPA 1 mM", meta: "dip 12 h · N2 dry", planned: "20 mL", status: "consumed" },
+    { id: "P03", kind: "preparation", title: "Perovskite 1.62 M", meta: "DMF:DMSO 4:1 · 60 °C", planned: "1.0 mL", status: "consumed" },
+    { id: "P04", kind: "preparation", title: "PEAI passivation", meta: "10 mg/mL IPA", planned: "5 mL", status: "ready" },
+    { kind: "group", label: "Process executions · 5 (of 16)" },
+    { id: "E01", kind: "execution", title: "NiOx spin coat", meta: "1000 rpm · 45 s · 500 rpm/s", planned: "45 s", status: "completed" },
+    { id: "E05", kind: "execution", title: "Perovskite spin · control", meta: "5000 rpm · 30 s", planned: "30 s", status: "completed" },
+    { id: "E07", kind: "execution", title: "Perovskite spin · target +CsBr", meta: "5000 rpm · 30 s · dispense 80 µL", planned: "30 s", status: "running" },
+    { id: "E11", kind: "execution", title: "Thermal evaporation · Ag", meta: "80 nm · 1.2 Å/s", planned: "80 nm", status: "ready" },
+    { id: "E12", kind: "execution", title: "Encapsulation · UV cure", meta: "365 nm · 120 s", planned: "120 s", status: "planned" },
+  ];
+  const $ = (sel) => document.querySelector(sel);
+  const rows = $("#rows"), overlay = $("#overlay"), drawer = $("#drawer"), toast = $("#toast");
+  let drawerStep = null;
+
+  function render() {
+    rows.innerHTML = "";
+    for (const step of steps) {
+      if (step.kind === "group") {
+        const tr = document.createElement("tr");
+        tr.className = "group";
+        tr.innerHTML = `<td colspan="5">${step.label}</td>`;
+        rows.appendChild(tr);
+        continue;
+      }
+      const machine = CYCLES[step.kind];
+      const idx = machine.indexOf(step.status);
+      const next = machine[(idx + 1) % machine.length];
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="code">${step.id}</td>
+        <td><div class="step-title">${step.title}</div><div class="step-meta">${step.meta}</div></td>
+        <td class="num dim" style="color:var(--steel)">${step.planned}</td>
+        <td><span class="st" data-tone="${TONES[step.status]}" role="button" tabindex="0"
+              title="Click → ${next}"><i></i>${step.status}</span></td>
+        <td>${step.deviations ? `<span class="dev-badge"><i></i>${step.deviations} dev</span>` : ""}
+            <button class="flag" data-flag="${step.id}">Deviation</button></td>`;
+      const pill = tr.querySelector(".st");
+      const cycle = () => { step.status = next; render(); };
+      pill.addEventListener("click", cycle);
+      pill.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") cycle(); });
+      tr.querySelector(".flag").addEventListener("click", () => openDrawer(step));
+      rows.appendChild(tr);
+    }
+    const done = steps.filter((s) => s.kind !== "group").filter((s) => TERMINAL.has(s.status)).length;
+    const total = steps.filter((s) => s.kind !== "group").length;
+    $("#progress-label").textContent = `${done} of ${total} recorded`;
+    $("#meter-fill").style.width = `${(done / total) * 100}%`;
+    $("#bulk-btn").disabled = done === total;
+  }
+
+  $("#bulk-btn").addEventListener("click", () => {
+    for (const step of steps) {
+      if (step.kind === "group" || TERMINAL.has(step.status)) continue;
+      step.status = step.kind === "preparation" ? "consumed" : "completed";
+    }
+    render();
+    showToast("All remaining steps recorded as planned.");
+  });
+  $("#reset-btn").addEventListener("click", () => location.reload());
+
+  function openDrawer(step) {
+    drawerStep = step;
+    $("#drawer-sub").textContent = `${step.id} · ${step.title}`;
+    $("#dev-change").value = "";
+    $("#dev-note").value = "";
+    overlay.classList.add("open");
+    drawer.classList.add("open");
+    $("#dev-category").focus();
+  }
+  function closeDrawer() {
+    overlay.classList.remove("open");
+    drawer.classList.remove("open");
+    drawerStep = null;
+  }
+  $("#dev-cancel").addEventListener("click", closeDrawer);
+  overlay.addEventListener("click", closeDrawer);
+  $("#dev-save").addEventListener("click", () => {
+    if (drawerStep) {
+      drawerStep.deviations = (drawerStep.deviations ?? 0) + 1;
+      showToast(`Deviation saved for ${drawerStep.id}.`);
+    }
+    closeDrawer();
+    render();
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+
+  let toastTimer;
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove("show"), 2400);
+  }
+
+  render();
+</script>
+</body>
+</html>

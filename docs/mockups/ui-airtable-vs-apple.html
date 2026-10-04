@@ -1,0 +1,963 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>风格对比 — Airtable vs Apple（同一组界面）</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e8ecee; color: #1d1d1f;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text",
+      "Segoe UI", system-ui, "PingFang SC", "Microsoft YaHei UI", sans-serif;
+    font-size: 14px; line-height: 1.5; }
+  .doc { max-width: 1240px; margin: 0 auto; padding: 32px 24px 80px; }
+  .doc-header h1 { font-size: 22px; margin: 0 0 6px; font-weight: 700; letter-spacing: -.01em; }
+  .doc-header p { margin: 0 0 18px; color: #59636a; max-width: 920px; }
+  .switcher { display: flex; gap: 8px; margin-bottom: 24px; }
+  .switcher button { font: inherit; font-weight: 600; font-size: 13.5px; padding: 8px 18px;
+    border-radius: 999px; border: 1px solid #c9d3d7; background: #fff; cursor: pointer; color: #59636a; }
+  .switcher button[aria-pressed="true"] { background: #172126; color: #fff; border-color: #172126; }
+  .style-tab { display: none; }
+  .style-tab.visible { display: block; }
+
+  /* ============ Airtable BRAND spec (owner-supplied tokens) ============ */
+  .br { background: #ffffff; color: #181d26; min-height: 640px; display: grid;
+    grid-template-columns: 232px 1fr; font-size: 15px; letter-spacing: .08px; }
+  .br-side { background: #f8fafc; border-right: 1px solid #e0e2e6; padding: 20px 12px; }
+  .br-base { display: flex; align-items: center; gap: 10px; padding: 4px 8px 16px; }
+  .br-base-icon { width: 30px; height: 30px; border-radius: 8px; flex: none; color: #fff;
+    background: #1b61c9; font-weight: 500; display: grid; place-items: center; font-size: 15px; }
+  .br-base-name { font-weight: 500; font-size: 15px; letter-spacing: .08px; }
+  .br-base-name small { display: block; color: rgba(4,14,32,.69); font-weight: 400; font-size: 12.5px; letter-spacing: .07px; }
+  .br-side-label { font-size: 11.5px; font-weight: 500; color: rgba(4,14,32,.69);
+    letter-spacing: .28px; text-transform: uppercase; padding: 14px 8px 6px; }
+  .br-nav { display: flex; align-items: center; gap: 9px; padding: 7px 10px; border-radius: 8px;
+    color: #333333; font-size: 14px; letter-spacing: .07px; cursor: pointer; }
+  .br-nav:hover { background: #f0f3f8; }
+  .br-nav.active { background: rgba(27,97,201,.10); color: #1b61c9; font-weight: 500; }
+  .br-nav i { width: 8px; height: 8px; border-radius: 3px; flex: none; }
+  .br-main { padding: 28px 32px 40px; min-width: 0; }
+  .br-crumbs { color: rgba(4,14,32,.69); font-size: 13px; letter-spacing: .07px; margin-bottom: 6px; }
+  .br-main h2.page { margin: 0 0 4px; font-size: 24px; font-weight: 500; letter-spacing: .12px; line-height: 1.2; }
+  .br-sub { color: rgba(4,14,32,.69); font-size: 14px; letter-spacing: .07px; margin: 0 0 20px; }
+  .br-btn { font: inherit; font-size: 14px; font-weight: 500; letter-spacing: .08px;
+    border: 0; cursor: pointer; border-radius: 12px; padding: 9px 20px; }
+  .br-btn.primary { background: #1b61c9; color: #ffffff;
+    box-shadow: rgba(45,127,249,.28) 0 1px 3px; }
+  .br-btn.white { background: #fff; color: #181d26; border: 1px solid #e0e2e6; }
+  .br-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .br-toolbar input { flex: 1; font: inherit; font-size: 14px; letter-spacing: .08px;
+    padding: 9px 14px; border: 1px solid #e0e2e6; border-radius: 12px; background: #fff; }
+  .br-count { color: rgba(4,14,32,.69); font-size: 13px; white-space: nowrap; }
+  .br-card { border: 1px solid #e0e2e6; border-radius: 16px; padding: 20px 22px;
+    margin-bottom: 22px; background: #fff; }
+  .br-card + .br-card { margin-top: -6px; }
+  .br-card h3 { margin: 0 0 12px; font-size: 16px; font-weight: 500; letter-spacing: .12px; }
+  table.br-t { width: 100%; border-collapse: collapse; font-size: 14px; letter-spacing: .07px; }
+  .br-t th { text-align: left; font-size: 13px; font-weight: 500; color: rgba(4,14,32,.69);
+    padding: 9px 12px; border-bottom: 1px solid #e0e2e6; }
+  .br-t td { padding: 10px 12px; border-bottom: 1px solid #eef0f3; }
+  .br-t tr:hover td { background: #f8fafc; }
+  .br-t .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .br-pill { display: inline-flex; align-items: center; font-size: 13px; font-weight: 500;
+    letter-spacing: .07px; padding: 2px 10px; border-radius: 999px; }
+  .br-pill.success { background: rgba(0,100,0,.10); color: #006400; }
+  .br-pill.active { background: rgba(27,97,201,.10); color: #1b61c9; }
+  .br-pill.warning { background: rgba(185,85,12,.12); color: #b9550c; }
+  .br-pill.planned { background: rgba(4,14,32,.07); color: rgba(4,14,32,.69); }
+  .br-dim { color: rgba(4,14,32,.69); }
+  .br-meter { height: 6px; border-radius: 999px; background: #eef0f3; overflow: hidden; }
+  .br-meter i { display: block; height: 100%; width: 55.6%; background: #1b61c9; border-radius: 999px; }
+  .br-checkbar { display: flex; align-items: center; gap: 14px; border: 1px solid #e0e2e6;
+    border-radius: 16px; padding: 14px 18px; margin-bottom: 16px;
+    box-shadow: rgba(15,48,106,.05) 0 0 20px; }
+  .br-checkbar b { font-size: 14.5px; font-weight: 500; white-space: nowrap; }
+  .br-mono { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 13px; }
+
+  /* ============ Notion BRAND spec (owner-supplied tokens) ============ */
+  .nt { background: #ffffff; color: rgba(0,0,0,.95); min-height: 640px; display: grid;
+    grid-template-columns: 224px 1fr; font-size: 15px; line-height: 1.5; }
+  .nt-side { background: #f6f5f4; border-right: 1px solid rgba(0,0,0,.1); padding: 18px 12px; }
+  .nt-brand { display: flex; align-items: center; gap: 9px; padding: 2px 8px 14px;
+    font-weight: 600; font-size: 15px; }
+  .nt-brand i { width: 26px; height: 26px; border-radius: 6px; background: #31302e; color: #fff;
+    display: grid; place-items: center; font-size: 14px; font-style: normal; flex: none; }
+  .nt-side-label { font-size: 12px; font-weight: 500; color: #a39e98; letter-spacing: .125px;
+    padding: 12px 8px 4px; }
+  .nt-nav { display: flex; align-items: center; gap: 9px; padding: 6px 10px; border-radius: 5px;
+    color: #31302e; font-size: 15px; font-weight: 500; cursor: pointer; }
+  .nt-nav:hover { background: rgba(0,0,0,.05); }
+  .nt-nav.active { background: #f2f9ff; color: #097fe8; font-weight: 600; }
+  .nt-nav i { width: 16px; height: 16px; border-radius: 4px; background: rgba(0,0,0,.08); flex: none; }
+  .nt-nav.active i { background: #097fe8; }
+  .nt-main { padding: 26px 30px 40px; min-width: 0; }
+  .nt-crumbs { color: #a39e98; font-size: 14px; margin-bottom: 4px; }
+  .nt-main h2.page { margin: 0 0 4px; font-size: 26px; font-weight: 700;
+    letter-spacing: -.625px; line-height: 1.23; }
+  .nt-sub { color: #615d59; font-size: 14.5px; margin: 0 0 18px; }
+  .nt-btn { font: inherit; font-size: 14.5px; font-weight: 600; border: 0; cursor: pointer;
+    border-radius: 4px; padding: 7px 14px; }
+  .nt-btn.primary { background: #0075de; color: #fff; }
+  .nt-btn.primary:hover { background: #005bab; }
+  .nt-btn.secondary { background: rgba(0,0,0,.05); color: rgba(0,0,0,.95); }
+  .nt-pill { display: inline-flex; align-items: center; font-size: 12px; font-weight: 600;
+    letter-spacing: .125px; padding: 3px 9px; border-radius: 9999px; background: #f2f9ff; color: #097fe8; }
+  .nt-pill.success { background: rgba(26,174,57,.12); color: #158027; }
+  .nt-pill.warning { background: rgba(221,91,0,.10); color: #b34d00; }
+  .nt-pill.planned { background: rgba(0,0,0,.06); color: #615d59; }
+  .nt-checkbar { display: flex; align-items: center; gap: 14px; background: #f6f5f4;
+    border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; }
+  .nt-checkbar b { font-size: 14.5px; font-weight: 600; white-space: nowrap; }
+  .nt-meter { flex: 1; height: 6px; border-radius: 999px; background: rgba(0,0,0,.08); overflow: hidden; }
+  .nt-meter i { display: block; height: 100%; width: 55.6%; background: #0075de; border-radius: 999px; }
+  table.nt-t { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  .nt-t th { text-align: left; font-size: 12px; font-weight: 600; letter-spacing: .125px;
+    color: #a39e98; padding: 8px 12px; border-bottom: 1px solid rgba(0,0,0,.1); }
+  .nt-t td { padding: 9px 12px; border-bottom: 1px solid rgba(0,0,0,.06); }
+  .nt-t tr:hover td { background: #f6f5f4; }
+  .nt-t .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .nt-title { font-weight: 600; }
+  .nt-meta { color: #615d59; font-size: 13px; }
+  .nt-card { border: 1px solid rgba(0,0,0,.1); border-radius: 12px;
+    box-shadow: rgba(0,0,0,.04) 0 4px 18px, rgba(0,0,0,.027) 0 2px 7.85px,
+      rgba(0,0,0,.02) 0 .8px 2.93px, rgba(0,0,0,.01) 0 .175px 1.04px;
+    padding: 18px 20px; margin-bottom: 18px; }
+  .nt-card h3 { margin: 0 0 10px; font-size: 17px; font-weight: 700; letter-spacing: -.25px; }
+  .nt-mono { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 12.5px; color: #615d59; }
+  .nt-dim { color: #615d59; }
+
+  /* ============ FUSED spec (convergence proposal, restored) ============
+     Apple phase-0 skeleton + Notion warmth + Airtable detail:
+     - warm neutral scale (#f6f5f4 / #615d59) replaces cool grays
+     - whisper borders — half a step lighter than phase 0
+     - floating layers (drawer/dialog) get 4-layer soft shadow (<=.05)
+     - small labels get positive tracking (+0.05px)
+     - primary stays #0071e3; domain state colors (cyan/violet) preserved
+     - status = dot + whisper pill hybrid
+     Content structure matches the other tabs (boxes + Deviation buttons). */
+  .fu { background: #f6f5f4; color: rgba(0,0,0,.95); min-height: 640px; display: grid;
+    grid-template-columns: 216px 1fr; font-size: 14px; line-height: 1.5; }
+  .fu-side { background: #efedeb; padding: 18px 12px 22px; }
+  .fu-brand { color: rgba(0,0,0,.95); font-weight: 650; font-size: 14.5px;
+    letter-spacing: -.01em; padding: 0 10px 14px; }
+  .fu-brand small { display: block; color: #a39e98; font-weight: 400; font-size: 11px; letter-spacing: .05px; }
+  .fu-side h3 { margin: 16px 10px 5px; font-size: 11px; font-weight: 600; color: #a39e98;
+    letter-spacing: .05px; }
+  .fu-side a { display: block; padding: 7px 10px; margin: 1px 0; border-radius: 8px;
+    color: #31302e; text-decoration: none; font-size: 13px; }
+  .fu-side a:hover { background: rgba(0,0,0,.05); }
+  .fu-side a.active { background: rgba(0,113,227,.12); color: #0071e3; font-weight: 600; }
+  .fu-main { padding: 24px 28px 40px; min-width: 0; }
+  .fu-crumbs { color: #a39e98; font-size: 12.5px; letter-spacing: .05px; margin-bottom: 4px; }
+  .fu-main h2.page { margin: 0 0 2px; font-size: 24px; font-weight: 700;
+    letter-spacing: -.02em; }
+  .fu-sub { color: #615d59; font-size: 13.5px; margin: 0 0 16px; }
+  .fu-btn { font: inherit; font-size: 13.5px; font-weight: 600; border: 0; cursor: pointer;
+    border-radius: 10px; padding: 8px 16px; }
+  .fu-btn.primary { background: #0071e3; color: #fff; }
+  .fu-btn.primary:hover { background: #0060c9; }
+  .fu-btn.quiet { background: #fff; color: rgba(0,0,0,.95);
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
+  .fu-checkbar { display: flex; align-items: center; gap: 14px; background: #f6f5f4;
+    border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; }
+  .fu-checkbar b { font-size: 13.5px; }
+  .fu-meter { flex: 1; height: 6px; border-radius: 999px; background: rgba(0,0,0,.08); overflow: hidden; }
+  .fu-meter i { display: block; height: 100%; width: 55.6%; background: #0071e3; border-radius: 999px; }
+  table.fu-t { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .fu-t th { text-align: left; font-size: 11.5px; font-weight: 600; color: #a39e98;
+    letter-spacing: .05px; padding: 10px 12px; border-bottom: 1px solid rgba(0,0,0,.07); }
+  .fu-t td { padding: 10px 12px; border-bottom: 1px solid rgba(0,0,0,.055); }
+  .fu-t tr:hover td { background: #f8f7f5; }
+  .fu-t .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .fu-meta { color: #615d59; font-size: 12px; }
+  .fu-step { font-weight: 600; }
+  .fu-mono { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 12px; color: #615d59; }
+  /* in-page groups stay flat (phase-0 language on warm grays): quiet fill,
+     no border, no shadow — shadows are reserved for floating layers */
+  .fu-box { background: #f6f5f4; border-radius: 10px; padding: 14px 18px; margin-bottom: 14px; }
+  .fu-box h3 { margin: 0 0 8px; font-size: 14.5px; font-weight: 650; }
+  /* status = dot + whisper pill hybrid */
+  .fst { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 500;
+    letter-spacing: .05px; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+  .fst i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .fst.success { background: rgba(26,174,57,.09); color: #1a7f37; } .fst.success i { background: #1e7a4d; }
+  .fst.active { background: rgba(22,138,157,.10); color: #0f6d7d; } .fst.active i { background: #168a9d; }
+  .fst.planned { background: rgba(104,82,184,.09); color: #6852b8; } .fst.planned i { background: #6852b8; }
+  .fst.warning { background: rgba(182,106,0,.10); color: #b66a00; } .fst.warning i { background: #b66a00; }
+  /* floating layers only: notion-grade 4-layer shadow */
+  .fu-drawer-hint { margin-top: 4px; border-radius: 10px; background: #fff; padding: 14px 18px;
+    box-shadow: rgba(0,0,0,.04) 0 4px 18px, rgba(0,0,0,.027) 0 2px 7.85px,
+      rgba(0,0,0,.02) 0 .8px 2.93px, rgba(0,0,0,.01) 0 .175px 1.04px; }
+  .fu-drawer-hint b { font-size: 13.5px; }
+  .fu-drawer-hint p { margin: 4px 0 0; color: #615d59; font-size: 12.5px; }
+
+  /* ============ STRICT APPLE spec (owner-supplied official tokens) ============
+     Deltas vs phase-0 implementation, per the official spec:
+     1. canvas #f5f5f7 (not #f4f5f7); nav #ececee → glass-free light sidebar
+     2. body 17px tracking -0.374px; ALL text negative-tracked
+     3. NO borders on cards — elevation from bg contrast only (phase 0 uses hairlines)
+     4. radius scale 5/8/11/12; pill links 980px; buttons 8px
+     5. link color #0066cc (text links) ≠ CTA #0071e3
+     6. shadow rare: 0.22 3px 5px 30px on floating only — never on cards
+     Domain state colors kept as functional layer (see colors page). */
+  .sa { background: #f5f5f7; color: #1d1d1f; min-height: 640px; display: grid;
+    grid-template-columns: 216px 1fr; font-size: 14px; line-height: 1.47;
+    letter-spacing: -0.224px; }
+  .sa-side { background: #e8e8ed; padding: 18px 12px 22px; }
+  .sa-brand { color: #1d1d1f; font-weight: 600; font-size: 14.5px; letter-spacing: -0.224px;
+    padding: 0 10px 14px; }
+  .sa-brand small { display: block; color: rgba(0,0,0,.48); font-weight: 400; font-size: 11px;
+    letter-spacing: -0.12px; }
+  .sa-side h3 { margin: 16px 10px 5px; font-size: 11px; font-weight: 600; color: rgba(0,0,0,.48);
+    letter-spacing: -0.12px; }
+  .sa-side a { display: block; padding: 7px 10px; margin: 1px 0; border-radius: 8px;
+    color: rgba(0,0,0,.8); text-decoration: none; font-size: 13px; letter-spacing: -0.12px; }
+  .sa-side a:hover { background: rgba(0,0,0,.05); }
+  .sa-side a.active { background: rgba(0,113,227,.11); color: #0066cc; font-weight: 600; }
+  .sa-main { padding: 24px 28px 40px; min-width: 0; background: #fff; }
+  .sa-crumbs { color: rgba(0,0,0,.48); font-size: 12.5px; letter-spacing: -0.12px; margin-bottom: 4px; }
+  .sa-main h2.page { margin: 0 0 2px; font-size: 24px; font-weight: 600;
+    letter-spacing: -0.28px; line-height: 1.14; }
+  .sa-sub { color: rgba(0,0,0,.8); font-size: 13.5px; letter-spacing: -0.224px; margin: 0 0 16px; }
+  .sa-btn { font: inherit; font-size: 13.5px; font-weight: 400; border: 0; cursor: pointer;
+    border-radius: 8px; padding: 7px 15px; background: rgba(0,0,0,.05); color: #1d1d1f;
+    letter-spacing: -0.224px; }
+  .sa-btn.primary { background: #0071e3; color: #fff; }
+  .sa-btn.primary:hover { background: #0077ed; }
+  .sa-btn.quiet { background: #fafafc; box-shadow: 0 0 0 3px rgba(0,0,0,.04); border-radius: 11px; }
+  .sa-checkbar { display: flex; align-items: center; gap: 14px; background: #f5f5f7;
+    border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; }
+  .sa-checkbar b { font-size: 13.5px; font-weight: 600; letter-spacing: -0.224px; white-space: nowrap; }
+  .sa-meter { flex: 1; height: 6px; border-radius: 999px; background: rgba(0,0,0,.08); overflow: hidden; }
+  .sa-meter i { display: block; height: 100%; width: 55.6%; background: #0071e3; border-radius: 999px; }
+  table.sa-t { width: 100%; border-collapse: collapse; font-size: 13px; letter-spacing: -0.12px; }
+  .sa-t th { text-align: left; font-size: 11.5px; font-weight: 600; color: rgba(0,0,0,.48);
+    letter-spacing: -0.12px; padding: 10px 12px; border-bottom: 1px solid rgba(0,0,0,.09); }
+  .sa-t td { padding: 10px 12px; border-bottom: 1px solid rgba(0,0,0,.05); }
+  .sa-t tr:hover td { background: #f5f5f7; }
+  .sa-t .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .sa-meta { color: rgba(0,0,0,.8); font-size: 12px; letter-spacing: -0.12px; }
+  .sa-step { font-weight: 600; }
+  .sa-mono { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 12px;
+    color: rgba(0,0,0,.8); letter-spacing: 0; }
+  /* status: dot + text (domain functional layer, unchanged) */
+  .sst { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 500;
+    letter-spacing: -0.12px; white-space: nowrap; }
+  .sst i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .sst.success { color: #1d1d1f; } .sst.success i { background: #1e7a4d; }
+  .sst.active { color: #1d1d1f; } .sst.active i { background: #168a9d; }
+  .sst.planned { color: #1d1d1f; } .sst.planned i { background: #6852b8; }
+  .sst.warning { color: #1d1d1f; } .sst.warning i { background: #b66a00; }
+  .sa-box { background: #f5f5f7; border-radius: 12px; padding: 14px 18px; margin-bottom: 14px; }
+  .sa-box h3 { margin: 0 0 8px; font-size: 14.5px; font-weight: 600; letter-spacing: -0.224px; }
+  .sa-hint { margin-top: 4px; background: #fff; border-radius: 12px; padding: 14px 18px;
+    box-shadow: rgba(0,0,0,.22) 3px 5px 30px 0px; }
+  .sa-hint b { font-size: 13.5px; }
+  .sa-hint p { margin: 4px 0 0; color: rgba(0,0,0,.8); font-size: 12.5px; letter-spacing: -0.12px; }
+  .frame { border-radius: 14px; overflow: hidden; border: 1px solid rgba(20,35,40,.10);
+    box-shadow: 0 10px 28px rgba(15,30,35,.10); min-height: 640px; }
+  .caption { font-size: 13px; color: #59636a; margin: 12px 4px 36px; max-width: 920px; }
+  .caption b { color: #1d1d1f; }
+
+  /* ================= shared data ================= */
+  .exps, .runs { padding: 0 0 8px; }
+  .surface-label { font-size: 12px; font-weight: 600; color: #8a97a0; letter-spacing: .04em;
+    text-transform: uppercase; padding: 14px 20px 6px; }
+
+  /* ================= AIRTABLE ================= */
+  .at { background: #fff; display: grid; grid-template-columns: 228px 1fr; min-height: 640px;
+    font-size: 13px; color: #333; }
+  .at-side { background: #f7f7f8; border-right: 1px solid #e0e0e0; padding: 12px 8px; }
+  .at-base { display: flex; align-items: center; gap: 8px; padding: 6px 8px 12px; }
+  .at-base-icon { width: 26px; height: 26px; border-radius: 6px; flex: none;
+    background: linear-gradient(135deg, #2d7ff9, #7b61ff); color: #fff; font-weight: 700;
+    display: grid; place-items: center; font-size: 13px; }
+  .at-base-name { font-weight: 600; font-size: 13.5px; }
+  .at-base-name small { display: block; color: #8b909a; font-weight: 400; font-size: 11px; }
+  .at-side-label { font-size: 11px; font-weight: 600; color: #8b909a; letter-spacing: .05em;
+    text-transform: uppercase; padding: 10px 8px 4px; }
+  .at-table-item { display: flex; align-items: center; gap: 8px; padding: 5px 8px;
+    border-radius: 5px; cursor: pointer; color: #333; }
+  .at-table-item:hover { background: #ececec; }
+  .at-table-item.active { background: #e4e4e7; font-weight: 600; }
+  .at-table-icon { width: 16px; height: 16px; border-radius: 4px; flex: none; display: grid;
+    place-items: center; color: #fff; font-size: 10px; font-weight: 700; }
+  .at-main { min-width: 0; display: flex; flex-direction: column; }
+  .at-title { display: flex; align-items: baseline; gap: 10px; padding: 12px 16px 8px; }
+  .at-title h2 { margin: 0; font-size: 16px; font-weight: 600; }
+  .at-title span { color: #8b909a; font-size: 12px; }
+  .at-toolbar { display: flex; align-items: center; gap: 2px; padding: 0 12px 8px;
+    border-bottom: 1px solid #e0e0e0; }
+  .at-view { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 5px;
+    font-weight: 500; color: #333; cursor: pointer; font-size: 13px; }
+  .at-view:hover { background: #f1f1f3; }
+  .at-view.active { background: #e4e4e7; font-weight: 600; }
+  .at-view .dot { width: 8px; height: 8px; border-radius: 2px; background: #2d7ff9; }
+  .at-sep { width: 1px; height: 18px; background: #e0e0e0; margin: 0 6px; }
+  .at-tool { padding: 5px 9px; border-radius: 5px; color: #666d76; cursor: pointer; display: flex;
+    align-items: center; gap: 5px; font-size: 12.5px; }
+  .at-tool:hover { background: #f1f1f3; color: #333; }
+  .at-search { margin-left: auto; }
+  .at-search input { font: inherit; font-size: 12.5px; padding: 5px 10px; border: 1px solid #d0d0d0;
+    border-radius: 5px; width: 180px; background: #fff; }
+  .at-grid { flex: 1; overflow: auto; }
+  table.at-t { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+  .at-t th { position: sticky; top: 0; background: #f7f7f8; text-align: left; font-size: 12px;
+    font-weight: 500; color: #666d76; padding: 6px 10px; border-bottom: 1px solid #d0d0d0;
+    border-right: 1px solid #e0e0e0; white-space: nowrap; }
+  .at-t th:last-child { border-right: 0; }
+  .at-t td { padding: 5px 10px; border-bottom: 1px solid #e0e0e0; border-right: 1px solid #f0f0f0;
+    height: 32px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+  .at-t td:last-child { border-right: 0; }
+  .at-t tr:hover td { background: #f7f9fc; }
+  .at-t tr.selected td { background: #e8f1fe; }
+  .at-t tr.selected td:first-child { box-shadow: inset 2px 0 0 #2d7ff9; }
+  .at-pill { display: inline-flex; align-items: center; font-size: 12px; font-weight: 500;
+    padding: 1px 8px; border-radius: 4px; }
+  .at-pill.success { background: #e5f3ea; color: #1a7f37; }
+  .at-pill.active { background: #e3edfd; color: #2368d9; }
+  .at-pill.planned { background: #efeafc; color: #6941c6; }
+  .at-pill.warning { background: #fdf0e0; color: #b9550c; }
+  .at-code { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 12px; color: #333; }
+  .at-check { width: 14px; height: 14px; accent-color: #2d7ff9; cursor: pointer; }
+  .at-expand { opacity: 0; border: 0; background: #fff; border-radius: 4px; cursor: pointer;
+    font-size: 11px; padding: 1px 6px; color: #666d76; box-shadow: 0 0 0 1px #d0d0d0; }
+  tr:hover .at-expand { opacity: 1; }
+  .at-addrow { color: #8b909a; cursor: pointer; padding: 7px 10px; font-size: 13px; }
+  .at-addrow:hover { color: #2d7ff9; background: #f7f9fc; }
+  .at-group td { background: #fafafa; font-weight: 600; color: #333; font-size: 12.5px;
+    border-bottom: 1px solid #e0e0e0; }
+  .at-group .cnt { color: #8b909a; font-weight: 400; margin-left: 6px; }
+  .at-selbar { position: sticky; bottom: 0; margin: 0 16px 10px; display: none;
+    align-items: center; gap: 12px; background: #2d7ff9; color: #fff; border-radius: 8px;
+    padding: 8px 14px; font-size: 13px; box-shadow: 0 6px 18px rgba(45,127,249,.35); }
+  .at-selbar.show { display: flex; }
+  .at-selbar button { font: inherit; font-size: 12.5px; font-weight: 600; background: rgba(255,255,255,.18);
+    color: #fff; border: 0; border-radius: 5px; padding: 4px 10px; cursor: pointer; }
+  .at-selbar button.ghost { background: transparent; }
+
+  /* ================= APPLE ================= */
+  .ap { background: #f4f5f7; display: grid; grid-template-columns: 216px 1fr; min-height: 640px;
+    font-size: 14px; }
+  .ap-side { background: #ececee; padding: 18px 12px 22px; }
+  .ap-brand { color: #1d1d1f; font-weight: 650; font-size: 14.5px; padding: 0 10px 14px; }
+  .ap-brand small { display: block; color: #86868b; font-weight: 400; font-size: 11px; }
+  .ap-side h3 { margin: 16px 10px 5px; font-size: 11px; font-weight: 600; color: #86868b; }
+  .ap-side a { display: block; padding: 7px 10px; margin: 1px 0; border-radius: 8px;
+    color: #3a3a3c; text-decoration: none; font-size: 13px; }
+  .ap-side a.active { background: rgba(0,113,227,.13); color: #0071e3; font-weight: 600; }
+  .ap-main { padding: 22px 28px 36px; min-width: 0; background: #fff; }
+  .ap-crumbs { color: #8a97a0; font-size: 12.5px; margin-bottom: 4px; }
+  .ap-main h2.page { margin: 0 0 2px; font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+  .ap-sub { color: #5b6670; font-size: 13.5px; margin: 0 0 16px; }
+  .ap-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .ap-toolbar input { flex: 1; font: inherit; font-size: 13.5px; padding: 8px 12px;
+    border: 1px solid transparent; border-radius: 10px; background: #f1f2f4; }
+  .ap-count { color: #8a97a0; font-size: 12.5px; white-space: nowrap; }
+  .ap-btn { font: inherit; font-size: 13.5px; font-weight: 600; border: 0; cursor: pointer;
+    border-radius: 8px; padding: 8px 16px; background: #0071e3; color: #fff; }
+  .ap-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .ap-table th { text-align: left; font-size: 12px; font-weight: 600; color: #5b6670;
+    padding: 10px 12px; border-bottom: 1px solid #e8eaee; }
+  .ap-table td { padding: 10px 12px; border-bottom: 1px solid #e8eaee; }
+  .ap-table tr:hover td { background: #f7f7f8; }
+  .ap-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .ap-dim { color: #8a97a0; }
+  .st { display: inline-flex; align-items: center; gap: 7px; font-weight: 500; white-space: nowrap; }
+  .st i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .st.success i { background: #1e7a4d; } .st.active i { background: #168a9d; }
+  .st.planned i { background: #6852b8; } .st.warning i { background: #b66a00; }
+  .ap-checkbar { display: flex; align-items: center; gap: 14px; background: #f1f2f4;
+    border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; }
+  .ap-checkbar b { font-size: 13.5px; }
+  .ap-meter { flex: 1; height: 6px; border-radius: 999px; background: #e6e8ec; overflow: hidden; }
+  .ap-meter i { display: block; height: 100%; width: 55.6%; background: #0071e3; border-radius: 999px; }
+  .ap-btn.quiet { background: #fff; color: #1d1d1f; box-shadow: inset 0 0 0 1px #e8eaee; }
+</style>
+</head>
+<body>
+<div class="doc">
+  <div class="doc-header">
+    <h1>风格对比 — Airtable vs Apple</h1>
+    <p>同一组界面（实验列表 + 运行单清单）的两种处理。Airtable 代表“数据网格”一极：全出血密网格、类型化彩
+       色药丸、视图工具栏、勾选后浮出操作条；Apple（第 0 期已落地）代表“流程工作台”一极：留白与字重做层级、
+       圆点状态、安静填充。切标签对比，Airtable 的勾选行试试——浮出操作条是它的签名交互。</p>
+  </div>
+  <div class="switcher" role="tablist">
+    <button aria-pressed="true" data-t="at">Airtable · 产品网格</button>
+    <button aria-pressed="false" data-t="brand">Airtable · 品牌规范（官方令牌）</button>
+    <button aria-pressed="false" data-t="nt">Notion · 品牌规范（官方令牌）</button>
+    <button aria-pressed="false" data-t="ap">Apple 风格（第 0 期现状）</button>
+    <button aria-pressed="false" data-t="strict" style="background:#1d1d1f;color:#fff;border-color:#1d1d1f">★ Apple 官方规范严格版</button>
+    <button aria-pressed="false" data-t="fused" style="background:#1d1d1f;color:#fff;border-color:#1d1d1f">★ 四合一样板（收敛建议）</button>
+  </div>
+
+  <!-- ================= AIRTABLE ================= -->
+  <section class="style-tab visible" id="tab-at">
+    <div class="frame at">
+      <aside class="at-side">
+        <div class="at-base"><div class="at-base-icon">P</div>
+          <div class="at-base-name">Perovskite Lab<small>fabrication workspace</small></div></div>
+        <div class="at-side-label">Tables</div>
+        <div class="at-table-item"><span class="at-table-icon" style="background:#2d7ff9">▤</span>Experiments</div>
+        <div class="at-table-item active"><span class="at-table-icon" style="background:#22a06b">▦</span>Run sheet B01</div>
+        <div class="at-table-item"><span class="at-table-icon" style="background:#7b61ff">◫</span>Results</div>
+        <div class="at-table-item"><span class="at-table-icon" style="background:#f2994a">◍</span>Materials</div>
+        <div class="at-side-label">Views</div>
+        <div class="at-table-item" style="color:#666d76">⊞ Grid · Experiments</div>
+        <div class="at-table-item" style="color:#666d76">▦ Grid · Run sheet</div>
+      </aside>
+      <div class="at-main">
+        <div class="at-title"><h2>Experiments</h2><span>3 records · Grid view</span></div>
+        <div class="at-toolbar">
+          <div class="at-view active"><span class="dot"></span>Grid</div>
+          <div class="at-view">Board</div>
+          <div class="at-view">Gallery</div>
+          <div class="at-sep"></div>
+          <div class="at-tool">☰ Filter</div>
+          <div class="at-tool">↑↓ Sort</div>
+          <div class="at-tool">⊞ Group</div>
+          <div class="at-search"><input placeholder="Search records" /></div>
+        </div>
+        <div class="at-grid">
+          <table class="at-t">
+            <thead><tr>
+              <th style="width:34px"><input type="checkbox" class="at-check" data-checkall="exp"></th>
+              <th>Experiment <span style="color:#b3b9c2">Aa</span></th>
+              <th>Campaign</th><th>Status <span style="color:#b3b9c2">⊙</span></th>
+              <th>Devices</th><th>Batches</th><th>Updated</th><th style="width:44px"></th>
+            </tr></thead>
+            <tbody data-table="exp">
+              <tr><td><input type="checkbox" class="at-check"></td>
+                <td class="at-code">usual_v1-v1</td><td style="color:#666d76">Composition screening</td>
+                <td><span class="at-pill success">Completed</span></td>
+                <td>12</td><td>2</td><td style="color:#666d76">2h ago</td>
+                <td><button class="at-expand">⤢</button></td></tr>
+              <tr><td><input type="checkbox" class="at-check"></td>
+                <td class="at-code">usual_v1-v3</td><td style="color:#666d76">Composition screening</td>
+                <td><span class="at-pill warning">Pending approval</span></td>
+                <td>—</td><td>—</td><td style="color:#666d76">2h ago</td>
+                <td><button class="at-expand">⤢</button></td></tr>
+              <tr><td><input type="checkbox" class="at-check"></td>
+                <td class="at-code">usual_v1-v2</td><td style="color:#666d76">Passivation stability</td>
+                <td><span class="at-pill active">Released</span></td>
+                <td>—</td><td>1</td><td style="color:#666d76">5h ago</td>
+                <td><button class="at-expand">⤢</button></td></tr>
+              <tr class="at-addrow"><td colspan="8">+ Add record</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="surface-label" style="padding-left:16px">Run sheet · Grid view（group by stage）</div>
+        <div class="at-grid">
+          <table class="at-t">
+            <thead><tr>
+              <th style="width:34px"><input type="checkbox" class="at-check" data-checkall="run"></th>
+              <th>Step</th><th>Detail</th><th>Planned</th><th>Status</th><th style="width:44px"></th>
+            </tr></thead>
+            <tbody data-table="run">
+              <tr class="at-group"><td></td><td colspan="5">Solution preparations <span class="cnt">4 records</span></td></tr>
+              <tr><td><input type="checkbox" class="at-check"></td><td class="at-code">P01</td>
+                <td>NiOx dispersion · 5 mg/mL</td><td>0.5 mL</td>
+                <td><span class="at-pill success">Consumed</span></td><td><button class="at-expand">⤢</button></td></tr>
+              <tr><td><input type="checkbox" class="at-check"></td><td class="at-code">P02</td>
+                <td>SAM · IPA 1 mM</td><td>20 mL</td>
+                <td><span class="at-pill success">Consumed</span></td><td><button class="at-expand">⤢</button></td></tr>
+              <tr><td><input type="checkbox" class="at-check"></td><td class="at-code">P03</td>
+                <td>Perovskite 1.62 M · DMF:DMSO</td><td>1.0 mL</td>
+                <td><span class="at-pill success">Consumed</span></td><td><button class="at-expand">⤢</button></td></tr>
+              <tr><td><input type="checkbox" class="at-check"></td><td class="at-code">P04</td>
+                <td>PEAI passivation · 10 mg/mL</td><td>5 mL</td>
+                <td><span class="at-pill active">Ready</span></td><td><button class="at-expand">⤢</button></td></tr>
+              <tr class="at-group"><td></td><td colspan="5">Process executions <span class="cnt">5 of 16</span></td></tr>
+              <tr><td><input type="checkbox" class="at-check"></td><td class="at-code">E01</td>
+                <td>NiOx spin coat · 1000 rpm</td><td>45 s</td>
+                <td><span class="at-pill success">Completed</span></td><td><button class="at-expand">⤢</button></td></tr>
+              <tr><td><input type="checkbox" class="at-check"></td><td class="at-code">E05</td>
+                <td>Perovskite spin · control</td><td>30 s</td>
+                <td><span class="at-pill success">Completed</span></td><td><button class="at-expand">⤢</button></td></tr>
+              <tr><td><input type="checkbox" class="at-check"></td><td class="at-code">E07</td>
+                <td>Perovskite spin · target +CsBr</td><td>30 s</td>
+                <td><span class="at-pill planned">Running</span></td><td><button class="at-expand">⤢</button></td></tr>
+              <tr><td><input type="checkbox" class="at-check"></td><td class="at-code">E11</td>
+                <td>Thermal evaporation · Ag 80 nm</td><td>80 nm</td>
+                <td><span class="at-pill active">Ready</span></td><td><button class="at-expand">⤢</button></td></tr>
+              <tr><td><input type="checkbox" class="at-check"></td><td class="at-code">E12</td>
+                <td>Encapsulation · UV cure</td><td>120 s</td>
+                <td><span class="at-pill planned">Planned</span></td><td><button class="at-expand">⤢</button></td></tr>
+              <tr class="at-addrow"><td colspan="6">+ Add step</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="at-selbar" data-selbar>
+          <b data-selcount>2 selected</b>
+          <button>Record as planned</button>
+          <button>Assign</button>
+          <button class="ghost">Clear</button>
+        </div>
+      </div>
+    </div>
+    <p class="caption"><b>Airtable 版要点：</b>全出血密网格 + 单元格边框；状态是彩色软底药丸（一行可多个颜色）；
+      视图工具栏（Grid/Board/Gallery · Filter/Sort/Group）是它的骨架；行勾选后浮出操作条——“先选中、再操作”。
+      密度：行高 32px。信息效率高，但页面感弱，像在操作一张表。</p>
+  </section>
+
+  <!-- ================= AIRTABLE BRAND ================= -->
+  <section class="style-tab" id="tab-brand">
+    <div class="frame br">
+      <aside class="br-side">
+        <div class="br-base"><div class="br-base-icon">P</div>
+          <div class="br-base-name">Perovskite Lab<small>fabrication workspace</small></div></div>
+        <div class="br-side-label">Workspace</div>
+        <div class="br-nav"><i style="background:#1b61c9"></i>Overview</div>
+        <div class="br-nav active"><i style="background:#1b61c9"></i>Run sheet B01</div>
+        <div class="br-nav"><i style="background:rgba(4,14,32,.25)"></i>Results</div>
+        <div class="br-nav"><i style="background:rgba(4,14,32,.25)"></i>Materials</div>
+        <div class="br-side-label">Library</div>
+        <div class="br-nav"><i style="background:rgba(4,14,32,.25)"></i>Layer presets</div>
+        <div class="br-nav"><i style="background:rgba(4,14,32,.25)"></i>Baselines</div>
+      </aside>
+      <div class="br-main">
+        <div class="br-crumbs">usual_v1-v1 › batch B01</div>
+        <h2 class="page">Run sheet <span class="br-mono" style="font-weight:400">usual_v1-v1-B01</span></h2>
+        <p class="br-sub">Frozen plan snapshot · 2 conditions · 6 substrates · 12 devices</p>
+
+        <div class="br-checkbar">
+          <b>5 of 9 recorded</b>
+          <div class="br-meter"><i></i></div>
+          <button class="br-btn primary">Record all as planned</button>
+          <button class="br-btn white">Reset spike</button>
+        </div>
+
+        <div class="br-card">
+          <h3>Solution preparations</h3>
+          <table class="br-t">
+            <thead><tr><th>Step</th><th>Detail</th><th class="num">Planned</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="br-mono br-dim">P01</td>
+                <td>NiOx dispersion<div class="br-dim" style="font-size:13px">5 mg/mL in DI · stir 30 min</div></td>
+                <td class="num">0.5 mL</td>
+                <td><span class="br-pill success">consumed</span></td>
+                <td style="text-align:right"><button class="br-btn white" style="padding:5px 12px;font-size:13px">Deviation</button></td></tr>
+              <tr><td class="br-mono br-dim">P02</td>
+                <td>SAM · IPA 1 mM<div class="br-dim" style="font-size:13px">dip 12 h · N2 dry</div></td>
+                <td class="num">20 mL</td>
+                <td><span class="br-pill success">consumed</span></td>
+                <td style="text-align:right"><button class="br-btn white" style="padding:5px 12px;font-size:13px">Deviation</button></td></tr>
+              <tr><td class="br-mono br-dim">P04</td>
+                <td>PEAI passivation<div class="br-dim" style="font-size:13px">10 mg/mL IPA</div></td>
+                <td class="num">5 mL</td>
+                <td><span class="br-pill active">ready</span></td>
+                <td style="text-align:right"><button class="br-btn white" style="padding:5px 12px;font-size:13px">Deviation</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="br-card">
+          <h3>Process executions <span class="br-dim" style="font-weight:400">· 5 of 16</span></h3>
+          <table class="br-t">
+            <thead><tr><th>Step</th><th>Detail</th><th class="num">Planned</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="br-mono br-dim">E01</td>
+                <td>NiOx spin coat<div class="br-dim" style="font-size:13px">1000 rpm · 45 s · 500 rpm/s</div></td>
+                <td class="num">45 s</td>
+                <td><span class="br-pill success">completed</span></td>
+                <td style="text-align:right"><button class="br-btn white" style="padding:5px 12px;font-size:13px">Deviation</button></td></tr>
+              <tr><td class="br-mono br-dim">E07</td>
+                <td>Perovskite spin · target +CsBr<div class="br-dim" style="font-size:13px">5000 rpm · 30 s · dispense 80 µL</div></td>
+                <td class="num">30 s</td>
+                <td><span class="br-pill planned">running</span></td>
+                <td style="text-align:right"><button class="br-btn white" style="padding:5px 12px;font-size:13px">Deviation</button></td></tr>
+              <tr><td class="br-mono br-dim">E12</td>
+                <td>Encapsulation · UV cure<div class="br-dim" style="font-size:13px">365 nm · 120 s</div></td>
+                <td class="num">120 s</td>
+                <td><span class="br-pill planned">planned</span></td>
+                <td style="text-align:right"><button class="br-btn white" style="padding:5px 12px;font-size:13px">Deviation</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <p class="caption"><b>Airtable · 品牌规范版（按你提供的官方令牌）：</b>纯白画布 + 深海军蓝 #181d26 正文、
+      Airtable Blue #1b61c9 作为唯一交互色、正字距（letter-spacing +0.07~0.28px）、12px 按钮圆角 / 16px 卡片圆角、
+      细边框 #e0e2e6 分区 + 蓝调柔和阴影（rgba(15,48,106,.05)）、状态药丸全部低饱和。气质：明亮、从容、企业级。
+      与产品网格版（上一个标签）差异明显——品牌版更“网站”，产品网格版更“工具”。</p>
+  </section>
+
+  <!-- ================= NOTION BRAND ================= -->
+  <section class="style-tab" id="tab-nt">
+    <div class="frame nt">
+      <aside class="nt-side">
+        <div class="nt-brand"><i>P</i>Perovskite Lab</div>
+        <div class="nt-side-label">Workspace</div>
+        <div class="nt-nav"><i></i>Overview</div>
+        <div class="nt-nav active"><i></i>Run sheet B01</div>
+        <div class="nt-nav"><i></i>Results</div>
+        <div class="nt-nav"><i></i>Materials</div>
+        <div class="nt-side-label">Library</div>
+        <div class="nt-nav"><i></i>Layer presets</div>
+        <div class="nt-nav"><i></i>Baselines</div>
+      </aside>
+      <div class="nt-main">
+        <div class="nt-crumbs">usual_v1-v1 › batch B01</div>
+        <h2 class="page">Run sheet <span class="nt-mono" style="font-weight:400">usual_v1-v1-B01</span></h2>
+        <p class="nt-sub">Frozen plan snapshot · 2 conditions · 6 substrates · 12 devices</p>
+
+        <div class="nt-checkbar">
+          <b>5 of 9 recorded</b>
+          <div class="nt-meter"><i></i></div>
+          <button class="nt-btn primary">Record all as planned</button>
+          <button class="nt-btn secondary">Reset spike</button>
+        </div>
+
+        <div class="nt-card">
+          <h3>Solution preparations</h3>
+          <table class="nt-t">
+            <thead><tr><th>Step</th><th>Detail</th><th class="num">Planned</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="nt-mono">P01</td>
+                <td><span class="nt-title">NiOx dispersion</span><div class="nt-meta">5 mg/mL in DI · stir 30 min</div></td>
+                <td class="num">0.5 mL</td>
+                <td><span class="nt-pill success">consumed</span></td>
+                <td style="text-align:right"><button class="nt-btn secondary" style="padding:4px 10px;font-size:13px">Deviation</button></td></tr>
+              <tr><td class="nt-mono">P02</td>
+                <td><span class="nt-title">SAM · IPA 1 mM</span><div class="nt-meta">dip 12 h · N2 dry</div></td>
+                <td class="num">20 mL</td>
+                <td><span class="nt-pill success">consumed</span></td>
+                <td style="text-align:right"><button class="nt-btn secondary" style="padding:4px 10px;font-size:13px">Deviation</button></td></tr>
+              <tr><td class="nt-mono">P04</td>
+                <td><span class="nt-title">PEAI passivation</span><div class="nt-meta">10 mg/mL IPA</div></td>
+                <td class="num">5 mL</td>
+                <td><span class="nt-pill">ready</span></td>
+                <td style="text-align:right"><button class="nt-btn secondary" style="padding:4px 10px;font-size:13px">Deviation</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="nt-card">
+          <h3>Process executions <span class="nt-dim" style="font-weight:400;font-size:14px">· 5 of 16</span></h3>
+          <table class="nt-t">
+            <thead><tr><th>Step</th><th>Detail</th><th class="num">Planned</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="nt-mono">E01</td>
+                <td><span class="nt-title">NiOx spin coat</span><div class="nt-meta">1000 rpm · 45 s · 500 rpm/s</div></td>
+                <td class="num">45 s</td>
+                <td><span class="nt-pill success">completed</span></td>
+                <td style="text-align:right"><button class="nt-btn secondary" style="padding:4px 10px;font-size:13px">Deviation</button></td></tr>
+              <tr><td class="nt-mono">E07</td>
+                <td><span class="nt-title">Perovskite spin · target +CsBr</span><div class="nt-meta">5000 rpm · 30 s · dispense 80 µL</div></td>
+                <td class="num">30 s</td>
+                <td><span class="nt-pill warning">running</span></td>
+                <td style="text-align:right"><button class="nt-btn secondary" style="padding:4px 10px;font-size:13px">Deviation</button></td></tr>
+              <tr><td class="nt-mono">E12</td>
+                <td><span class="nt-title">Encapsulation · UV cure</span><div class="nt-meta">365 nm · 120 s</div></td>
+                <td class="num">120 s</td>
+                <td><span class="nt-pill planned">planned</span></td>
+                <td style="text-align:right"><button class="nt-btn secondary" style="padding:4px 10px;font-size:13px">Deviation</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <p class="caption"><b>Notion · 品牌规范版（按你提供的官方令牌）：</b>暖中性色（#f6f5f4 暖白、#615d59 暖灰——黄棕底调，
+      不用冷灰）、rgba(0,0,0,.95) 暖近黑正文、耳语边框 rgba(0,0,0,.1)、四层累积透明度 ≤0.05 的柔影卡片、
+      负字距标题（26px → -0.625px）、Notion Blue #0075de 唯一饱和交互色、12px 药丸徽章（唯一正字距元素）、
+      4px 小圆角按钮。气质：纸质、温润、工具感与文档感兼备。</p>
+  </section>
+
+  <!-- ================= FUSED (convergence proposal) ================= -->
+  <section class="style-tab" id="tab-fused">
+    <div class="frame fu">
+      <aside class="fu-side">
+        <div class="fu-brand">Perovskite Fabrication<small>workflow console</small></div>
+        <h3>Laboratory</h3>
+        <a href="#">Overview</a><a href="#" class="active">Run sheet · B01</a>
+        <a href="#">Fabrication batches</a><a href="#">Results</a>
+        <h3>Library</h3><a href="#">Materials</a><a href="#">Layer presets</a>
+      </aside>
+      <div class="fu-main">
+        <div class="fu-crumbs">usual_v1-v1 › batch B01</div>
+        <h2 class="page">Run sheet <span class="fu-mono" style="font-size:16px">usual_v1-v1-B01</span></h2>
+        <p class="fu-sub">Frozen plan snapshot · 2 conditions · 6 substrates · 12 devices</p>
+
+        <div class="fu-checkbar">
+          <b>5 of 9 recorded</b>
+          <div class="fu-meter"><i></i></div>
+          <button class="fu-btn primary">Record all as planned</button>
+          <button class="fu-btn quiet">Reset spike</button>
+        </div>
+
+        <div class="fu-box">
+          <h3>Solution preparations</h3>
+          <table class="fu-t">
+            <thead><tr><th>Step</th><th>Detail</th><th class="num">Planned</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="fu-mono">P01</td>
+                <td><span class="fu-step">NiOx dispersion</span><div class="fu-meta">5 mg/mL in DI · stir 30 min</div></td>
+                <td class="num">0.5 mL</td>
+                <td><span class="fst success"><i></i>consumed</span></td>
+                <td style="text-align:right"><button class="fu-btn quiet" style="padding:4px 12px;font-size:12.5px">Deviation</button></td></tr>
+              <tr><td class="fu-mono">P02</td>
+                <td><span class="fu-step">SAM · IPA 1 mM</span><div class="fu-meta">dip 12 h · N2 dry</div></td>
+                <td class="num">20 mL</td>
+                <td><span class="fst success"><i></i>consumed</span></td>
+                <td style="text-align:right"><button class="fu-btn quiet" style="padding:4px 12px;font-size:12.5px">Deviation</button></td></tr>
+              <tr><td class="fu-mono">P04</td>
+                <td><span class="fu-step">PEAI passivation</span><div class="fu-meta">10 mg/mL IPA</div></td>
+                <td class="num">5 mL</td>
+                <td><span class="fst active"><i></i>ready</span></td>
+                <td style="text-align:right"><button class="fu-btn quiet" style="padding:4px 12px;font-size:12.5px">Deviation</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="fu-box">
+          <h3>Process executions <span class="fu-meta" style="font-weight:400;font-size:12.5px">· 5 of 16</span></h3>
+          <table class="fu-t">
+            <thead><tr><th>Step</th><th>Detail</th><th class="num">Planned</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="fu-mono">E01</td>
+                <td><span class="fu-step">NiOx spin coat</span><div class="fu-meta">1000 rpm · 45 s · 500 rpm/s</div></td>
+                <td class="num">45 s</td>
+                <td><span class="fst success"><i></i>completed</span></td>
+                <td style="text-align:right"><button class="fu-btn quiet" style="padding:4px 12px;font-size:12.5px">Deviation</button></td></tr>
+              <tr><td class="fu-mono">E07</td>
+                <td><span class="fu-step">Perovskite spin · target +CsBr</span><div class="fu-meta">5000 rpm · 30 s · dispense 80 µL</div></td>
+                <td class="num">30 s</td>
+                <td><span class="fst warning"><i></i>running</span></td>
+                <td style="text-align:right"><button class="fu-btn quiet" style="padding:4px 12px;font-size:12.5px">Deviation</button></td></tr>
+              <tr><td class="fu-mono">E12</td>
+                <td><span class="fu-step">Encapsulation · UV cure</span><div class="fu-meta">365 nm · 120 s</div></td>
+                <td class="num">120 s</td>
+                <td><span class="fst planned"><i></i>planned</span></td>
+                <td style="text-align:right"><button class="fu-btn quiet" style="padding:4px 12px;font-size:12.5px">Deviation</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="fu-drawer-hint">
+          <b>偏差抽屉预览</b>
+          <p>行级 Deviation 打开右侧结构化抽屉——悬浮层带 Notion 式四层柔影；页面内区域保持第 0 期的无阴影平面语言。</p>
+        </div>
+      </div>
+    </div>
+    <p class="caption"><b>★ 四合一样板（收敛建议，混合版）：</b>Apple 第 0 期骨架（布局/侧栏/主色 #0071e3/灰底填充语言）
+      + Notion 暖质感（暖灰阶 #f6f5f4 替换冷灰、耳语边框再淡半档、悬浮层四层柔影）
+      + Airtable 精致细节（小标签正字距、状态徽章升级为“圆点 + 药丸底”混合形态，保留领域色映射：
+      青=进行/紫=计划/绿=完成/琥珀=注意）。内容结构与其他标签完全一致（同样的分组盒子 + Deviation 按钮），
+      差异只在皮肤。</p>
+  </section>
+
+  <!-- ================= STRICT APPLE (official spec) ================= -->
+  <section class="style-tab" id="tab-strict">
+    <div class="frame sa">
+      <aside class="sa-side">
+        <div class="sa-brand">Perovskite Fabrication<small>workflow console</small></div>
+        <h3>Laboratory</h3>
+        <a href="#">Overview</a><a href="#" class="active">Run sheet · B01</a>
+        <a href="#">Fabrication batches</a><a href="#">Results</a>
+        <h3>Library</h3><a href="#">Materials</a><a href="#">Layer presets</a>
+      </aside>
+      <div class="sa-main">
+        <div class="sa-crumbs">usual_v1-v1 › batch B01</div>
+        <h2 class="page">Run sheet <span class="sa-mono" style="font-size:16px">usual_v1-v1-B01</span></h2>
+        <p class="sa-sub">Frozen plan snapshot · 2 conditions · 6 substrates · 12 devices</p>
+
+        <div class="sa-checkbar">
+          <b>5 of 9 recorded</b>
+          <div class="sa-meter"><i></i></div>
+          <button class="sa-btn primary">Record all as planned</button>
+          <button class="sa-btn quiet">Reset spike</button>
+        </div>
+
+        <div class="sa-box">
+          <h3>Solution preparations</h3>
+          <table class="sa-t">
+            <thead><tr><th>Step</th><th>Detail</th><th class="num">Planned</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="sa-mono">P01</td>
+                <td><span class="sa-step">NiOx dispersion</span><div class="sa-meta">5 mg/mL in DI · stir 30 min</div></td>
+                <td class="num">0.5 mL</td>
+                <td><span class="sst success"><i></i>consumed</span></td>
+                <td style="text-align:right"><button class="sa-btn" style="padding:4px 12px;font-size:12.5px">Deviation</button></td></tr>
+              <tr><td class="sa-mono">P02</td>
+                <td><span class="sa-step">SAM · IPA 1 mM</span><div class="sa-meta">dip 12 h · N2 dry</div></td>
+                <td class="num">20 mL</td>
+                <td><span class="sst success"><i></i>consumed</span></td>
+                <td style="text-align:right"><button class="sa-btn" style="padding:4px 12px;font-size:12.5px">Deviation</button></td></tr>
+              <tr><td class="sa-mono">P04</td>
+                <td><span class="sa-step">PEAI passivation</span><div class="sa-meta">10 mg/mL IPA</div></td>
+                <td class="num">5 mL</td>
+                <td><span class="sst active"><i></i>ready</span></td>
+                <td style="text-align:right"><button class="sa-btn" style="padding:4px 12px;font-size:12.5px">Deviation</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="sa-box">
+          <h3>Process executions <span class="sa-meta" style="font-weight:400">· 5 of 16</span></h3>
+          <table class="sa-t">
+            <thead><tr><th>Step</th><th>Detail</th><th class="num">Planned</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="sa-mono">E01</td>
+                <td><span class="sa-step">NiOx spin coat</span><div class="sa-meta">1000 rpm · 45 s · 500 rpm/s</div></td>
+                <td class="num">45 s</td>
+                <td><span class="sst success"><i></i>completed</span></td>
+                <td style="text-align:right"><button class="sa-btn" style="padding:4px 12px;font-size:12.5px">Deviation</button></td></tr>
+              <tr><td class="sa-mono">E07</td>
+                <td><span class="sa-step">Perovskite spin · target +CsBr</span><div class="sa-meta">5000 rpm · 30 s · dispense 80 µL</div></td>
+                <td class="num">30 s</td>
+                <td><span class="sst warning"><i></i>running</span></td>
+                <td style="text-align:right"><button class="sa-btn" style="padding:4px 12px;font-size:12.5px">Deviation</button></td></tr>
+              <tr><td class="sa-mono">E12</td>
+                <td><span class="sa-step">Encapsulation · UV cure</span><div class="sa-meta">365 nm · 120 s</div></td>
+                <td class="num">120 s</td>
+                <td><span class="sst planned"><i></i>planned</span></td>
+                <td style="text-align:right"><button class="sa-btn" style="padding:4px 12px;font-size:12.5px">Deviation</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="sa-hint">
+          <b>偏差抽屉预览</b>
+          <p>悬浮层是唯一有阴影的地方：0.22 透明度、3px 5px 30px——Apple 官方的单一柔和阴影；
+            页面内一切保持平面，层级靠 #f5f5f7 与白的背景对比。</p>
+        </div>
+      </div>
+    </div>
+    <p class="caption"><b>★ Apple 官方规范严格版（按你提供的官方令牌）：</b>#f5f5f7 画布、#1d1d1f 近黑、
+      全字号负字距（标题 -0.28px、正文 -0.224px、微字 -0.12px）、标题 line-height 1.14、
+      卡片<b>无边框</b>（层级靠背景对比：#f5f5f7 盒子直接放在白底上）、按钮 8px 圆角/常规字重、
+      次级按钮用 #fafafc+3px 描边环、阴影只出现在悬浮层（0.22/30px 单一柔影）、
+      文字链接色 #0066cc 与 CTA 色 #0071e3 分离。领域状态色按功能层保留（见状态色页）。
+      与第 0 期现状的六处偏差清单已写在页面源码注释里。</p>
+  </section>
+
+  <section class="style-tab" id="tab-ap">
+    <div class="frame ap">
+      <aside class="ap-side">
+        <div class="ap-brand">Perovskite Fabrication<small>workflow console</small></div>
+        <h3>Laboratory</h3>
+        <a href="#">Overview</a><a href="#" class="active">Experiments</a>
+        <a href="#">Fabrication batches</a><a href="#">Results</a>
+        <h3>Library</h3><a href="#">Materials</a><a href="#">Layer presets</a>
+      </aside>
+      <div class="ap-main">
+        <h2 class="page">Experiment records</h2>
+        <p class="ap-sub">Authorized planning, fabrication, and characterization records.</p>
+        <div class="ap-toolbar">
+          <input placeholder="Search" /><span class="ap-count">3 records</span>
+          <button class="ap-btn">Plan new experiment</button>
+        </div>
+        <table class="ap-table">
+          <thead><tr><th>Experiment</th><th>Campaign</th><th>Plan</th><th>Record</th>
+            <th class="num">Devices</th><th class="num">Batches</th><th>Updated</th></tr></thead>
+          <tbody>
+            <tr><td class="mono" style="font-family:ui-monospace,Consolas,monospace;font-size:12px">usual_v1-v1</td>
+              <td class="ap-dim">Composition screening</td>
+              <td><span class="st active"><i></i>released</span></td>
+              <td><span class="st success"><i></i>completed</span></td>
+              <td class="num">12</td><td class="num">2</td><td class="ap-dim">2 h ago</td></tr>
+            <tr><td style="font-family:ui-monospace,Consolas,monospace;font-size:12px">usual_v1-v3</td>
+              <td class="ap-dim">Composition screening</td>
+              <td><span class="st warning"><i></i>pending approval</span></td>
+              <td><span class="st planned"><i></i>suggested</span></td>
+              <td class="num ap-dim">—</td><td class="num ap-dim">—</td><td class="ap-dim">2 h ago</td></tr>
+            <tr><td style="font-family:ui-monospace,Consolas,monospace;font-size:12px">usual_v1-v2</td>
+              <td class="ap-dim">Passivation stability</td>
+              <td><span class="st active"><i></i>released</span></td>
+              <td><span class="st planned"><i></i>suggested</span></td>
+              <td class="num ap-dim">—</td><td class="num">1</td><td class="ap-dim">5 h ago</td></tr>
+          </tbody>
+        </table>
+        <div class="surface-label" style="padding-left:0;padding-top:22px">Run sheet · usual_v1-v1-B01</div>
+        <div class="ap-checkbar">
+          <b>5 of 9 recorded</b>
+          <div class="ap-meter"><i></i></div>
+          <button class="ap-btn">Record all as planned</button>
+          <button class="ap-btn quiet">Reset spike</button>
+        </div>
+        <div class="ap-card" style="border:1px solid #e8eaee;border-radius:10px;padding:16px 18px;margin-bottom:14px">
+          <h3 style="margin:0 0 8px;font-size:15px;font-weight:650">Solution preparations</h3>
+          <table class="ap-table">
+            <thead><tr><th>Step</th><th>Detail</th><th class="num">Planned</th><th>Status — click to cycle</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="ap-dim" style="font-family:ui-monospace,Consolas,monospace;font-size:12px">P01</td>
+                <td><b style="font-weight:600">NiOx dispersion</b><div class="ap-dim" style="font-size:12px">5 mg/mL in DI · stir 30 min</div></td>
+                <td class="num" style="color:#5b6670">0.5 mL</td>
+                <td><span class="st success"><i></i>consumed</span></td>
+                <td style="text-align:right"><button class="ap-btn quiet" style="padding:4px 12px;font-size:12.5px">Deviation</button></td></tr>
+              <tr><td class="ap-dim" style="font-family:ui-monospace,Consolas,monospace;font-size:12px">P02</td>
+                <td><b style="font-weight:600">SAM · IPA 1 mM</b><div class="ap-dim" style="font-size:12px">dip 12 h · N2 dry</div></td>
+                <td class="num" style="color:#5b6670">20 mL</td>
+                <td><span class="st success"><i></i>consumed</span></td>
+                <td style="text-align:right"><button class="ap-btn quiet" style="padding:4px 12px;font-size:12.5px">Deviation</button></td></tr>
+              <tr><td class="ap-dim" style="font-family:ui-monospace,Consolas,monospace;font-size:12px">P04</td>
+                <td><b style="font-weight:600">PEAI passivation</b><div class="ap-dim" style="font-size:12px">10 mg/mL IPA</div></td>
+                <td class="num" style="color:#5b6670">5 mL</td>
+                <td><span class="st active"><i></i>ready</span></td>
+                <td style="text-align:right"><button class="ap-btn quiet" style="padding:4px 12px;font-size:12.5px">Deviation</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="ap-card" style="border:1px solid #e8eaee;border-radius:10px;padding:16px 18px">
+          <h3 style="margin:0 0 8px;font-size:15px;font-weight:650">Process executions <span class="ap-dim" style="font-weight:400;font-size:13px">· 5 of 16</span></h3>
+          <table class="ap-table">
+            <thead><tr><th>Step</th><th>Detail</th><th class="num">Planned</th><th>Status — click to cycle</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="ap-dim" style="font-family:ui-monospace,Consolas,monospace;font-size:12px">E01</td>
+                <td><b style="font-weight:600">NiOx spin coat</b><div class="ap-dim" style="font-size:12px">1000 rpm · 45 s · 500 rpm/s</div></td>
+                <td class="num" style="color:#5b6670">45 s</td>
+                <td><span class="st success"><i></i>completed</span></td>
+                <td style="text-align:right"><button class="ap-btn quiet" style="padding:4px 12px;font-size:12.5px">Deviation</button></td></tr>
+              <tr><td class="ap-dim" style="font-family:ui-monospace,Consolas,monospace;font-size:12px">E07</td>
+                <td><b style="font-weight:600">Perovskite spin · target +CsBr</b><div class="ap-dim" style="font-size:12px">5000 rpm · 30 s · dispense 80 µL</div></td>
+                <td class="num" style="color:#5b6670">30 s</td>
+                <td><span class="st active"><i></i>running</span></td>
+                <td style="text-align:right"><button class="ap-btn quiet" style="padding:4px 12px;font-size:12.5px">Deviation</button></td></tr>
+              <tr><td class="ap-dim" style="font-family:ui-monospace,Consolas,monospace;font-size:12px">E12</td>
+                <td><b style="font-weight:600">Encapsulation · UV cure</b><div class="ap-dim" style="font-size:12px">365 nm · 120 s</div></td>
+                <td class="num" style="color:#5b6670">120 s</td>
+                <td><span class="st planned"><i></i>planned</span></td>
+                <td style="text-align:right"><button class="ap-btn quiet" style="padding:4px 12px;font-size:12.5px">Deviation</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <p class="caption"><b>Apple 版要点（第 0 期已落地）：</b>留白与字重做层级、发丝线分区；状态是彩色圆点 +
+      中性文字（一行一个强调色）；相对时间；数字右对齐。行高约 40px。内容结构已与其他标签统一：
+      同样的面包屑 + 进度条 + 两个分组盒子 + 每行 Deviation 按钮，只有皮肤不同。</p>
+  </section>
+</div>
+
+<script>
+  const buttons = document.querySelectorAll(".switcher button");
+  buttons.forEach((b) =>
+    b.addEventListener("click", () => {
+      buttons.forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      document.querySelectorAll(".style-tab").forEach((d) =>
+        d.classList.toggle("visible", d.id === "tab-" + b.dataset.t));
+    })
+  );
+  // Airtable signature interaction: select rows -> floating action bar
+  document.querySelectorAll("[data-table]").forEach((tbody) => {
+    const bar = document.querySelector("[data-selbar]");
+    const count = bar.querySelector("[data-selcount]");
+    const boxes = () => [...tbody.querySelectorAll(".at-check:not([data-checkall])")];
+    const refresh = () => {
+      const n = boxes().filter((c) => c.checked).length;
+      tbody.querySelectorAll("tr").forEach((tr) =>
+        tr.classList.toggle("selected", tr.querySelector(".at-check")?.checked === true));
+      if (tbody.dataset.table === "run") { bar.classList.toggle("show", n > 0); count.textContent = `${n} selected`; }
+    };
+    tbody.addEventListener("change", (e) => {
+      if (e.target.dataset.checkall) boxes().forEach((c) => (c.checked = e.target.checked));
+      refresh();
+    });
+    tbody.addEventListener("click", (e) => {
+      if (e.target.classList.contains("at-expand")) e.target.closest("tr").classList.toggle("selected"), refresh();
+    });
+  });
+</script>
+</body>
+</html>
