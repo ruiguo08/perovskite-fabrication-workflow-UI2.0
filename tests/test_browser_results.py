@@ -526,6 +526,124 @@ class ResultBrowserTests(unittest.TestCase):
             except subprocess.TimeoutExpired:
                 pass
 
+    def test_workbench_compares_all_conditions_and_renders_overlay_at_320px(self) -> None:
+        # The w-prefixed case runs after the existing student tests and owns
+        # its result uploads; it never relies on another test's result IDs.
+        profile = str(Path(self.temporary_directory.name) / "chrome-workbench")
+        process, session = self._open("/app/login", profile)
+        try:
+            wait_for_expression(session, "Boolean(document.querySelector('#root'))")
+            self._login(session, ADMIN_USERNAME, ADMIN_PASSWORD)
+            result_ids = []
+            details = []
+            filenames = ["workbench-alpha.csv", "workbench-beta.csv"]
+            for experiment_id, batch_id, filename, current in (
+                (self.experiment_id, self.batch.id, filenames[0], 24.0),
+                (self.other_experiment_id, self.other_batch.id, filenames[1], 20.0),
+            ):
+                uploaded = evaluate(
+                    session,
+                    "(async function() { const body = new FormData(); "
+                    "body.append('fabrication_batch_id', " + _js_escape(str(batch_id)) + "); "
+                    "body.append('result_file', new File([" + _js_escape(multi_device_csv([
+                        current, current, current - 1, current - 1,
+                    ])) + "], " + _js_escape(filename) + ", {type:'text/csv'})); "
+                    "const csrf = document.cookie.split('; ').find(c => c.startsWith('perovskite_csrf=')).split('=')[1]; "
+                    "const response = await fetch('/api/experiments/" + str(experiment_id) + "/results', "
+                    "{method:'POST', headers:{'X-CSRF-Token':decodeURIComponent(csrf)}, body}); "
+                    "return {status:response.status, body:await response.json()}; })()",
+                )
+                self.assertEqual(uploaded["status"], 201, uploaded)
+                result_ids.append(int(uploaded["body"]["id"]))
+                details.append(evaluate(
+                    session, f"fetch('/api/experiments/{experiment_id}').then(r => r.json())",
+                ))
+
+            self._navigate(session, "/app/analysis")
+            wait_for_expression(session, "Boolean(document.querySelector('input[type=checkbox]'))")
+            self._assert_viewport(session, 320)
+            self._assert_no_overflow(session, "populated analysis workbench")
+            for filename in filenames:
+                checkbox = (
+                    "Array.from(document.querySelectorAll('input[type=checkbox]')).find(e => "
+                    f"e.getAttribute('aria-label').endsWith({_js_escape(filename)}))"
+                )
+                click_until(session, checkbox, verify=f"({checkbox}).checked")
+            self.assertEqual(
+                int(evaluate(session, "document.querySelectorAll('input[type=checkbox]:checked').length")), 2,
+            )
+            self._click_real(
+                session, "Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Compare conditions')",
+            )
+            region = "document.querySelector('[role=region][aria-label=\"Condition comparison table\"]')"
+            wait_for_expression(session, f"Boolean({region})")
+            self._assert_no_overflow(session, "condition comparison matrix")
+            observed_headers = evaluate(
+                session, f"Array.from(({region}).querySelectorAll('thead th[scope=col]')).map(e => e.textContent.trim())",
+            )
+            expected_columns = [
+                (detail["experiment"]["experiment_code"], condition)
+                for detail in details for condition in detail["conditions"]
+            ]
+            self.assertEqual(len(expected_columns), 4)
+            self.assertEqual(len(observed_headers), 5)
+            self.assertEqual(observed_headers[0], "Parameter")
+            for observed, (code, condition) in zip(observed_headers[1:], expected_columns, strict=True):
+                self.assertIn(code, observed)
+                self.assertIn(condition["condition_code"], observed)
+                self.assertIn(condition["condition_name"], observed)
+                self.assertIn(condition["role"], observed)
+            for label in (
+                "Deposition › Spin step 1 › Speed",
+                "Deposition › VCD stage 1 › Pressure",
+                "Deposition › Anneal step 1 › Temperature",
+            ):
+                self.assertTrue(evaluate(
+                    session, f"Array.from(({region}).querySelectorAll('tbody th[scope=row]')).some(e => e.textContent.startsWith({_js_escape(label)}))",
+                ), f"missing fabrication parameter {label}")
+            speed_values = evaluate(
+                session, f"(function() {{ const rows = Array.from(({region}).querySelectorAll('tbody tr')); "
+                "const row = rows.find(e => e.querySelector('th').textContent.startsWith('Deposition › Spin step 1 › Speed')); "
+                "return row ? Array.from(row.querySelectorAll('td')).map(e => e.textContent.trim()) : null; })()",
+            )
+            self.assertEqual(speed_values, [
+                f"{float(condition['recipe_snapshot']['deposition_process']['spin_steps'][0]['rpm']):g} rpm"
+                for _, condition in expected_columns
+            ])
+            scroll = evaluate(
+                session, f"(function() {{ const element = {region}; element.scrollLeft = 200; "
+                "return {tabIndex:element.tabIndex, client:element.clientWidth, content:element.scrollWidth, left:element.scrollLeft}; })()",
+            )
+            self.assertEqual(scroll["tabIndex"], 0)
+            self.assertGreater(scroll["content"], scroll["client"])
+            self.assertGreater(scroll["left"], 0)
+            self._assert_no_overflow(session, "locally scrolled condition table")
+
+            self._click_real(session, "document.querySelector('[data-workbench-render]')")
+            image = "document.querySelector('img[src^=\"/api/analysis/jv-overlay\"]')"
+            wait_for_expression(session, f"Boolean({image}) && ({image}).complete && ({image}).naturalWidth > 0")
+            response = session.wait_for_response(method="GET", pathname="/api/analysis/jv-overlay", status=200)
+            self.assertTrue(response["url"].startswith(f"http://127.0.0.1:{self.app_port}/api/analysis/jv-overlay?"))
+            src = evaluate(session, f"({image}).getAttribute('src')")
+            for result_id in result_ids:
+                self.assertIn(f"result_id={result_id}", src)
+            self.assertFalse(src.startswith("blob:"))
+            self.assertEqual(evaluate(session, "document.querySelectorAll('img[src^=\"blob:\"]').length"), 0)
+            for filename in filenames:
+                self.assertIn(filename, evaluate(session, f"({image}).alt"))
+            self.assertFalse(evaluate(
+                session, "Array.from(document.querySelectorAll('[role=status]')).some(e => e.textContent.startsWith('Rendering overlay'))",
+            ))
+            self._assert_no_overflow(session, "rendered cross-result overlay")
+            session.check_errors()
+        finally:
+            session.close()
+            process.kill()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                pass
+
 
 if __name__ == "__main__":
     unittest.main()
