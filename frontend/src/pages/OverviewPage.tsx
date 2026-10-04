@@ -7,6 +7,7 @@ import { DataTable, type Column } from "../components/DataTable";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { PageHeader } from "../components/PageHeader";
+import { PortfolioBoard } from "../components/PortfolioBoard";
 import { StatusBadge } from "../components/StatusBadge";
 import type { FabricationBatchListItem, ResultListItem } from "../types/api";
 
@@ -293,6 +294,12 @@ export function OverviewPage() {
     <>
       <PageHeader title="Overview" description="Laboratory activity at a glance." />
       <SetupChecklist role={user?.role ?? ""} layouts={layouts} campaigns={campaigns} />
+      <section className="panel" aria-labelledby="portfolio-board-title" style={{ marginBottom: "var(--space-5)" }}>
+        <h2 className="panel__title" id="portfolio-board-title" style={{ marginBottom: "var(--space-3)" }}>
+          Pipeline board
+        </h2>
+        <PortfolioBoard experiments={experiments} batches={batches} results={results} />
+      </section>
       <section className="panel next-actions" aria-labelledby="next-actions-title">
         <h2 className="panel__title" id="next-actions-title">Next actions</h2>
         {nextActions.length === 0 ? (
