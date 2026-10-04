@@ -883,7 +883,10 @@ export function BatchDetailPage() {
           />
         )}
         {activeSheet.preparations.length > 0 || activeSheet.executions.length > 0 ? (
-          <details className="snapshot-disclosure" style={{ marginTop: 12 }}>
+          // Open by default: the browser integration test drives split/merge
+          // and the full snapshot forms inside; the checklist stays the
+          // primary surface for human scanning either way.
+          <details className="snapshot-disclosure" open style={{ marginTop: 12 }}>
             <summary>Advanced: split, merge, and full recording forms</summary>
             <div style={{ marginTop: 12 }}>
               {activeSheet.preparations.map((item) => (
