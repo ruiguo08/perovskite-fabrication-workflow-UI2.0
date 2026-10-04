@@ -261,6 +261,40 @@ class RunSheetBrowserTests(unittest.TestCase):
                 )
             )
 
+            # A second batch keeps checklist regression coverage independent
+            # from the split/merge/full-form workflow above.
+            cls.checklist_batch = asyncio.run(
+                repository.create_fabrication_batch(
+                    cls.experiment_id, actor_user_id=cls.student_id,
+                )
+            )
+            checklist_executions = asyncio.run(
+                repository.list_process_executions(cls.checklist_batch.id)
+            )
+            entered_execution = next(
+                execution for execution in checklist_executions
+                if execution.method == "spin_coating"
+            )
+            cls.entered_execution_id = entered_execution.id
+            cls.entered_process = json.loads(
+                json.dumps(entered_execution.planned_process_snapshot)
+            )
+            cls.entered_process["spin_steps"][0]["rpm"] += 111
+            asyncio.run(
+                repository.update_process_execution(
+                    entered_execution.id,
+                    actual_process_snapshot=cls.entered_process,
+                    actor_user_id=cls.student_id,
+                )
+            )
+            cls.copied_execution_id = next(
+                execution.id for execution in checklist_executions
+                if execution.id != entered_execution.id
+            )
+            cls.checklist_preparation_id = asyncio.run(
+                repository.list_solution_preparations(cls.checklist_batch.id)
+            )[0].id
+
         cls.app_port = available_port()
         config = uvicorn.Config(
             cls.app,
@@ -448,6 +482,151 @@ class RunSheetBrowserTests(unittest.TestCase):
             self._click_real(session, "[data-status-action='ready']")
             self._wait_for_text(session, "ready")
             self._assert_viewport(session, 320)
+            session.check_errors()
+        finally:
+            session.close()
+            process.kill()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                pass
+
+    def test_checklist_cycles_bulk_recording_and_deviation_at_320px(self) -> None:
+        from tests.cdp_driver import click_until
+
+        batch_id = self.checklist_batch.id
+        path = f"/app/experiments/{self.experiment_id}/batches/{batch_id}"
+        profile = str(Path(self.temporary_directory.name) / "chrome-checklist")
+        process, session = self._open("/app/login", profile)
+        try:
+            wait_for_expression(session, "Boolean(document.querySelector('#root'))")
+            self._login(session, ADMIN_USERNAME, ADMIN_PASSWORD)
+            self._navigate(session, path)
+            wait_for_expression(session, "Boolean(document.querySelector('[data-runsheet-table]'))")
+            self._assert_viewport(session, 320)
+            self._assert_no_overflow(session, "checklist before recording")
+
+            def cycle(kind: str, item_id: int, statuses: tuple[str, ...]) -> None:
+                selector = f'[data-runsheet-status="{kind}-{item_id}"]'
+                target = f"document.querySelector({_js_escape(selector)})"
+                for next_status in statuses:
+                    wait_for_expression(
+                        session,
+                        f"{target}.getAttribute('aria-disabled') !== 'true'",
+                    )
+                    click_until(
+                        session,
+                        target,
+                        verify=f"{target}.textContent.trim() === {_js_escape(next_status)}",
+                    )
+
+            # Every preparation transition is a real click. Consuming an
+            # unrecorded preparation must copy its plan as the actual record.
+            cycle("preparation", self.checklist_preparation_id, ("preparing", "ready", "consumed"))
+            # Exercise both completion paths: copy an unrecorded execution,
+            # and preserve a previously entered execution without overwriting it.
+            cycle("execution", self.copied_execution_id, ("ready", "running", "completed"))
+            cycle("execution", self.entered_execution_id, ("ready", "running", "completed"))
+            persisted = evaluate(
+                session,
+                f"fetch('/api/fabrication-batches/{batch_id}/run-sheet').then(r => r.json())",
+            )
+            preparation = next(
+                item["preparation"] for item in persisted["preparations"]
+                if item["preparation"]["id"] == self.checklist_preparation_id
+            )
+            self.assertEqual(preparation["status"], "consumed")
+            self.assertEqual(preparation["actual_recording_mode"], "copied_from_plan")
+            self.assertEqual(preparation["actual_solution_snapshot"], preparation["planned_solution_snapshot"])
+            copied = next(
+                item["execution"] for item in persisted["executions"]
+                if item["execution"]["id"] == self.copied_execution_id
+            )
+            entered = next(
+                item["execution"] for item in persisted["executions"]
+                if item["execution"]["id"] == self.entered_execution_id
+            )
+            self.assertEqual(copied["status"], "completed")
+            self.assertEqual(copied["actual_recording_mode"], "copied_from_plan")
+            self.assertEqual(copied["actual_process_snapshot"], copied["planned_process_snapshot"])
+            self.assertEqual(entered["status"], "completed")
+            self.assertEqual(entered["actual_recording_mode"], "entered")
+            self.assertEqual(entered["actual_process_snapshot"], self.entered_process)
+            total = len(persisted["preparations"]) + len(persisted["executions"])
+            self._wait_for_text(session, f"3 of {total} recorded")
+
+            # Cancelling the primary confirmation records nothing. Confirming
+            # then refetches the sheet and drives the checklist progress to 100%.
+            bulk = "document.querySelector('[data-runsheet-bulk]')"
+            click_until(session, bulk, verify="Boolean(document.querySelector('[role=dialog]'))")
+            wait_for_expression(session, "document.activeElement.textContent.trim() === 'Cancel'")
+            self._assert_no_overflow(session, "bulk confirmation")
+            self._click_real(
+                session,
+                "Array.from(document.querySelectorAll('[role=dialog] button')).find(b => b.textContent.trim() === 'Cancel')",
+            )
+            wait_for_expression(session, "!document.querySelector('[role=dialog]')")
+            self._wait_for_text(session, f"3 of {total} recorded")
+            click_until(session, bulk, verify="Boolean(document.querySelector('[role=dialog]'))")
+            self._click_real(
+                session,
+                "Array.from(document.querySelectorAll('[role=dialog] button')).find(b => b.textContent.trim() === 'Confirm')",
+            )
+            wait_for_expression(
+                session,
+                "document.querySelector('[data-runsheet-table] [role=progressbar]')?.getAttribute('aria-valuenow') === '100'",
+            )
+            self._wait_for_text(session, f"{total} of {total} recorded")
+            self._navigate(session, path)
+            self._wait_for_text(session, f"{total} of {total} recorded")
+            self.assertTrue(evaluate(session, "document.querySelector('[data-runsheet-bulk]').disabled"))
+            recorded = evaluate(
+                session,
+                f"fetch('/api/fabrication-batches/{batch_id}/run-sheet').then(r => r.json())",
+            )
+            for item in recorded["preparations"]:
+                self.assertIsNotNone(item["preparation"]["actual_recording_mode"])
+            for item in recorded["executions"]:
+                self.assertIsNotNone(item["execution"]["actual_recording_mode"])
+            saved_entered = next(
+                item["execution"] for item in recorded["executions"]
+                if item["execution"]["id"] == self.entered_execution_id
+            )
+            self.assertEqual(saved_entered["actual_process_snapshot"], self.entered_process)
+
+            # The row's deviation drawer fits 320px and contains focus. Cancel
+            # restores focus to its trigger; save creates an attached deviation.
+            trigger = f'document.querySelector(\'[data-runsheet-deviation="execution-{self.entered_execution_id}"]\')'
+            click_until(session, trigger, verify="Boolean(document.querySelector('.MuiDrawer-paper'))")
+            wait_for_expression(
+                session,
+                "document.querySelector('.MuiDrawer-paper').contains(document.activeElement)",
+            )
+            wait_for_expression(
+                session,
+                "document.querySelector('.MuiDrawer-paper').getBoundingClientRect().right <= 320 && "
+                "document.querySelector('.MuiDrawer-paper').getBoundingClientRect().width <= 320",
+            )
+            self._assert_no_overflow(session, "deviation drawer")
+            self._click_real(
+                session,
+                "Array.from(document.querySelectorAll('.MuiDrawer-paper button')).find(b => b.textContent.trim() === 'Cancel')",
+            )
+            wait_for_expression(session, f"document.activeElement === {trigger}")
+            wait_for_expression(session, "!document.querySelector('.MuiDrawer-paper')")
+            click_until(session, trigger, verify="Boolean(document.querySelector('.MuiDrawer-paper textarea'))")
+            self._click_real(session, ".MuiDrawer-paper textarea")
+            session.call("Input.insertText", {"text": "Checklist browser regression deviation"})
+            self._click_real(session, "[data-runsheet-deviation-save]")
+            wait_for_expression(session, "!document.querySelector('.MuiDrawer-paper')")
+            self._wait_for_text(session, "Checklist browser regression deviation")
+            deviations = evaluate(
+                session,
+                f"fetch('/api/fabrication-batches/{batch_id}/run-sheet').then(r => r.json()).then(d => d.deviations)",
+            )
+            saved = next(item for item in deviations if item["description"] == "Checklist browser regression deviation")
+            self.assertEqual(saved["process_execution_id"], self.entered_execution_id)
+            self._assert_no_overflow(session, "recorded checklist")
             session.check_errors()
         finally:
             session.close()

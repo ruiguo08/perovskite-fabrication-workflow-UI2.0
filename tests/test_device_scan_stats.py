@@ -12,18 +12,20 @@ import asyncio
 import sys
 import tempfile
 import unittest
+from copy import deepcopy
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from tests.test_fabrication_batches import _create_released_experiment_with_conditions
 from web import create_app
 from web.database import (
     audit_events,
     device_scan_stats,
+    result_files,
 )
 from web.repository import (
     BatchStatus,
@@ -328,6 +330,148 @@ class DeviceScanStatsTests(unittest.TestCase):
     def test_unknown_device_returns_404(self) -> None:
         response = self.client.get("/api/fabrication-devices/999999/jv-scans")
         self.assertEqual(response.status_code, 404, response.text)
+
+    def _assert_list_best_metrics(self, pce: float | None, jsc: float | None) -> None:
+        for path, entity_id in (
+            ("/api/experiments", self.experiment_id),
+            ("/api/fabrication-batches", self.batch_id),
+        ):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 200, response.text)
+            row = next(item for item in response.json() if item["id"] == entity_id)
+            self.assertEqual(row["best_pce"], pce, path)
+            self.assertEqual(row["best_jsc"], jsc, path)
+
+    def _set_excluded(self, file_id: int, excluded: bool) -> None:
+        detail = self.client.get(f"/api/results/{file_id}").json()
+        control_id = next(
+            group["batch_condition_id"]
+            for group in detail["groups"] if group["kind"] == "control"
+        )
+        device_id = detail["analysis"]["devices"][0]["device_id"]
+        saved = self.client.post(
+            f"/api/results/{file_id}/assignments",
+            json={
+                "assignments": [{
+                    "analysis_substrate_id": "A001",
+                    "batch_condition_id": control_id,
+                }],
+                "exclusions": [{
+                    "analysis_device_id": device_id,
+                    "reason": "Rejected outlier",
+                }] if excluded else [],
+                "correction_reason": "Update the measurement exclusion after review",
+            },
+        )
+        self.assertEqual(saved.status_code, 200, saved.text)
+
+    def test_list_best_metrics_ignore_lower_pinned_representative(self) -> None:
+        file_id = self._upload(
+            "A001 Channel 1.csv",
+            repeat_scan_csv([("forward", 20.0), ("forward", 24.0), ("reverse", 80.0)]),
+        )
+        # Unassigned files do not advertise a measurement on a batch/plan.
+        self._assert_list_best_metrics(None, None)
+        self._assign_control(file_id)
+        self._assert_list_best_metrics(12.0, 24.0)
+        device_id = self._fabrication_device_id(file_id)
+        chosen = self.client.put(
+            f"/api/fabrication-devices/{device_id}/jv-scans/representative",
+            json={"direction": "forward", "result_file_id": file_id, "trace_id": "trace-001"},
+        )
+        self.assertEqual(chosen.status_code, 200, chosen.text)
+        # The scan-history representative remains the user's 10% choice.
+        self.assertEqual(chosen.json()["representative"]["forward"]["metrics"]["pce"], 10.0)
+        self.assertEqual(self._stats_rows(device_id)["forward"]["best_metrics"]["pce"], 10.0)
+        self._assert_list_best_metrics(12.0, 24.0)
+
+    def test_list_best_metrics_respect_exclusions_per_result_file(self) -> None:
+        best = self._upload("best.csv", repeat_scan_csv([("forward", 24.0)]))
+        self._assign_control(best)
+        rescan = self._upload("rescan.csv", repeat_scan_csv([("forward", 20.0)]))
+        self._assign_control(rescan)
+        self._assert_list_best_metrics(12.0, 24.0)
+
+        self._set_excluded(best, True)
+        # Excluding one file's device leaves its other uploaded scans eligible.
+        self._assert_list_best_metrics(10.0, 20.0)
+        self._set_excluded(rescan, True)
+        self._assert_list_best_metrics(None, None)
+        self._set_excluded(best, False)
+        self._assert_list_best_metrics(12.0, 24.0)
+
+    def test_list_best_metrics_validate_forward_metrics_and_keep_first_tie(self) -> None:
+        file_id = self._upload("valid.csv", repeat_scan_csv([("forward", 24.0)]))
+        self._assign_control(file_id)
+        analysis = deepcopy(self.client.get(f"/api/results/{file_id}").json()["analysis"])
+        device = analysis["devices"][0]
+        template = device["traces"][0]
+        for index, (valid, direction, metrics) in enumerate([
+            (False, "forward", {"pce": 100.0, "jsc": 100.0}),
+            (True, "reverse", {"pce": 100.0, "jsc": 100.0}),
+            (True, "forward", {"pce": 100.0}),
+            (True, "forward", {"pce": float("nan"), "jsc": 100.0}),
+            (True, "forward", {"pce": 100.0, "jsc": float("inf")}),
+            (True, "forward", {"pce": True, "jsc": 100.0}),
+            (True, "forward", {"pce": 12.0, "jsc": 200.0}),
+        ]):
+            device["traces"].append({
+                **template, "trace_id": f"boundary-{index}", "valid": valid,
+                "direction": direction, "metrics": metrics,
+            })
+        # Simulate malformed legacy metrics at the persisted JSON boundary;
+        # upload parsing itself already rejects invalid new measurements.
+        async def save() -> None:
+            async with self.repository.database.begin() as connection:
+                await connection.execute(
+                    update(result_files).where(result_files.c.id == file_id).values(analysis=analysis)
+                )
+        asyncio.run(save())
+        self._assert_list_best_metrics(12.0, 24.0)
+
+    def test_experiment_maximum_spans_batches_without_mixing_batch_metrics(self) -> None:
+        first_batch_id = self.batch_id
+        best = self._upload("first-batch.csv", repeat_scan_csv([("forward", 24.0)]))
+        self._assign_control(best)
+        self.batch_id = self._completed_batch()
+        rescan = self._upload("second-batch.csv", repeat_scan_csv([("forward", 20.0)]))
+        self._assign_control(rescan)
+        experiment = next(
+            row for row in self.client.get("/api/experiments").json()
+            if row["id"] == self.experiment_id
+        )
+        batches = {row["id"]: row for row in self.client.get("/api/fabrication-batches").json()}
+        self.assertEqual(experiment["best_pce"], 12.0)
+        self.assertEqual(batches[first_batch_id]["best_pce"], 12.0)
+        self.assertEqual(batches[self.batch_id]["best_pce"], 10.0)
+        self._set_excluded(best, True)
+        self._assert_list_best_metrics(10.0, 20.0)
+        first_batch = next(
+            row for row in self.client.get("/api/fabrication-batches").json()
+            if row["id"] == first_batch_id
+        )
+        self.assertIsNone(first_batch["best_pce"])
+
+    def test_list_metrics_do_not_expose_another_owners_measurement(self) -> None:
+        file_id = self._upload("private.csv", repeat_scan_csv([("forward", 24.0)]))
+        self._assign_control(file_id)
+        self._assert_list_best_metrics(12.0, 24.0)
+        username, password = "metrics-peer", "metrics peer password 2026"
+        created = self.client.post("/api/users", json={
+            "username": username, "display_name": "Metrics peer",
+            "password": password, "role": "student",
+        })
+        self.assertEqual(created.status_code, 201, created.text)
+        self.assertEqual(self.client.post("/api/auth/logout").status_code, 204)
+        token = self.client.get("/api/auth/login-csrf").json()["login_csrf_token"]
+        logged_in = self.client.post("/api/auth/login", json={
+            "username": username, "password": password, "login_csrf": token,
+        })
+        self.assertEqual(logged_in.status_code, 200, logged_in.text)
+        for path in ("/api/experiments", "/api/fabrication-batches"):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(response.json(), [])
 
     async def _audit_count(self, action: str) -> int:
         async with self.repository.database.engine.connect() as connection:
