@@ -9,12 +9,12 @@ from web.jv_parser import assign_substrates_to_groups, parse_jv_analysis
 from web.publication_plots import (
     CATEGORICAL_PALETTES,
     PlotInputError,
+    _build_jv_overlay,
     _render_boxplot,
     _render_jv,
     _render_uniformity,
     _representative_trace,
     _trace_points,
-    _build_jv_overlay,
     render_jv_overlay,
     render_publication_figure,
 )
