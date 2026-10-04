@@ -302,6 +302,11 @@ def create_results_router(
             media_type=MEDIA_TYPES[format],
             headers=headers,
         )
+
+    @router.get(
+        "/api/results/{file_id}/assignments",
+        response_model=list[ResultAssignmentRowResponse],
+    )
     async def get_result_assignments_api(
         file_id: int,
         auth_context: Annotated[AuthContext, Depends(require_user)],
