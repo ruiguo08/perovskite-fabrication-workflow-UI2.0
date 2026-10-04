@@ -47,10 +47,8 @@ export function AnalysisWorkbenchPage() {
   const [selected, setSelected] = useState<number[]>([]);
   const [palette, setPalette] = useState("science-tol");
   const [overlayUrl, setOverlayUrl] = useState<string | null>(null);
-  const [rendering, setRendering] = useState(false);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [conditions, setConditions] = useState<ConditionRow[] | null>(null);
-
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -92,27 +90,17 @@ export function AnalysisWorkbenchPage() {
     );
   }
 
-  async function renderOverlay() {
+  function renderOverlay() {
     if (selected.length === 0) {
       setRenderError("Select at least one result.");
       return;
     }
-    setRendering(true);
     setRenderError(null);
-    try {
-      const query = selected.map((id) => `result_id=${id}`).join("&");
-      const blob = await apiFetch<Blob>(`/api/analysis/jv-overlay?${query}&format=svg&palette=${palette}`, {
-        blob: true,
-      });
-      if (overlayUrl) {
-        URL.revokeObjectURL(overlayUrl);
-      }
-      setOverlayUrl(URL.createObjectURL(blob));
-    } catch (caught) {
-      setRenderError(caught instanceof Error ? caught.message : "Unable to render the overlay.");
-    } finally {
-      setRendering(false);
-    }
+    // CSP img-src only allows 'self' and data: — no blob: URLs — so the
+    // overlay <img> points straight at the endpoint (same-origin cookies
+    // authenticate it). A cache-busting nonce forces a reload per render.
+    const query = selected.map((id) => `result_id=${id}`).join("&");
+    setOverlayUrl(`/api/analysis/jv-overlay?${query}&format=svg&palette=${palette}&_=${Date.now()}`);
   }
 
   async function loadConditions() {
@@ -248,10 +236,10 @@ export function AnalysisWorkbenchPage() {
               <Button
                 variant="contained"
                 data-workbench-render="true"
-                disabled={rendering || selected.length === 0}
-                onClick={() => void renderOverlay()}
+                disabled={selected.length === 0}
+                onClick={renderOverlay}
               >
-                {rendering ? "Rendering…" : "Render overlay"}
+                Render overlay
               </Button>
               <Button
                 color="inherit"
