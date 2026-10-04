@@ -18,7 +18,7 @@ interface Stage {
   match: (pathname: string) => boolean;
 }
 
-const LABORATORY_PREFIXES = ["/experiments", "/fabrication-batches", "/results", "/workflow"];
+const LABORATORY_PREFIXES = ["/experiments", "/fabrication-batches", "/results", "/analysis", "/workflow"];
 
 function isLaboratoryPage(pathname: string): boolean {
   if (pathname === "/" || pathname === "/app" || pathname.endsWith("/app")) {
