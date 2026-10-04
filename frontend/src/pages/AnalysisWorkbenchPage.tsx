@@ -22,18 +22,6 @@ import type {
 
 const PALETTES = ["science-tol", "nature-classic", "lancet-clinical", "nejm"];
 
-interface ExperimentDetailLike {
-  id: number;
-  recipe?: {
-    device_recipe?: {
-      substrate?: { material?: string };
-      layers?: { name: string; role?: string }[];
-      junction?: string;
-      bandgap?: string;
-    } | null;
-  } | null;
-}
-
 interface ConditionRow {
   parameter: string;
   values: (string | null)[];
@@ -110,8 +98,10 @@ export function AnalysisWorkbenchPage() {
     }
     setRenderError(null);
     try {
-      // Condition snapshots of the owning experiments: one row per parameter,
-      // one column per selected result's experiment (deduplicated).
+      // Condition snapshots of the owning experiments: the authoritative,
+      // hash-verified configuration lives on each experiment's conditions
+      // (control first). One matrix row per parameter, one column per
+      // distinct experiment; differing values highlight per row.
       const rows: Map<string, (string | null)[]> = new Map();
       const columns: string[] = [];
       for (const id of selected) {
@@ -120,30 +110,40 @@ export function AnalysisWorkbenchPage() {
         const experimentCode = result.experiment_code ?? `Experiment ${result.experiment_id}`;
         if (!columns.includes(experimentCode)) {
           columns.push(experimentCode);
-          for (const [parameter] of rows) {
-            rows.get(parameter)?.push(null);
+          for (const values of rows.values()) {
+            values.push(null);
           }
         }
-        const detail = await apiFetch<ExperimentDetailLike>(`/api/experiments/${result.experiment_id}`);
-        const recipe = detail.recipe?.device_recipe;
+        const detail = await apiFetch<{
+          conditions: {
+            role: string;
+            recipe_snapshot: {
+              device: {
+                substrate: { material: string };
+                junction_type: string;
+                perovskite_bandgap: string | null;
+                layers: { name: string; role: string }[];
+              };
+            };
+          }[];
+        }>(`/api/experiments/${result.experiment_id}`);
+        const control =
+          detail.conditions.find((condition) => condition.role !== "target") ??
+          detail.conditions[0];
+        const device = control?.recipe_snapshot?.device;
         const entries: [string, string][] = [
-          ["Substrate", recipe?.substrate?.material ?? "—"],
-          ["Junction", recipe?.junction ?? "—"],
-          ["Bandgap", recipe?.bandgap ?? "—"],
+          ["Substrate", device?.substrate?.material ?? "—"],
+          ["Junction", device?.junction_type ?? "—"],
+          ["Bandgap", device?.perovskite_bandgap ?? "—"],
         ];
-        for (const [index, layer] of (recipe?.layers ?? []).entries()) {
-          entries.push([`Layer ${index + 1}`, `${layer.name}${layer.role ? ` (${layer.role})` : ""}`]);
+        for (const [index, layer] of (device?.layers ?? []).entries()) {
+          entries.push([`Layer ${index + 1}`, `${layer.name} (${layer.role})`]);
         }
+        const columnIndex = columns.indexOf(experimentCode);
         for (const [parameter, value] of entries) {
           if (!rows.has(parameter)) {
             rows.set(parameter, Array.from({ length: columns.length }, () => null));
           }
-          const columnIndex = columns.indexOf(experimentCode);
-          rows.get(parameter)?.forEach((_, index) => {
-            if (index >= columnIndex && rows.get(parameter)?.[index] === null) {
-              // widen later columns when a new experiment appends
-            }
-          });
           const column = rows.get(parameter);
           if (column) {
             while (column.length < columns.length) column.push(null);
@@ -286,19 +286,32 @@ export function AnalysisWorkbenchPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {conditions.map((row) => (
-                      <tr key={row.parameter}>
-                        <td style={{ padding: "7px 10px",
-                          borderBottom: "1px solid rgba(0,0,0,.05)", fontWeight: 600,
-                          fontSize: 12.5 }}>{row.parameter}</td>
-                        {row.values.map((value, index) => (
-                          <td key={index} style={{ padding: "7px 10px",
-                            borderBottom: "1px solid rgba(0,0,0,.05)" }}>
-                            {value ?? "—"}
+                    {conditions.map((row) => {
+                      // Values differing within a row carry an amber tint:
+                      // the point of the matrix is spotting what changed.
+                      const distinct = new Set(row.values.filter((value) => value !== null));
+                      const differs = distinct.size > 1;
+                      return (
+                        <tr key={row.parameter}>
+                          <td style={{ padding: "7px 10px",
+                            borderBottom: "1px solid rgba(0,0,0,.05)", fontWeight: 600,
+                            fontSize: 12.5 }}>
+                            {row.parameter}
+                            {differs ? (
+                              <span style={{ marginLeft: 6, fontSize: 10.5, fontWeight: 600,
+                                color: "#b66a00", letterSpacing: ".05px" }}>◆ differs</span>
+                            ) : null}
                           </td>
-                        ))}
-                      </tr>
-                    ))}
+                          {row.values.map((value, index) => (
+                            <td key={index} style={{ padding: "7px 10px",
+                              borderBottom: "1px solid rgba(0,0,0,.05)",
+                              background: differs && value !== null ? "rgba(182,106,0,.07)" : "transparent" }}>
+                              {value ?? "—"}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </Box>

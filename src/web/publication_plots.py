@@ -790,11 +790,6 @@ def _natural_key(value: str) -> tuple[Any, ...]:
     return tuple(int(part) if part.isdigit() else part.lower() for part in re.split(r"(\d+)", value))
 
 
-# ---------------------------------------------------------------------------
-# Cross-result J-V overlay (phase 3 analysis workbench). Input is a list of
-# (label, analysis, groups) tuples — one per selected result file — so the
-# plot stays inside the frozen matplotlib pipeline while spanning results.
-# ---------------------------------------------------------------------------
 
 def render_jv_overlay(
     curves: Sequence[tuple[str, Mapping[str, Any], Sequence[Mapping[str, Any]]]],
@@ -819,59 +814,68 @@ def render_jv_overlay(
         raise PlotInputError("unsupported figure format")
     if palette not in CATEGORICAL_PALETTES:
         raise PlotInputError("palette is not available for the overlay")
-    colors = CATEGORICAL_PALETTES[palette]
 
     with _MATPLOTLIB_LOCK, plt.rc_context(_RC):
-        figure, axis = plt.subplots(figsize=(5.2, 4.0))
-        any_curve = False
-        for index, (label, analysis, groups) in enumerate(curves):
-            devices = list(analysis.get("devices") or [])
-            names = _group_names(groups)
-            # Best-PCE device of this result (forward), then its representative
-            # forward trace — one clean curve per result file.
-            best_device: Mapping[str, Any] | None = None
-            best_pce: float | None = None
-            for device in devices:
-                if device.get("excluded"):
-                    continue
-                trace = _representative_trace(device, "forward")
-                if trace is None:
-                    continue
-                pce = _finite_number((trace.get("metrics") or {}).get("pce"))
-                if pce is not None and (best_pce is None or pce > best_pce):
-                    best_pce = pce
-                    best_device = device
-            if best_device is None:
-                continue
-            trace = _representative_trace(best_device, "forward")
-            if trace is None:
-                continue
-            voltage, current = _trace_points(trace)
-            if not voltage:
-                continue
-            color = colors[index % len(colors)]
-            group_name = names.get(str(best_device.get("group_id")), "Unassigned")
-            axis.plot(
-                voltage,
-                current,
-                color=color,
-                linewidth=1.6,
-                label=f"{label} · {group_name} · {best_pce:.2f}%",
-            )
-            any_curve = True
-        if not any_curve:
-            plt.close(figure)
-            raise PlotInputError("selected results have no valid forward J-V traces")
-        axis.set_xlabel("Voltage (V)")
-        axis.set_ylabel(r"Current density (mA cm$^{-2}$)")
-        axis.grid(color="#E5E7EB", linewidth=0.55)
-        axis.set_axisbelow(True)
-        axis.set_xlim(left=0)
-        axis.set_ylim(bottom=0)
-        axis.legend(frameon=False, loc="best", fontsize=8)
-        figure.suptitle("Cross-result J–V overlay · best forward scan", fontsize=10, y=0.99)
-        figure.tight_layout(rect=(0, 0, 1, 0.96))
+        figure = _build_jv_overlay(curves, CATEGORICAL_PALETTES[palette])
         try:
             return _save_figure(figure, figure_format)
         finally:
             plt.close(figure)
+
+
+def _build_jv_overlay(
+    curves: Sequence[tuple[str, Mapping[str, Any], Sequence[Mapping[str, Any]]]],
+    colors: Sequence[str],
+):
+    """Build the overlay Figure; validation happens in render_jv_overlay."""
+
+    figure, axis = plt.subplots(figsize=(5.2, 4.0))
+    any_curve = False
+    for index, (label, analysis, groups) in enumerate(curves):
+        devices = list(analysis.get("devices") or [])
+        names = _group_names(groups)
+        # Best-PCE device of this result (forward), then its representative
+        # forward trace — one clean curve per result file.
+        best_device: Mapping[str, Any] | None = None
+        best_pce: float | None = None
+        for device in devices:
+            if device.get("excluded"):
+                continue
+            trace = _representative_trace(device, "forward")
+            if trace is None:
+                continue
+            pce = _finite_number((trace.get("metrics") or {}).get("pce"))
+            if pce is not None and (best_pce is None or pce > best_pce):
+                best_pce = pce
+                best_device = device
+        if best_device is None:
+            continue
+        trace = _representative_trace(best_device, "forward")
+        if trace is None:
+            continue
+        voltage, current = _trace_points(trace)
+        if not voltage:
+            continue
+        color = colors[index % len(colors)]
+        group_name = names.get(str(best_device.get("group_id")), "Unassigned")
+        axis.plot(
+            voltage,
+            current,
+            color=color,
+            linewidth=1.6,
+            label=f"{label} · {group_name} · {best_pce:.2f}%",
+        )
+        any_curve = True
+    if not any_curve:
+        plt.close(figure)
+        raise PlotInputError("selected results have no valid forward J-V traces")
+    axis.set_xlabel("Voltage (V)")
+    axis.set_ylabel(r"Current density (mA cm$^{-2}$)")
+    axis.grid(color="#E5E7EB", linewidth=0.55)
+    axis.set_axisbelow(True)
+    axis.set_xlim(left=0)
+    axis.set_ylim(bottom=0)
+    axis.legend(frameon=False, loc="best", fontsize=8)
+    figure.suptitle("Cross-result J–V overlay · best forward scan", fontsize=10, y=0.99)
+    figure.tight_layout(rect=(0, 0, 1, 0.96))
+    return figure
