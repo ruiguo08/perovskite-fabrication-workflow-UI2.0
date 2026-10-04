@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -35,7 +35,7 @@ const TONE_BY_STATUS: Record<string, "success" | "info" | "planned" | "warning" 
   completed: "success",
   ready: "info",
   running: "info",
-  preparing: "planned",
+  preparing: "info",
   planned: "planned",
   discarded: "neutral",
   cancelled: "neutral",
@@ -71,6 +71,7 @@ interface RunSheetTableProps {
   disabled: boolean;
   submitting: boolean;
   onCycle: (row: RunSheetRow, nextStatus: string) => void;
+  onRecordAllAsPlanned: () => void;
   onSaveDeviation: (row: RunSheetRow, draft: DeviationDraft) => Promise<void>;
 }
 
@@ -89,15 +90,18 @@ function statusLabel(status: string) {
   return status.replace(/_/g, " ");
 }
 
-export function RunSheetTable({ rows, disabled, submitting, onCycle, onSaveDeviation }: RunSheetTableProps) {
+export function RunSheetTable({ rows, disabled, submitting, onCycle, onRecordAllAsPlanned, onSaveDeviation }: RunSheetTableProps) {
   const [drawerRow, setDrawerRow] = useState<RunSheetRow | null>(null);
   const [category, setCategory] = useState("process");
   const [severity, setSeverity] = useState("warning");
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [savingDeviation, setSavingDeviation] = useState(false);
+  const deviationInFlight = useRef(false);
 
-  const done = useMemo(() => rows.filter((row) => ["consumed", "completed", "discarded", "cancelled", "failed"].includes(row.status)).length, [rows]);
-  const pending = rows.length - done;
+  const done = useMemo(() => rows.filter((row) => row.recorded).length, [rows]);
+  const pending = rows.filter((row) => !row.recorded &&
+    !["consumed", "completed", "discarded", "cancelled", "failed"].includes(row.status)).length;
 
   function cycle(row: RunSheetRow) {
     if (disabled || submitting) return;
@@ -109,17 +113,23 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onSaveDevia
   }
 
   async function saveDeviation() {
+    if (disabled || submitting || deviationInFlight.current) return;
     if (!drawerRow || !description.trim()) {
       setError("Describe what changed.");
       return;
     }
     setError(null);
+    deviationInFlight.current = true;
+    setSavingDeviation(true);
     try {
       await onSaveDeviation(drawerRow, { category, severity, description: description.trim() });
       setDrawerRow(null);
       setDescription("");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to save the deviation.");
+    } finally {
+      deviationInFlight.current = false;
+      setSavingDeviation(false);
     }
   }
 
@@ -146,7 +156,9 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onSaveDevia
                 data-runsheet-status={`${row.kind}-${row.id}`}
                 icon={dot(row.status)}
                 label={statusLabel(row.status)}
-                onClick={() => cycle(row)}
+                onClick={(row.kind === "preparation" ? PREPARATION_CYCLE : EXECUTION_CYCLE)[row.status]
+                  ? () => cycle(row) : undefined}
+                disabled={disabled || submitting || savingDeviation}
                 size="small"
                 sx={{
                   cursor: disabled || submitting ? "default" : "pointer",
@@ -165,6 +177,7 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onSaveDevia
               <Button
                 size="small"
                 color="inherit"
+                disabled={disabled || submitting || savingDeviation}
                 data-runsheet-deviation={`${row.kind}-${row.id}`}
                 sx={{ fontSize: 12.5, fontWeight: 500 }}
                 onClick={() => {
@@ -191,6 +204,7 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onSaveDevia
         </Typography>
         <LinearProgress variant="determinate" value={rows.length ? (done / rows.length) * 100 : 0} sx={{ flex: 1 }} />
         <Button variant="contained" data-runsheet-bulk="true" disabled={disabled || submitting || pending === 0}
+          onClick={onRecordAllAsPlanned}
           sx={{ whiteSpace: "nowrap" }}>
           Record all as planned
         </Button>
@@ -216,10 +230,13 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onSaveDevia
       <Drawer
         anchor="right"
         open={drawerRow !== null}
-        onClose={() => setDrawerRow(null)}
-        slotProps={{ paper: { sx: { p: "22px 24px", width: 400 } } }}
+        onClose={() => { if (!deviationInFlight.current) setDrawerRow(null); }}
+        slotProps={{ paper: {
+          role: "dialog", "aria-modal": true, "aria-labelledby": "run-sheet-deviation-title",
+          sx: { p: "22px 24px", width: "min(400px, 100%)" },
+        } }}
       >
-        <Typography component="h2" sx={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.224px", mb: 0.5 }}>
+        <Typography id="run-sheet-deviation-title" component="h2" sx={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.224px", mb: 0.5 }}>
           Record deviation
         </Typography>
         <Typography sx={{ fontSize: 12.5, color: "rgba(0,0,0,.48)", mb: 2 }}>
@@ -228,6 +245,8 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onSaveDevia
         <Stack spacing={2}>
           <TextField
             select
+            autoFocus
+            disabled={savingDeviation}
             size="small"
             label="Category"
             value={category}
@@ -241,6 +260,7 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onSaveDevia
             select
             size="small"
             label="Severity"
+            disabled={savingDeviation}
             value={severity}
             onChange={(event) => setSeverity(event.target.value)}
           >
@@ -250,6 +270,7 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onSaveDevia
           </TextField>
           <TextField
             label="What changed"
+            disabled={savingDeviation}
             multiline
             minRows={3}
             value={description}
@@ -258,10 +279,10 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onSaveDevia
           />
           {error ? <Typography sx={{ fontSize: 13, color: "#b3261e" }}>{error}</Typography> : null}
           <Stack direction="row" spacing={1.5}>
-            <Button variant="contained" data-runsheet-deviation-save="true" onClick={() => void saveDeviation()}>
-              Save deviation
+            <Button variant="contained" data-runsheet-deviation-save="true" disabled={disabled || submitting || savingDeviation} onClick={() => void saveDeviation()}>
+              {savingDeviation ? "Saving…" : "Save deviation"}
             </Button>
-            <Button color="inherit" onClick={() => setDrawerRow(null)}>Cancel</Button>
+            <Button color="inherit" disabled={savingDeviation} onClick={() => setDrawerRow(null)}>Cancel</Button>
           </Stack>
         </Stack>
       </Drawer>

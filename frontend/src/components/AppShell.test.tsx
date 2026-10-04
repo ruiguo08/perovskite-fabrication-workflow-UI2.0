@@ -118,7 +118,7 @@ describe("AppShell", () => {
     // Retry (the visible action button is still "Retry") succeeds and
     // navigates to login.
     logout.mockImplementationOnce(() => Promise.resolve());
-    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByText("Login route")).toBeInTheDocument();
   });
 });

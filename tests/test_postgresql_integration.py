@@ -53,6 +53,108 @@ from web.repository import (
     "set PEROVSKITE_TEST_POSTGRESQL_URL to run PostgreSQL integration tests",
 )
 class PostgreSQLIntegrationTests(unittest.TestCase):
+    def test_list_best_scan_metrics_respect_exclusions_without_representative_overrides(self) -> None:
+        from tests.test_device_scan_stats import repeat_scan_csv
+        from tests.test_fabrication_batches import _create_released_experiment_with_conditions
+        from web.operations.result_assignment import (
+            ResultAssignmentInput,
+            ResultExclusionInput,
+            save_result_analysis,
+        )
+
+        async def exercise() -> None:
+            database = Database(os.environ["PEROVSKITE_TEST_POSTGRESQL_URL"])
+            repository = WebRepository(database)
+            await seed_standard_layouts_async(database)
+            suffix = uuid4().hex[:12]
+            try:
+                actor = await repository.create_user(
+                    username=f"pg-list-metrics-{suffix}", display_name="List metrics test",
+                    password_hash=hash_password(f"list metrics secret {suffix}"),
+                    role=UserRole.INSTRUCTOR,
+                )
+                experiment_id = await _create_released_experiment_with_conditions(
+                    repository, f"pg-list-metrics-{suffix}", actor_user_id=actor.id,
+                )
+                batch = await repository.create_fabrication_batch(experiment_id, actor_user_id=actor.id)
+                conditions = await repository.get_fabrication_batch_conditions(batch.id)
+                control_id = next(condition.id for condition in conditions if condition.role == "control")
+                for preparation in await repository.list_solution_preparations(batch.id):
+                    await repository.update_solution_preparation(
+                        preparation.id, status=PreparationStatus.DISCARDED,
+                        fabrication_batch_id=batch.id, actor_user_id=actor.id,
+                    )
+                for execution in await repository.list_process_executions(batch.id):
+                    await repository.update_process_execution(
+                        execution.id, status=ExecutionStatus.CANCELLED,
+                        fabrication_batch_id=batch.id, actor_user_id=actor.id,
+                    )
+                for status in (BatchStatus.READY, BatchStatus.IN_PROGRESS):
+                    await repository.update_fabrication_batch_status(batch.id, status, actor_user_id=actor.id)
+                await repository.update_fabrication_batch_status(
+                    batch.id, BatchStatus.COMPLETED,
+                    actual_substrate_counts={condition.id: 1 for condition in conditions},
+                    shortfall_deviations=[
+                        (condition.id, "List-metrics fixture measured one substrate per condition.")
+                        for condition in conditions
+                    ],
+                    actor_user_id=actor.id,
+                )
+
+                async def upload(name: str, scans: list[tuple[str, float]]) -> dict[str, Any]:
+                    content = repeat_scan_csv(scans).encode("utf-8")
+                    analysis = parse_jv_analysis(content, source_filename=name)
+                    return await repository.add_result(
+                        experiment_id, fabrication_batch_id=batch.id, filename=name,
+                        content_type="text/csv", content=content,
+                        metrics=_flat_metrics_from_analysis(analysis), analysis=analysis,
+                        actor_user_id=actor.id,
+                    )
+
+                async def assign(file_id: int, excluded: bool = False) -> None:
+                    result = await repository.get_result(file_id)
+                    device_id = result["analysis"]["devices"][0]["device_id"]
+                    await save_result_analysis(
+                        repository, file_id=file_id,
+                        assignments=[ResultAssignmentInput("A001", control_id)],
+                        exclusions=[ResultExclusionInput(device_id, "Rejected outlier")] if excluded else [],
+                        group_assignment=None, correction_reason="Review measurement exclusions",
+                        actor_user_id=actor.id, actor_role=actor.role,
+                    )
+
+                async def check(pce: float | None, jsc: float | None) -> None:
+                    expected = {} if pce is None else {"pce": pce, "jsc": jsc}
+                    self.assertEqual(
+                        (await repository.best_scan_metrics_for_batches([batch.id])).get(batch.id, {}), expected,
+                    )
+                    self.assertEqual(
+                        (await repository.best_scan_metrics_for_experiments([experiment_id])).get(experiment_id, {}), expected,
+                    )
+
+                first = await upload("best.csv", [("forward", 20.0), ("forward", 24.0), ("reverse", 80.0)])
+                await check(None, None)
+                await assign(first["id"])
+                await check(12.0, 24.0)
+                assignments = await repository.list_result_device_assignments(first["id"])
+                chosen = await repository.set_representative_scan(
+                    int(assignments[0]["fabrication_device_id"]), direction="forward",
+                    result_file_id=first["id"], trace_id="trace-001", actor_user_id=actor.id,
+                )
+                self.assertEqual(chosen["representative"]["forward"]["metrics"]["pce"], 10.0)
+                await check(12.0, 24.0)
+                rescan = await upload("rescan.csv", [("forward", 20.0)])
+                await assign(rescan["id"])
+                await assign(first["id"], excluded=True)
+                await check(10.0, 20.0)
+                await assign(rescan["id"], excluded=True)
+                await check(None, None)
+                await assign(first["id"])
+                await check(12.0, 24.0)
+            finally:
+                await database.dispose()
+
+        asyncio.run(exercise())
+
     def test_plan_start_and_last_batch_cancellation_cannot_both_succeed(self) -> None:
         from tests.test_fabrication_batches import _create_released_experiment_with_conditions
 

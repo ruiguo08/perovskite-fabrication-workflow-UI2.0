@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
@@ -8,24 +8,12 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { PageHeader } from "../components/PageHeader";
 import { apiFetch } from "../lib/api";
+import { buildConditionMatrix, type ConditionMatrix } from "../lib/conditionMatrix";
 import { formatRelativeTime } from "../lib/format";
-import type {
-  Experiment,
-  FabricationBatchListItem,
-  ResultListItem,
-} from "../types/api";
-
-/* Analysis workbench (phase 3, D3): pick characterization results across
-   experiments and overlay their best forward J-V curves — rendered by the
-   frozen server-side matplotlib pipeline through /api/analysis/jv-overlay —
-   plus a condition-comparison matrix for the owning experiments. */
+import type { Experiment, ExperimentDetail, FabricationBatchListItem, ResultListItem } from "../types/api";
 
 const PALETTES = ["science-tol", "nature-classic", "lancet-clinical", "nejm"];
-
-interface ConditionRow {
-  parameter: string;
-  values: (string | null)[];
-}
+type LoadState = "idle" | "loading" | "success" | "error";
 
 export function AnalysisWorkbenchPage() {
   const [results, setResults] = useState<ResultListItem[] | null>(null);
@@ -34,291 +22,156 @@ export function AnalysisWorkbenchPage() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
   const [palette, setPalette] = useState("science-tol");
-  const [overlayUrl, setOverlayUrl] = useState<string | null>(null);
-  const [renderError, setRenderError] = useState<string | null>(null);
-  const [conditions, setConditions] = useState<ConditionRow[] | null>(null);
+  const [overlay, setOverlay] = useState<{ url: string; token: number; labels: string } | null>(null);
+  const [overlayState, setOverlayState] = useState<LoadState>("idle");
+  const [matrix, setMatrix] = useState<ConditionMatrix | null>(null);
+  const [conditionState, setConditionState] = useState<LoadState>("idle");
+  const [conditionError, setConditionError] = useState<string | null>(null);
+  const conditionRequest = useRef(0);
+  const overlayRequest = useRef(0);
+
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
         const [resultRows, experimentRows, batchRows] = await Promise.all([
-          apiFetch<ResultListItem[]>("/api/results"),
-          apiFetch<Experiment[]>("/api/experiments"),
+          apiFetch<ResultListItem[]>("/api/results"), apiFetch<Experiment[]>("/api/experiments"),
           apiFetch<FabricationBatchListItem[]>("/api/fabrication-batches"),
         ]);
         if (cancelled) return;
-        setResults(resultRows);
-        setExperiments(experimentRows);
-        setBatches(batchRows);
+        setResults(resultRows); setExperiments(experimentRows); setBatches(batchRows);
       } catch (caught) {
-        if (!cancelled) {
-          setError(caught instanceof Error ? caught.message : "Unable to load the workbench.");
-        }
+        if (!cancelled) setError(caught instanceof Error ? caught.message : "Unable to load the workbench.");
       }
     }
     void load();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; conditionRequest.current += 1; overlayRequest.current += 1; };
   }, []);
 
-  const experimentByCode = useMemo(() => {
-    const map = new Map<string, Experiment>();
-    for (const row of experiments ?? []) {
-      if (row.experiment_code) map.set(row.experiment_code, row);
-    }
-    return map;
-  }, [experiments]);
+  const experimentById = useMemo(() => new Map((experiments ?? []).map((row) => [row.id, row])), [experiments]);
+  const batchById = useMemo(() => new Map((batches ?? []).map((row) => [row.id, row])), [batches]);
+  const resultById = useMemo(() => new Map((results ?? []).map((row) => [row.id, row])), [results]);
 
   function toggle(id: number) {
-    setSelected((current) =>
-      current.includes(id)
-        ? current.filter((value) => value !== id)
-        : [...current, id].slice(-12),
-    );
+    conditionRequest.current += 1;
+    overlayRequest.current += 1;
+    setMatrix(null); setConditionState("idle"); setConditionError(null);
+    setOverlay(null); setOverlayState("idle");
+    setSelected((current) => current.includes(id) ? current.filter((value) => value !== id) : current.length < 12 ? [...current, id] : current);
   }
 
   function renderOverlay() {
-    if (selected.length === 0) {
-      setRenderError("Select at least one result.");
-      return;
-    }
-    setRenderError(null);
-    // CSP img-src only allows 'self' and data: — no blob: URLs — so the
-    // overlay <img> points straight at the endpoint (same-origin cookies
-    // authenticate it). A cache-busting nonce forces a reload per render.
+    if (selected.length === 0) return;
+    const token = ++overlayRequest.current;
     const query = selected.map((id) => `result_id=${id}`).join("&");
-    setOverlayUrl(`/api/analysis/jv-overlay?${query}&format=svg&palette=${palette}&_=${Date.now()}`);
+    const labels = selected.map((id) => {
+      const result = resultById.get(id);
+      return `${result?.experiment_code ?? "Unnamed experiment"}/${result?.batch_code ?? ""}: ${result?.filename ?? ""}`;
+    }).join(", ");
+    // Keep the authenticated, same-origin endpoint directly in img.src.
+    // CSP deliberately excludes blob: URLs; each render has a unique URL.
+    setOverlay({ url: `/api/analysis/jv-overlay?${query}&format=svg&palette=${palette}&_=${Date.now()}-${token}`, token, labels });
+    setOverlayState("loading");
   }
 
   async function loadConditions() {
-    if (selected.length === 0) {
-      setRenderError("Select at least one result.");
-      return;
-    }
-    setRenderError(null);
+    if (selected.length === 0) return;
+    const token = ++conditionRequest.current;
+    setMatrix(null); setConditionState("loading"); setConditionError(null);
+    const ids = [...new Set(selected.map((id) => resultById.get(id)?.experiment_id).filter((id): id is number => id !== undefined))];
     try {
-      // Condition snapshots of the owning experiments: the authoritative,
-      // hash-verified configuration lives on each experiment's conditions
-      // (control first). One matrix row per parameter, one column per
-      // distinct experiment; differing values highlight per row.
-      const rows: Map<string, (string | null)[]> = new Map();
-      const columns: string[] = [];
-      for (const id of selected) {
-        const result = (results ?? []).find((row) => row.id === id);
-        if (!result) continue;
-        const experimentCode = result.experiment_code ?? `Experiment ${result.experiment_id}`;
-        if (!columns.includes(experimentCode)) {
-          columns.push(experimentCode);
-          for (const values of rows.values()) {
-            values.push(null);
-          }
-        }
-        const detail = await apiFetch<{
-          conditions: {
-            role: string;
-            recipe_snapshot: {
-              device: {
-                substrate: { material: string };
-                junction_type: string;
-                perovskite_bandgap: string | null;
-                layers: { name: string; role: string }[];
-              };
-            };
-          }[];
-        }>(`/api/experiments/${result.experiment_id}`);
-        const control =
-          detail.conditions.find((condition) => condition.role !== "target") ??
-          detail.conditions[0];
-        const device = control?.recipe_snapshot?.device;
-        const entries: [string, string][] = [
-          ["Substrate", device?.substrate?.material ?? "—"],
-          ["Junction", device?.junction_type ?? "—"],
-          ["Bandgap", device?.perovskite_bandgap ?? "—"],
-        ];
-        for (const [index, layer] of (device?.layers ?? []).entries()) {
-          entries.push([`Layer ${index + 1}`, `${layer.name} (${layer.role})`]);
-        }
-        const columnIndex = columns.indexOf(experimentCode);
-        for (const [parameter, value] of entries) {
-          if (!rows.has(parameter)) {
-            rows.set(parameter, Array.from({ length: columns.length }, () => null));
-          }
-          const column = rows.get(parameter);
-          if (column) {
-            while (column.length < columns.length) column.push(null);
-            column[columnIndex] = value;
-          }
-        }
-      }
-      setConditions(
-        [...rows.entries()].map(([parameter, values]) => ({ parameter, values })),
-      );
+      const details = await Promise.all(ids.map((id) => apiFetch<ExperimentDetail>(`/api/experiments/${id}`)));
+      if (conditionRequest.current !== token) return;
+      setMatrix(buildConditionMatrix(details)); setConditionState("success");
     } catch (caught) {
-      setRenderError(caught instanceof Error ? caught.message : "Unable to load condition snapshots.");
+      if (conditionRequest.current !== token) return;
+      setConditionError(caught instanceof Error ? caught.message : "Unable to load condition snapshots.");
+      setConditionState("error");
     }
   }
-
-  if (error) {
-    return (
-      <>
-        <PageHeader title="Analysis workbench" description="Cross-experiment comparison." />
-        <Typography sx={{ color: "#b3261e", fontSize: 14 }}>{error}</Typography>
-      </>
-    );
-  }
-  const loading = results === null || experiments === null || batches === null;
 
   return (
     <>
-      <PageHeader
-        title="Analysis workbench"
-        description="Overlay J-V curves and compare conditions across characterization results. Figures render server-side through the publication pipeline."
-      />
-      {loading ? (
-        <div className="page-loading" role="status">Loading the workbench…</div>
-      ) : (results ?? []).length === 0 ? (
-        <Typography sx={{ color: "rgba(0,0,0,.48)", fontSize: 14 }}>
-          No characterization results exist yet — upload a result file first.
-        </Typography>
-      ) : (
-        <Box sx={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 2.5, alignItems: "start" }}>
-          <Box sx={{ bgcolor: "#f5f5f7", borderRadius: "12px", p: 1.5 }}>
-            <Typography sx={{ fontSize: 11.5, fontWeight: 600, letterSpacing: ".05px",
-              color: "rgba(0,0,0,.48)", px: 1, pb: 1 }}>
-              RESULTS · {selected.length} SELECTED (MAX 12)
-            </Typography>
-            {(results ?? []).map((result) => {
-              const experimentCode = result.experiment_code ?? `Experiment ${result.experiment_id}`;
-              const experiment = experimentByCode.get(experimentCode);
-              const bestPce = experiment?.best_pce;
-              return (
-                <Box key={result.id} sx={{
-                  display: "flex", alignItems: "center", gap: 1, px: 1, py: 0.75,
-                  borderRadius: "8px", "&:hover": { bgcolor: "rgba(0,0,0,.04)" },
-                }}>
-                  <Checkbox
-                    size="small"
-                    checked={selected.includes(result.id)}
-                    onChange={() => toggle(result.id)}
-                    sx={{ p: 0.25 }}
-                    slotProps={{ input: { "aria-label": `Select ${result.filename}` } }}
-                  />
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{ fontSize: 13, fontWeight: 500, letterSpacing: "-0.12px",
-                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {result.filename}
-                    </Typography>
-                    <Typography sx={{ fontSize: 12, color: "rgba(0,0,0,.48)", letterSpacing: "-0.12px" }}>
-                      {experimentCode} · {result.batch_code} · {formatRelativeTime(result.created_at)}
-                      {bestPce !== null && bestPce !== undefined ? ` · ${bestPce.toFixed(2)}%` : ""}
-                    </Typography>
+      <PageHeader title="Analysis workbench" description="Overlay J-V curves and compare frozen planned conditions across characterization results." />
+      {error ? <Typography role="alert" sx={{ color: "#b3261e", fontSize: 14, letterSpacing: "-0.224px" }}>{error}</Typography>
+        : results === null || experiments === null || batches === null ? <div className="page-loading" role="status">Loading the workbench…</div>
+        : results.length === 0 ? <Typography sx={{ color: "rgba(0,0,0,.48)", fontSize: 14, letterSpacing: "-0.224px" }}>No characterization results exist yet — upload a result file first.</Typography>
+        : (
+          <Box sx={{ display: "grid", gridTemplateColumns: "340px minmax(0, 1fr)", gap: 2.5, alignItems: "start", minWidth: 0,
+            "@media (max-width: 720px)": { gridTemplateColumns: "minmax(0, 1fr)" } }}>
+            <Box sx={{ bgcolor: "#f5f5f7", borderRadius: "12px", p: 1.5, minWidth: 0 }}>
+              <Typography sx={{ fontSize: 11.5, fontWeight: 600, letterSpacing: "-0.12px", color: "rgba(0,0,0,.48)", px: 1, pb: 1 }}>
+                RESULTS · {selected.length} SELECTED (MAX 12)
+              </Typography>
+              {results.map((result) => {
+                const experiment = experimentById.get(result.experiment_id);
+                const batch = batchById.get(result.fabrication_batch_id);
+                const bestPce = batch?.best_pce ?? experiment?.best_pce;
+                const scope = batch?.best_pce !== null && batch?.best_pce !== undefined ? "batch" : "experiment";
+                const identity = `${result.experiment_code ?? "Unnamed experiment"}/${result.batch_code}: ${result.filename}`;
+                return (
+                  <Box key={result.id} component="label" sx={{ display: "flex", alignItems: "center", gap: 1, px: 1, py: 0.75,
+                    borderRadius: "8px", minWidth: 0, "&:hover": { bgcolor: "rgba(0,0,0,.04)" } }}>
+                    <Checkbox size="small" checked={selected.includes(result.id)} disabled={selected.length === 12 && !selected.includes(result.id)}
+                      onChange={() => toggle(result.id)} sx={{ p: 0.25 }} slotProps={{ input: { "aria-label": `Select ${identity}` } }} />
+                    <Box sx={{ minWidth: 0, overflowWrap: "anywhere" }}>
+                      <Typography sx={{ fontSize: 13, fontWeight: 500, letterSpacing: "-0.12px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{result.filename}</Typography>
+                      <Typography sx={{ fontSize: 12, color: "rgba(0,0,0,.48)", letterSpacing: "-0.12px" }}>
+                        {result.experiment_code ?? "Unnamed experiment"} · {result.batch_code} · {formatRelativeTime(result.created_at)}
+                        {bestPce !== null && bestPce !== undefined ? ` · ${bestPce.toFixed(2)}% best PCE in ${scope}` : ""}
+                      </Typography>
+                    </Box>
                   </Box>
-                </Box>
-              );
-            })}
-          </Box>
-
-          <Stack spacing={2}>
-            <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap" }}>
-              <TextField
-                select
-                size="small"
-                label="Palette"
-                value={palette}
-                onChange={(event) => setPalette(event.target.value)}
-                sx={{ width: 200 }}
-              >
-                {PALETTES.map((option) => (
-                  <MenuItem key={option} value={option}>{option}</MenuItem>
-                ))}
-              </TextField>
-              <Button
-                variant="contained"
-                data-workbench-render="true"
-                disabled={selected.length === 0}
-                onClick={renderOverlay}
-              >
-                Render overlay
-              </Button>
-              <Button
-                color="inherit"
-                disabled={selected.length === 0}
-                onClick={() => void loadConditions()}
-              >
-                Compare conditions
-              </Button>
-              {renderError ? (
-                <Typography sx={{ fontSize: 13, color: "#b3261e" }}>{renderError}</Typography>
-              ) : null}
-            </Stack>
-
-            <Box sx={{ bgcolor: "#f5f5f7", borderRadius: "12px", p: 1.5, minHeight: 280,
-              display: "grid", placeItems: "center" }}>
-              {overlayUrl ? (
-                <Box component="img" src={overlayUrl} alt="Cross-result J-V overlay"
-                  sx={{ display: "block", maxWidth: "100%", borderRadius: "10px", bgcolor: "#fff" }} />
-              ) : (
-                <Typography sx={{ fontSize: 13.5, color: "rgba(0,0,0,.48)" }}>
-                  Select results and render the overlay — one best forward curve per result file.
-                </Typography>
-              )}
+                );
+              })}
             </Box>
 
-            {conditions ? (
-              <Box sx={{ bgcolor: "#f5f5f7", borderRadius: "12px", p: 2 }}>
-                <Typography sx={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.224px", mb: 1.5 }}>
-                  Condition comparison
-                </Typography>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <thead>
-                    <tr>
-                      <th style={{ textAlign: "left", fontSize: 12, fontWeight: 600,
-                        color: "rgba(0,0,0,.48)", padding: "8px 10px",
-                        borderBottom: "1px solid rgba(0,0,0,.1)" }}>Parameter</th>
-                      {conditions[0]?.values.map((_, index) => (
-                        <th key={index} style={{ textAlign: "left", fontSize: 12,
-                          fontWeight: 600, color: "rgba(0,0,0,.48)", padding: "8px 10px",
-                          borderBottom: "1px solid rgba(0,0,0,.1)" }}>
-                          Experiment {index + 1}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {conditions.map((row) => {
-                      // Values differing within a row carry an amber tint:
-                      // the point of the matrix is spotting what changed.
-                      const distinct = new Set(row.values.filter((value) => value !== null));
-                      const differs = distinct.size > 1;
-                      return (
-                        <tr key={row.parameter}>
-                          <td style={{ padding: "7px 10px",
-                            borderBottom: "1px solid rgba(0,0,0,.05)", fontWeight: 600,
-                            fontSize: 12.5 }}>
-                            {row.parameter}
-                            {differs ? (
-                              <span style={{ marginLeft: 6, fontSize: 10.5, fontWeight: 600,
-                                color: "#b66a00", letterSpacing: ".05px" }}>◆ differs</span>
-                            ) : null}
-                          </td>
-                          {row.values.map((value, index) => (
-                            <td key={index} style={{ padding: "7px 10px",
-                              borderBottom: "1px solid rgba(0,0,0,.05)",
-                              background: differs && value !== null ? "rgba(182,106,0,.07)" : "transparent" }}>
-                              {value ?? "—"}
-                            </td>
-                          ))}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+            <Stack spacing={2} sx={{ minWidth: 0 }}>
+              <Box sx={{ display: "flex", gap: 1.5, alignItems: "center", flexWrap: "wrap", minWidth: 0 }}>
+                <TextField select size="small" label="Palette" value={palette} sx={{ width: 200, maxWidth: "100%" }}
+                  onChange={(event) => { overlayRequest.current += 1; setPalette(event.target.value); setOverlay(null); setOverlayState("idle"); }}>
+                  {PALETTES.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
+                </TextField>
+                <Button variant="contained" data-workbench-render="true" disabled={selected.length === 0} onClick={renderOverlay}>Render overlay</Button>
+                <Button color="inherit" disabled={selected.length === 0 || conditionState === "loading"} onClick={() => void loadConditions()}>Compare conditions</Button>
               </Box>
-            ) : null}
-          </Stack>
-        </Box>
-      )}
+
+              <Box sx={{ bgcolor: "#f5f5f7", borderRadius: "12px", p: 1.5, minHeight: 280, minWidth: 0, overflowWrap: "anywhere" }}>
+                {overlayState === "loading" ? <Typography role="status" sx={{ fontSize: 13, letterSpacing: "-0.12px" }}>Rendering overlay for {overlay?.labels}…</Typography> : null}
+                {overlayState === "error" ? <Typography role="alert" sx={{ fontSize: 13, letterSpacing: "-0.12px", color: "#b3261e" }}>
+                  Unable to render the overlay for {overlay?.labels}. Results need valid forward J-V traces. Review the selected files or try rendering again.
+                </Typography> : overlay ? <Box component="img" key={overlay.url} src={overlay.url} alt={`Cross-result J-V overlay: ${overlay.labels}`}
+                  onLoad={() => { if (overlayRequest.current === overlay.token) setOverlayState("success"); }}
+                  onError={() => { if (overlayRequest.current === overlay.token) setOverlayState("error"); }}
+                  sx={{ display: "block", maxWidth: "100%", height: "auto", borderRadius: "8px", bgcolor: "#fff" }} />
+                  : <Typography sx={{ fontSize: 13.5, letterSpacing: "-0.12px", color: "rgba(0,0,0,.48)" }}>Select results and render the overlay — one best forward curve per result file.</Typography>}
+              </Box>
+
+              {conditionState === "loading" ? <Typography role="status" sx={{ fontSize: 13, letterSpacing: "-0.12px" }}>Loading frozen conditions for the selected experiments…</Typography> : null}
+              {conditionError ? <Typography role="alert" sx={{ fontSize: 13, letterSpacing: "-0.12px", color: "#b3261e" }}>Unable to compare the selected experiments: {conditionError}</Typography> : null}
+              {matrix ? <Box sx={{ bgcolor: "#f5f5f7", borderRadius: "12px", p: 2, minWidth: 0 }}>
+                <Typography component="h2" sx={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.224px", mb: 1.5 }}>Condition comparison</Typography>
+                <Typography sx={{ fontSize: 13, letterSpacing: "-0.12px", color: "rgba(0,0,0,.48)", mb: 1.5 }}>Values show the saved plan for every control and target condition.</Typography>
+                {matrix.columns.length === 0 ? <Typography sx={{ fontSize: 13, letterSpacing: "-0.12px" }}>No frozen conditions are available for these experiments.</Typography>
+                  : <Box role="region" aria-label="Condition comparison table" tabIndex={0} sx={{ overflowX: "auto", maxWidth: "100%" }}>
+                    <table className="data-table" style={{ width: "100%", fontSize: 13, letterSpacing: "-0.12px" }}>
+                      <caption className="visually-hidden">Frozen planned conditions for all selected experiments, including control and target conditions</caption>
+                      <thead><tr><th scope="col">Parameter</th>{matrix.columns.map((column) => <th scope="col" key={column.key} style={{ minWidth: 200, whiteSpace: "normal", overflowWrap: "anywhere" }}>
+                        {column.experiment}<br />{column.condition}<br />{column.role}
+                      </th>)}</tr></thead>
+                      <tbody>{matrix.rows.map((row) => <tr key={row.parameter}>
+                        <th scope="row" style={{ minWidth: 180, whiteSpace: "normal" }}>{row.parameter}
+                          {row.differs ? <span style={{ marginLeft: 6, fontSize: 10.5, fontWeight: 600, color: "#b66a00", letterSpacing: "-0.12px" }}>◆ differs</span> : null}
+                        </th>
+                        {row.values.map((value, index) => <td key={matrix.columns[index].key} style={{ whiteSpace: "normal", overflowWrap: "anywhere",
+                          background: row.differs ? "rgba(182,106,0,.07)" : "transparent" }}>{value ?? "—"}</td>)}
+                      </tr>)}</tbody>
+                    </table>
+                  </Box>}
+              </Box> : null}
+            </Stack>
+          </Box>
+        )}
     </>
   );
 }

@@ -20,7 +20,6 @@ from ..condition_snapshot import (
 from ..database import (
     BATCH_CODE_MAX_LENGTH,
     condition_substrate_exceptions,
-    device_scan_stats,
     execution_deviations,
     experiment_conditions,
     experiments,
@@ -30,6 +29,7 @@ from ..database import (
     fabrication_substrates,
     process_execution_members,
     process_executions,
+    result_device_assignments,
     result_files,
     solution_preparation_uses,
     solution_preparations,
@@ -1547,74 +1547,41 @@ class FabricationBatchesMixin:
     async def best_scan_metrics_for_batches(
         self, batch_ids: list[int]
     ) -> dict[int, dict[str, float]]:
-        """Best (highest-PCE) forward-scan metrics per fabrication batch.
+        """Highest eligible forward-scan PCE and its paired Jsc per batch."""
 
-        Walks device_scan_stats through devices → substrates → batch
-        conditions and reduces in Python: the JSON metrics column lives per
-        device × direction, and JSON aggregation would need dialect-specific
-        SQL. Batches without recorded forward scans are absent from the
-        result.
-        """
-
-        if not batch_ids:
-            return {}
-        statement = (
-            select(
-                fabrication_batches.c.id.label("batch_id"),
-                device_scan_stats.c.best_metrics,
-            )
-            .select_from(fabrication_batches)
-            .join(
-                fabrication_batch_conditions,
-                fabrication_batch_conditions.c.fabrication_batch_id
-                == fabrication_batches.c.id,
-            )
-            .join(
-                fabrication_substrates,
-                fabrication_substrates.c.batch_condition_id
-                == fabrication_batch_conditions.c.id,
-            )
-            .join(
-                fabrication_devices,
-                fabrication_devices.c.substrate_id == fabrication_substrates.c.id,
-            )
-            .join(
-                device_scan_stats,
-                device_scan_stats.c.fabrication_device_id == fabrication_devices.c.id,
-            )
-            .where(
-                fabrication_batches.c.id.in_(batch_ids),
-                device_scan_stats.c.direction == "forward",
-            )
-        )
-        best: dict[int, dict[str, float]] = {}
-        async with self.database.engine.connect() as connection:
-            rows = (await connection.execute(statement)).mappings().all()
-        for row in rows:
-            metrics = row["best_metrics"]
-            if not isinstance(metrics, Mapping):
-                continue
-            pce = metrics.get("pce")
-            jsc = metrics.get("jsc")
-            if not isinstance(pce, (int, float)) or not isinstance(jsc, (int, float)):
-                continue
-            batch_id = int(row["batch_id"])
-            current = best.get(batch_id)
-            if current is None or float(pce) > current["pce"]:
-                best[batch_id] = {"pce": float(pce), "jsc": float(jsc)}
-        return best
+        return await self._best_forward_scan_metrics(batch_ids, by_experiment=False)
 
     async def best_scan_metrics_for_experiments(
         self, experiment_ids: list[int]
     ) -> dict[int, dict[str, float]]:
-        """Best (highest-PCE) forward-scan metrics per experiment, reduced
-        from its batches' per-device stats with the same Python-side reduce."""
-        if not experiment_ids:
+        """Highest eligible forward-scan PCE and its paired Jsc per experiment."""
+
+        return await self._best_forward_scan_metrics(experiment_ids, by_experiment=True)
+
+    async def _best_forward_scan_metrics(
+        self, entity_ids: list[int], *, by_experiment: bool
+    ) -> dict[int, dict[str, float]]:
+        """Reduce assigned, non-excluded traces without changing representatives.
+
+        The device stats cache stores a user-selected representative, which
+        need not be the highest-PCE scan and retains excluded measurements
+        for scan history. List maxima instead use each result's saved analysis
+        and physical-device assignments. Relational joins and Python JSON
+        reduction work identically with SQLite JSON and PostgreSQL JSONB.
+        """
+
+        if not entity_ids:
             return {}
+        entity_column = (
+            fabrication_batches.c.experiment_id
+            if by_experiment else fabrication_batches.c.id
+        )
         statement = (
             select(
-                fabrication_batches.c.experiment_id,
-                device_scan_stats.c.best_metrics,
+                entity_column.label("entity_id"),
+                result_device_assignments.c.result_file_id,
+                result_device_assignments.c.analysis_device_id,
+                result_device_assignments.c.fabrication_device_id,
             )
             .select_from(fabrication_batches)
             .join(
@@ -1632,29 +1599,70 @@ class FabricationBatchesMixin:
                 fabrication_devices.c.substrate_id == fabrication_substrates.c.id,
             )
             .join(
-                device_scan_stats,
-                device_scan_stats.c.fabrication_device_id == fabrication_devices.c.id,
+                result_device_assignments,
+                result_device_assignments.c.fabrication_device_id == fabrication_devices.c.id,
             )
-            .where(
-                fabrication_batches.c.experiment_id.in_(experiment_ids),
-                device_scan_stats.c.direction == "forward",
+            .join(
+                result_files,
+                (result_files.c.id == result_device_assignments.c.result_file_id)
+                & (result_files.c.fabrication_batch_id == fabrication_batches.c.id),
             )
+            .where(entity_column.in_(entity_ids))
         )
-        best: dict[int, dict[str, float]] = {}
         async with self.database.engine.connect() as connection:
             rows = (await connection.execute(statement)).mappings().all()
-        for row in rows:
-            metrics = row["best_metrics"]
-            if not isinstance(metrics, Mapping):
+            # Fetch each analysis only once, even when a file contains many
+            # assigned devices. Only the caller's scoped entities are queried.
+            bindings: dict[int, tuple[int, dict[str, int]]] = {}
+            for row in rows:
+                file_id = int(row["result_file_id"])
+                entity_id, assigned_devices = bindings.setdefault(
+                    file_id, (int(row["entity_id"]), {})
+                )
+                assigned_devices[str(row["analysis_device_id"])] = int(
+                    row["fabrication_device_id"]
+                )
+            if not bindings:
+                return {}
+            analyses = (
+                await connection.execute(
+                    select(result_files.c.id, result_files.c.analysis)
+                    .where(result_files.c.id.in_(bindings))
+                    .order_by(result_files.c.created_at, result_files.c.id)
+                )
+            ).mappings().all()
+
+        best: dict[int, dict[str, float]] = {}
+        for row in analyses:
+            entity_id, assigned_devices = bindings[int(row["id"])]
+            analysis = row["analysis"]
+            if not isinstance(analysis, Mapping):
                 continue
-            pce = metrics.get("pce")
-            jsc = metrics.get("jsc")
-            if not isinstance(pce, (int, float)) or not isinstance(jsc, (int, float)):
-                continue
-            experiment_id = int(row["experiment_id"])
-            current = best.get(experiment_id)
-            if current is None or float(pce) > current["pce"]:
-                best[experiment_id] = {"pce": float(pce), "jsc": float(jsc)}
+            for device in analysis.get("devices") or []:
+                if not isinstance(device, Mapping) or device.get("excluded"):
+                    continue
+                physical_id = assigned_devices.get(str(device.get("device_id")))
+                if physical_id is None or device.get("fabrication_device_id") != physical_id:
+                    continue
+                for trace in device.get("traces") or []:
+                    if (not isinstance(trace, Mapping) or not trace.get("valid")
+                            or trace.get("direction") != "forward"):
+                        continue
+                    metrics = trace.get("metrics")
+                    if not isinstance(metrics, Mapping):
+                        continue
+                    pce, jsc = metrics.get("pce"), metrics.get("jsc")
+                    if any(
+                        isinstance(value, bool) or not isinstance(value, (int, float))
+                        or not math.isfinite(value)
+                        for value in (pce, jsc)
+                    ):
+                        continue
+                    current = best.get(entity_id)
+                    # Stable file/device/trace order makes the first scan win
+                    # ties, keeping Jsc paired with the winning PCE trace.
+                    if current is None or float(pce) > current["pce"]:
+                        best[entity_id] = {"pce": float(pce), "jsc": float(jsc)}
         return best
 
     async def get_fabrication_batch(
