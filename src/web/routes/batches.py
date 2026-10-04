@@ -165,13 +165,21 @@ def create_batches_router(
     ) -> list[FabricationBatchListItemResponse]:
         if experiment_id is not None:
             await _get_record_or_404(repository, experiment_id, auth_context)
+        items = await repository.list_fabrication_batches_for_actor(
+            _student_owner_id(auth_context),
+            status=status,
+            experiment_id=experiment_id,
+        )
+        # Measured data pulled forward (D1): best forward-scan metrics per
+        # batch, empty for batches without characterization results.
+        best_metrics = await repository.best_scan_metrics_for_batches(
+            [item["id"] for item in items]
+        )
         return [
-            _fabrication_batch_list_item_response(item)
-            for item in await repository.list_fabrication_batches_for_actor(
-                _student_owner_id(auth_context),
-                status=status,
-                experiment_id=experiment_id,
+            _fabrication_batch_list_item_response(
+                item, best_metrics=best_metrics.get(item["id"])
             )
+            for item in items
         ]
     @router.get(
         "/api/fabrication-batches/{batch_id}/run-sheet",

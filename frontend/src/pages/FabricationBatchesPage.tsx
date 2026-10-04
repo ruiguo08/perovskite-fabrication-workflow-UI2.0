@@ -5,7 +5,7 @@ import { ErrorState } from "../components/ErrorState";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
-import { formatRelativeTime } from "../lib/format";
+import { formatNumber, formatRelativeTime } from "../lib/format";
 import { useApiResource } from "../lib/useApiResource";
 import type { FabricationBatchListItem } from "../types/api";
 
@@ -91,6 +91,11 @@ export function FabricationBatchesPage() {
                 </div>
                 <span className="record-title">
                   {batch.experiment_code ?? `Experiment ${batch.experiment_id}`}
+                </span>
+                <span>
+                  {batch.best_pce !== null
+                    ? `Best PCE ${formatNumber(batch.best_pce, 2)} % · Jsc ${formatNumber(batch.best_jsc, 1)} mA/cm²`
+                    : "No measured results yet."}
                 </span>
                 <span>{batch.notes || "No batch notes."}</span>
                 <details className="provenance-disclosure">

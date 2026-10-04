@@ -144,6 +144,9 @@ export interface Experiment {
   plan_type: string | null;
   plan_status: string | null;
   device_summary: string | null;
+  /** Best forward-scan PCE (%) / Jsc (mA/cm²) across the experiment's batches (D1). */
+  best_pce: number | null;
+  best_jsc: number | null;
 }
 
 export interface Condition {
@@ -354,6 +357,9 @@ export interface FabricationBatchListItem {
   started_at: string | null;
   completed_at: string | null;
   cancelled_at: string | null;
+  /** Best forward-scan PCE (%) / Jsc (mA/cm²) across the batch's devices (D1). */
+  best_pce: number | null;
+  best_jsc: number | null;
 }
 
 export interface ResultListItem {

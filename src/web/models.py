@@ -251,6 +251,10 @@ class ExperimentResponse(ApiModel):
     plan_type: str | None = None
     plan_status: str | None = None
     device_summary: str | None = None
+    # Measured data pulled forward (D1): best forward-scan PCE/Jsc across the
+    # experiment's batches, None until characterization results exist.
+    best_pce: float | None = None
+    best_jsc: float | None = None
 
 
 class ResultSummaryResponse(ApiModel):
@@ -963,6 +967,10 @@ class FabricationBatchListItemResponse(ApiModel):
     started_at: str | None = None
     completed_at: str | None = None
     cancelled_at: str | None = None
+    # Measured data pulled forward (D1): best forward-scan metrics across the
+    # batch's devices, None until characterization results exist.
+    best_pce: float | None = None
+    best_jsc: float | None = None
 
 
 class ResultListItemResponse(ApiModel):

@@ -7,7 +7,7 @@ import { FormField } from "../components/FormField";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
-import { formatRelativeTime } from "../lib/format";
+import { formatNumber, formatRelativeTime } from "../lib/format";
 import { useApiResource } from "../lib/useApiResource";
 import type { Experiment } from "../types/api";
 
@@ -50,6 +50,16 @@ export function ExperimentsPage() {
     },
     { key: "campaign_id", header: "Campaign", render: (row) => row.campaign_id ?? "unassigned" },
     { key: "plan_type", header: "Plan type", render: (row) => row.plan_type?.replace(/_/g, " ") ?? "—" },
+    {
+      key: "best_pce",
+      header: "Best PCE",
+      render: (row) =>
+        row.best_pce !== null ? (
+          <strong>{formatNumber(row.best_pce, 2)} %</strong>
+        ) : (
+          <span className="numeric-cell" style={{ color: "var(--steel-soft)" }}>—</span>
+        ),
+    },
     { key: "plan_status", header: "Plan", render: (row) => row.plan_status ? <StatusBadge status={row.plan_status} /> : "—" },
     { key: "status", header: "Record", render: (row) => <StatusBadge status={row.status} /> },
     { key: "stack", header: "Device stack", render: (row) => <span className="stack-summary" title={stackSummary(row)}>{stackSummary(row)}</span> },
