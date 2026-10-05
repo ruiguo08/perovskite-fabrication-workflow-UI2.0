@@ -143,11 +143,17 @@ def create_experiments_router(
     async def list_experiments_api(
         auth_context: Annotated[AuthContext, Depends(require_user)],
     ) -> list[ExperimentResponse]:
+        records = await repository.list_experiments(
+            owner_user_id=_student_owner_id(auth_context)
+        )
+        # Measured data pulled forward (D1): best forward-scan metrics per
+        # experiment, empty for experiments without characterization results.
+        best_metrics = await repository.best_scan_metrics_for_experiments(
+            [record.id for record in records]
+        )
         return [
-            _record_response(record)
-            for record in await repository.list_experiments(
-                owner_user_id=_student_owner_id(auth_context)
-            )
+            _record_response(record, best_metrics=best_metrics.get(record.id))
+            for record in records
         ]
     @router.get(
         "/api/experiments/{experiment_id}",

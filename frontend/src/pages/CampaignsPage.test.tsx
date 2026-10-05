@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../components/Toast";
 import { CampaignsPage } from "./CampaignsPage";
@@ -34,9 +35,11 @@ const activeCampaign = {
 
 function renderPage() {
   return render(
-    <ToastProvider>
-      <CampaignsPage />
-    </ToastProvider>,
+    <MemoryRouter>
+      <ToastProvider>
+        <CampaignsPage />
+      </ToastProvider>
+    </MemoryRouter>,
   );
 }
 

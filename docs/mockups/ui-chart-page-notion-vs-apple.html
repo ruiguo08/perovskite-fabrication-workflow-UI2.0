@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>画图页面对比 — Notion vs Apple（同一内容）</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e8ecee; color: #1d1d1f;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text",
+      "Segoe UI", system-ui, "PingFang SC", "Microsoft YaHei UI", sans-serif;
+    font-size: 14px; line-height: 1.5; }
+  .doc { max-width: 1240px; margin: 0 auto; padding: 32px 24px 80px; }
+  .doc-header h1 { font-size: 22px; margin: 0 0 6px; font-weight: 700; letter-spacing: -.01em; }
+  .doc-header p { margin: 0 0 18px; color: #59636a; max-width: 920px; }
+  .switcher { display: flex; gap: 8px; margin-bottom: 24px; }
+  .switcher button { font: inherit; font-weight: 600; font-size: 13.5px; padding: 8px 18px;
+    border-radius: 999px; border: 1px solid #c9d3d7; background: #fff; cursor: pointer; color: #59636a; }
+  .switcher button[aria-pressed="true"] { background: #172126; color: #fff; border-color: #172126; }
+  .style-tab { display: none; }
+  .style-tab.visible { display: block; }
+  .frame { border-radius: 14px; overflow: hidden; border: 1px solid rgba(20,35,40,.10);
+    box-shadow: 0 10px 28px rgba(15,30,35,.10); min-height: 660px; }
+  .caption { font-size: 13px; color: #59636a; margin: 12px 4px 40px; max-width: 920px; }
+  .caption b { color: #1d1d1f; }
+
+  /* shared fake matplotlib figure (identical pixels in both tabs) */
+  .figbox { background: #fff; }
+  .figbox svg { display: block; width: 100%; height: auto; }
+  .figcap { font-size: 12px; color: #8a97a0; padding: 0 2px 8px; }
+  .dl { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; font-weight: 600;
+    padding: 4px 10px; border-radius: 6px; border: 1px solid transparent; cursor: pointer; }
+
+  /* ================= NOTION skin ================= */
+  .nt { background: #ffffff; color: rgba(0,0,0,.95); font-size: 15px; }
+  .nt-main { padding: 26px 30px 40px; }
+  .nt-crumbs { color: #a39e98; font-size: 14px; margin-bottom: 4px; }
+  .nt-main h2 { margin: 0 0 4px; font-size: 26px; font-weight: 700; letter-spacing: -.625px; line-height: 1.23; }
+  .nt-sub { color: #615d59; font-size: 14.5px; margin: 0 0 18px; }
+  .nt-tabs { display: flex; gap: 2px; border-bottom: 1px solid rgba(0,0,0,.1); margin-bottom: 20px; }
+  .nt-tab { padding: 7px 12px; font-size: 14.5px; font-weight: 500; color: #615d59;
+    border-radius: 5px 5px 0 0; cursor: pointer; border-bottom: 2px solid transparent; }
+  .nt-tab:hover { background: rgba(0,0,0,.04); }
+  .nt-tab.active { color: rgba(0,0,0,.95); font-weight: 600; border-bottom-color: #0075de; }
+  .nt-panel { border: 1px solid rgba(0,0,0,.1); border-radius: 12px;
+    box-shadow: rgba(0,0,0,.04) 0 4px 18px, rgba(0,0,0,.027) 0 2px 7.85px,
+      rgba(0,0,0,.02) 0 .8px 2.93px, rgba(0,0,0,.01) 0 .175px 1.04px;
+    padding: 18px 20px; margin-bottom: 18px; }
+  .nt-panel h3 { margin: 0 0 12px; font-size: 17px; font-weight: 700; letter-spacing: -.25px; }
+  .nt-ctl { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+  .nt-ctl label { font-size: 13px; font-weight: 500; color: #615d59; }
+  .nt-ctl select, .nt-ctl input { font: inherit; font-size: 13.5px; padding: 6px 10px;
+    border: 1px solid #dddddd; border-radius: 4px; background: #fff; color: rgba(0,0,0,.9); }
+  .nt-btn { font: inherit; font-size: 13.5px; font-weight: 600; border: 0; cursor: pointer;
+    border-radius: 4px; padding: 6px 12px; background: rgba(0,0,0,.05); color: rgba(0,0,0,.95); }
+  .nt-btn.primary { background: #0075de; color: #fff; }
+  .nt-btn.primary:disabled { opacity: .4; cursor: not-allowed; }
+  .nt-pill { display: inline-flex; font-size: 12px; font-weight: 600; letter-spacing: .125px;
+    padding: 3px 9px; border-radius: 9999px; }
+  .nt-pill.ok { background: rgba(26,174,57,.12); color: #158027; }
+  .nt-pill.warn { background: rgba(221,91,0,.10); color: #b34d00; }
+  .nt-pill.mut { background: rgba(0,0,0,.06); color: #615d59; }
+  table.nt-t { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .nt-t th { text-align: left; font-size: 12px; font-weight: 600; letter-spacing: .125px;
+    color: #a39e98; padding: 8px 10px; border-bottom: 1px solid rgba(0,0,0,.1); }
+  .nt-t td { padding: 7px 10px; border-bottom: 1px solid rgba(0,0,0,.06); }
+  .nt-t tr:hover td { background: #f6f5f4; }
+  .nt-t .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .nt-mono { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 12.5px; color: #615d59; }
+  details.nt-dev { margin-top: 4px; }
+  details.nt-dev summary { cursor: pointer; font-size: 14px; font-weight: 600; color: rgba(0,0,0,.95); }
+  details.nt-dev summary span { color: #615d59; font-weight: 400; font-size: 13px; }
+
+  /* ================= APPLE skin ================= */
+  .ap2 { background: #fff; color: #1d1d1f; font-size: 14px; }
+  .ap2-main { padding: 24px 28px 40px; }
+  .ap2-crumbs { color: #8a97a0; font-size: 12.5px; margin-bottom: 4px; }
+  .ap2-main h2 { margin: 0 0 2px; font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+  .ap2-sub { color: #5b6670; font-size: 13.5px; margin: 0 0 16px; }
+  .ap2-tabs { display: flex; gap: 4px; border-bottom: 1px solid #e8eaee; margin-bottom: 18px; }
+  .ap2-tab { padding: 8px 14px; font-size: 13.5px; font-weight: 500; color: #5b6670;
+    border-radius: 8px 8px 0 0; cursor: pointer; }
+  .ap2-tab:hover { background: #f7f7f8; }
+  .ap2-tab.active { color: #0071e3; font-weight: 600;
+    box-shadow: inset 0 -2px 0 #0071e3; }
+  .ap2-panel { border: 1px solid #e8eaee; border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; }
+  .ap2-panel h3 { margin: 0 0 12px; font-size: 15.5px; font-weight: 650; }
+  .ap2-ctl { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+  .ap2-ctl label { font-size: 12.5px; font-weight: 600; color: #5b6670; }
+  .ap2-ctl select, .ap2-ctl input { font: inherit; font-size: 13px; padding: 6px 10px;
+    border: 1px solid transparent; border-radius: 8px; background: #f1f2f4; color: #1d1d1f; }
+  .ap2-btn { font: inherit; font-size: 13px; font-weight: 600; border: 0; cursor: pointer;
+    border-radius: 8px; padding: 6px 12px; background: #f1f2f4; color: #1d1d1f; }
+  .ap2-btn.primary { background: #0071e3; color: #fff; }
+  .ap2-btn.primary:disabled { opacity: .4; cursor: not-allowed; }
+  .st { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500; }
+  .st i { width: 7px; height: 7px; border-radius: 50%; }
+  .st.ok i { background: #1e7a4d; } .st.warn i { background: #b66a00; } .st.mut i { background: #8a97a0; }
+  table.ap2-t { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .ap2-t th { text-align: left; font-size: 11.5px; font-weight: 600; color: #8a97a0;
+    padding: 8px 10px; border-bottom: 1px solid #e8eaee; }
+  .ap2-t td { padding: 7px 10px; border-bottom: 1px solid rgba(0,0,0,.04); }
+  .ap2-t tr:hover td { background: #f7f7f8; }
+  .ap2-t .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .ap2-mono { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 12px; color: #5b6670; }
+  details.ap2-dev { margin-top: 4px; }
+  details.ap2-dev summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: #1d1d1f; }
+  details.ap2-dev summary span { color: #8a97a0; font-weight: 400; font-size: 12.5px; }
+
+  /* ============ STRICT APPLE spec (owner-selected) ============
+     Same six deltas as the run-sheet page: #f5f5f7 canvas, negative
+     tracking at every size, borderless boxes elevated by bg contrast,
+     8/11/12px radius scale, #0066cc links vs #0071e3 CTA, single soft
+     shadow reserved for floating layers. Domain state dots kept. */
+  .sc { background: #f5f5f7; color: #1d1d1f; font-size: 14px; line-height: 1.47;
+    letter-spacing: -0.224px; }
+  .sc-main { padding: 24px 28px 40px; background: #fff; }
+  .sc-crumbs { color: rgba(0,0,0,.48); font-size: 12.5px; letter-spacing: -0.12px; margin-bottom: 4px; }
+  .sc-crumbs a { color: #0066cc; text-decoration: none; }
+  .sc-crumbs a:hover { text-decoration: underline; }
+  .sc-main h2 { margin: 0 0 2px; font-size: 24px; font-weight: 600;
+    letter-spacing: -0.28px; line-height: 1.14; }
+  .sc-sub { color: rgba(0,0,0,.8); font-size: 13.5px; letter-spacing: -0.224px; margin: 0 0 16px; }
+  .sc-tabs { display: flex; gap: 4px; margin-bottom: 18px; }
+  .sc-tab { padding: 8px 14px; font-size: 13.5px; font-weight: 400; letter-spacing: -0.12px;
+    color: rgba(0,0,0,.8); border-radius: 980px; cursor: pointer; }
+  .sc-tab:hover { background: rgba(0,0,0,.05); }
+  .sc-tab.active { color: #0071e3; font-weight: 600; background: rgba(0,113,227,.10); }
+  .sc-panel { background: #f5f5f7; border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; }
+  .sc-panel h3 { margin: 0 0 12px; font-size: 15.5px; font-weight: 600; letter-spacing: -0.224px; }
+  .sc-ctl { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
+  .sc-ctl label { font-size: 12.5px; font-weight: 400; color: rgba(0,0,0,.8); letter-spacing: -0.12px; }
+  .sc-ctl select { font: inherit; font-size: 13px; padding: 5px 10px;
+    border: 0; border-radius: 11px; background: #fafafc;
+    box-shadow: 0 0 0 3px rgba(0,0,0,.04); color: #1d1d1f; letter-spacing: -0.12px; }
+  .sc-btn { font: inherit; font-size: 13px; font-weight: 400; letter-spacing: -0.12px; border: 0;
+    cursor: pointer; border-radius: 980px; padding: 6px 14px; background: rgba(0,0,0,.05);
+    color: #1d1d1f; }
+  .sc-btn.primary { background: #0071e3; color: #fff; border-radius: 8px; }
+  .sc-btn.primary:disabled { opacity: .4; cursor: not-allowed; }
+  .sc-btn.dl { background: #fafafc; box-shadow: 0 0 0 3px rgba(0,0,0,.04); border-radius: 11px; }
+  .sc-mono { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 12px;
+    color: rgba(0,0,0,.8); letter-spacing: 0; }
+  .sc-count { font-size: 12.5px; color: rgba(0,0,0,.48); letter-spacing: -0.12px; }
+  .sst { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500;
+    letter-spacing: -0.12px; }
+  .sst i { width: 7px; height: 7px; border-radius: 50%; }
+  .sst.ok i { background: #1e7a4d; } .sst.warn i { background: #b66a00; } .sst.mut i { background: #8a97a0; }
+  .sc-figcard { background: #fff; border-radius: 12px; padding: 10px; }
+  .sc-figcard svg { display: block; width: 100%; height: auto; }
+  .sc-figcap { font-size: 12px; color: rgba(0,0,0,.48); letter-spacing: -0.12px; padding: 8px 2px 2px; }
+  table.sc-t { width: 100%; border-collapse: collapse; font-size: 13px; letter-spacing: -0.12px; }
+  .sc-t th { text-align: left; font-size: 11.5px; font-weight: 600; color: rgba(0,0,0,.48);
+    padding: 8px 10px; border-bottom: 1px solid rgba(0,0,0,.09); }
+  .sc-t td { padding: 7px 10px; border-bottom: 1px solid rgba(0,0,0,.05); }
+  .sc-t tr:hover td { background: rgba(0,0,0,.03); }
+  .sc-t .num { text-align: right; font-variant-numeric: tabular-nums; }
+  details.sc-dev summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: #1d1d1f;
+    letter-spacing: -0.224px; }
+  details.sc-dev summary span { color: rgba(0,0,0,.48); font-weight: 400; font-size: 12.5px; }
+  .sc-link { color: #0066cc; text-decoration: none; font-size: 13px; letter-spacing: -0.224px; }
+  .sc-link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="doc">
+  <div class="doc-header">
+    <h1>画图页面对比 — Notion vs Apple</h1>
+    <p>结果详情 · J–V curves 标签的两种皮肤。<b>matplotlib 出版图本身不变</b>（冻结的管线和审美）——
+      对比的是图周围的一切：控件、表格、容器、状态。内容两个标签完全一致：同样的 tab 条、
+      设备多选、调色板、下载按钮、指标明细。</p>
+  </div>
+  <div class="switcher" role="tablist">
+    <button aria-pressed="true" data-t="nt">Notion 皮肤</button>
+    <button aria-pressed="false" data-t="ap">Apple 皮肤（第 0 期现状）</button>
+    <button aria-pressed="false" data-t="strict" style="background:#1d1d1f;color:#fff;border-color:#1d1d1f">★ Apple 官方规范严格版（已选定）</button>
+  </div>
+
+  <!-- ==================== NOTION ==================== -->
+  <section class="style-tab visible" id="tab-nt">
+    <div class="frame nt">
+      <div class="nt-main">
+        <div class="nt-crumbs">usual_v1-v1 › result 2026-09-30_comp-r1_A.csv</div>
+        <h2>J–V curves <span class="nt-mono" style="font-weight:400">comp-r1</span></h2>
+        <p class="nt-sub">6 substrates · 12 devices · 12 valid traces · matplotlib publication rendering</p>
+        <div class="nt-tabs">
+          <div class="nt-tab">Assignments</div>
+          <div class="nt-tab">Statistics</div>
+          <div class="nt-tab active">J–V curves</div>
+          <div class="nt-tab">Uniformity</div>
+          <div class="nt-tab">Data &amp; provenance</div>
+        </div>
+
+        <div class="nt-panel">
+          <h3>Publication J–V curves</h3>
+          <div class="nt-ctl">
+            <label>Color palette</label>
+            <select><option>Standalone J–V (orange / teal)</option><option>Nature Classic</option>
+              <option>Science / Paul Tol</option><option>Lancet Clinical</option><option>NEJM Palette</option></select>
+            <button class="nt-btn">Select all</button>
+            <button class="nt-btn primary">Plot selected</button>
+            <button class="nt-btn">Clear</button>
+            <span class="nt-mono">3 selected</span>
+            <span style="flex:1"></span>
+            <button class="nt-btn">SVG</button><button class="nt-btn">PNG</button><button class="nt-btn">TIFF</button>
+          </div>
+          <div class="figbox">
+            <svg viewBox="0 0 860 340" role="img" aria-label="J-V curves">
+              <rect x="0" y="0" width="860" height="340" fill="#fff"/>
+              <g stroke="#e6e6e6" stroke-width="1">
+                <line x1="70" y1="60" x2="70" y2="290"/><line x1="70" y1="290" x2="820" y2="290"/>
+                <line x1="70" y1="112" x2="820" y2="112" stroke-dasharray="3 4"/>
+                <line x1="70" y1="175" x2="820" y2="175" stroke-dasharray="3 4"/>
+                <line x1="70" y1="233" x2="820" y2="233" stroke-dasharray="3 4"/>
+              </g>
+              <g font-family="ui-monospace,Consolas,monospace" font-size="10" fill="#666">
+                <text x="30" y="115">0.8</text><text x="30" y="178">0.6</text><text x="30" y="236">0.4</text>
+                <text x="66" y="306">0</text><text x="255" y="306">0.4</text><text x="450" y="306">0.8</text>
+                <text x="645" y="306">1.2</text>
+                <text x="420" y="330">Voltage (V)</text>
+                <text x="14" y="30" transform="rotate(-90 14 30)">Current density (mA/cm²)</text>
+              </g>
+              <path d="M70,290 C180,288 300,282 380,250 C430,225 460,150 480,90" fill="none" stroke="#e07b39" stroke-width="2.4"/>
+              <path d="M70,290 C190,289 310,284 390,255 C440,232 470,160 492,95" fill="none" stroke="#e07b39" stroke-width="1.6" stroke-dasharray="5 3" opacity=".75"/>
+              <path d="M70,290 C185,288 305,278 385,240 C435,215 462,145 485,82" fill="none" stroke="#2a8f8a" stroke-width="2.4"/>
+              <path d="M70,290 C195,289 320,280 400,248 C450,224 478,152 498,88" fill="none" stroke="#2a8f8a" stroke-width="1.6" stroke-dasharray="5 3" opacity=".75"/>
+              <path d="M70,290 C175,288 290,284 370,258 C425,238 458,168 482,105" fill="none" stroke="#7b61c6" stroke-width="2.4"/>
+              <g font-family="-apple-system,Segoe UI,sans-serif" font-size="11">
+                <rect x="640" y="62" width="170" height="74" rx="4" fill="#fbfbfb" stroke="#e0e0e0"/>
+                <line x1="650" y1="78" x2="674" y2="78" stroke="#e07b39" stroke-width="2.4"/><text x="680" y="82" fill="#333">C · control fwd</text>
+                <line x1="650" y1="97" x2="674" y2="97" stroke="#e07b39" stroke-width="1.6" stroke-dasharray="5 3"/><text x="680" y="101" fill="#333">C · control rev</text>
+                <line x1="650" y1="116" x2="674" y2="116" stroke="#2a8f8a" stroke-width="2.4"/><text x="680" y="120" fill="#333">T1 · +CsBr fwd</text>
+              </g>
+              <g font-family="-apple-system,Segoe UI,sans-serif" font-size="11" fill="#333">
+                <text x="700" y="150">Eff 18.01%</text>
+                <text x="700" y="166">Voc 1.08 V</text>
+              </g>
+            </svg>
+          </div>
+          <div class="figcap">Fig. 1 · Publication J–V, all devices by group · rendered server-side (frozen pipeline)</div>
+        </div>
+
+        <div class="nt-panel">
+          <details class="nt-dev" open>
+            <summary>Device metrics <span>· 12 devices × 2 scans · check rows to plot</span></summary>
+            <table class="nt-t" style="margin-top:10px">
+              <thead><tr><th></th><th>Device</th><th>Substrate</th><th>Group</th><th>Scan</th>
+                <th class="num">Voc</th><th class="num">Jsc</th><th class="num">FF</th><th class="num">PCE</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td><input type="checkbox" checked></td><td class="nt-mono">C-S01-D1</td><td>C-S01</td><td>Control</td><td>Forward</td>
+                  <td class="num">1.081</td><td class="num">21.31</td><td class="num">78.1</td><td class="num"><b>18.01</b></td><td><span class="nt-pill ok">valid</span></td></tr>
+                <tr><td><input type="checkbox" checked></td><td class="nt-mono">C-S01-D1</td><td>C-S01</td><td>Control</td><td>Reverse</td>
+                  <td class="num">1.079</td><td class="num">21.24</td><td class="num">76.8</td><td class="num">17.61</td><td><span class="nt-pill ok">valid</span></td></tr>
+                <tr><td><input type="checkbox"></td><td class="nt-mono">T1-S03-D2</td><td>T1-S03</td><td>+CsBr</td><td>Forward</td>
+                  <td class="num">1.102</td><td class="num">20.87</td><td class="num">74.2</td><td class="num">17.05</td><td><span class="nt-pill ok">valid</span></td></tr>
+                <tr><td><input type="checkbox"></td><td class="nt-mono">T1-S03-D2</td><td>T1-S03</td><td>+CsBr</td><td>Reverse</td>
+                  <td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td><span class="nt-pill warn">hysteresis</span></td></tr>
+                <tr><td><input type="checkbox"></td><td class="nt-mono">T1-S05-D1</td><td>T1-S05</td><td>+CsBr</td><td>Forward</td>
+                  <td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td><span class="nt-pill mut">excluded</span></td></tr>
+              </tbody>
+            </table>
+          </details>
+        </div>
+      </div>
+    </div>
+    <p class="caption"><b>Notion 皮肤：</b>tab 下划线蓝、描边卡片 + 四层柔影、4px 控件、12px 正字距药丸（valid/hysteresis/excluded）。
+      图本体是 matplotlib 冻结输出，不改。</p>
+  </section>
+
+  <!-- ==================== APPLE ==================== -->
+  <section class="style-tab" id="tab-ap">
+    <div class="frame ap2">
+      <div class="ap2-main">
+        <div class="ap2-crumbs">usual_v1-v1 › result 2026-09-30_comp-r1_A.csv</div>
+        <h2>J–V curves <span class="ap2-mono" style="font-size:15px">comp-r1</span></h2>
+        <p class="ap2-sub">6 substrates · 12 devices · 12 valid traces · matplotlib publication rendering</p>
+        <div class="ap2-tabs">
+          <div class="ap2-tab">Assignments</div>
+          <div class="ap2-tab">Statistics</div>
+          <div class="ap2-tab active">J–V curves</div>
+          <div class="ap2-tab">Uniformity</div>
+          <div class="ap2-tab">Data &amp; provenance</div>
+        </div>
+
+        <div class="ap2-panel">
+          <h3>Publication J–V curves</h3>
+          <div class="ap2-ctl">
+            <label>Color palette</label>
+            <select><option>Standalone J–V (orange / teal)</option><option>Nature Classic</option>
+              <option>Science / Paul Tol</option><option>Lancet Clinical</option><option>NEJM Palette</option></select>
+            <button class="ap2-btn">Select all</button>
+            <button class="ap2-btn primary">Plot selected</button>
+            <button class="ap2-btn">Clear</button>
+            <span class="ap2-mono">3 selected</span>
+            <span style="flex:1"></span>
+            <button class="ap2-btn">SVG</button><button class="ap2-btn">PNG</button><button class="ap2-btn">TIFF</button>
+          </div>
+          <div class="figbox">
+            <svg viewBox="0 0 860 340" role="img" aria-label="J-V curves">
+              <rect x="0" y="0" width="860" height="340" fill="#fff"/>
+              <g stroke="#e6e6e6" stroke-width="1">
+                <line x1="70" y1="60" x2="70" y2="290"/><line x1="70" y1="290" x2="820" y2="290"/>
+                <line x1="70" y1="112" x2="820" y2="112" stroke-dasharray="3 4"/>
+                <line x1="70" y1="175" x2="820" y2="175" stroke-dasharray="3 4"/>
+                <line x1="70" y1="233" x2="820" y2="233" stroke-dasharray="3 4"/>
+              </g>
+              <g font-family="ui-monospace,Consolas,monospace" font-size="10" fill="#666">
+                <text x="30" y="115">0.8</text><text x="30" y="178">0.6</text><text x="30" y="236">0.4</text>
+                <text x="66" y="306">0</text><text x="255" y="306">0.4</text><text x="450" y="306">0.8</text>
+                <text x="645" y="306">1.2</text>
+                <text x="420" y="330">Voltage (V)</text>
+                <text x="14" y="30" transform="rotate(-90 14 30)">Current density (mA/cm²)</text>
+              </g>
+              <path d="M70,290 C180,288 300,282 380,250 C430,225 460,150 480,90" fill="none" stroke="#e07b39" stroke-width="2.4"/>
+              <path d="M70,290 C190,289 310,284 390,255 C440,232 470,160 492,95" fill="none" stroke="#e07b39" stroke-width="1.6" stroke-dasharray="5 3" opacity=".75"/>
+              <path d="M70,290 C185,288 305,278 385,240 C435,215 462,145 485,82" fill="none" stroke="#2a8f8a" stroke-width="2.4"/>
+              <path d="M70,290 C195,289 320,280 400,248 C450,224 478,152 498,88" fill="none" stroke="#2a8f8a" stroke-width="1.6" stroke-dasharray="5 3" opacity=".75"/>
+              <path d="M70,290 C175,288 290,284 370,258 C425,238 458,168 482,105" fill="none" stroke="#7b61c6" stroke-width="2.4"/>
+              <g font-family="-apple-system,Segoe UI,sans-serif" font-size="11">
+                <rect x="640" y="62" width="170" height="74" rx="4" fill="#fbfbfb" stroke="#e0e0e0"/>
+                <line x1="650" y1="78" x2="674" y2="78" stroke="#e07b39" stroke-width="2.4"/><text x="680" y="82" fill="#333">C · control fwd</text>
+                <line x1="650" y1="97" x2="674" y2="97" stroke="#e07b39" stroke-width="1.6" stroke-dasharray="5 3"/><text x="680" y="101" fill="#333">C · control rev</text>
+                <line x1="650" y1="116" x2="674" y2="116" stroke="#2a8f8a" stroke-width="2.4"/><text x="680" y="120" fill="#333">T1 · +CsBr fwd</text>
+              </g>
+              <g font-family="-apple-system,Segoe UI,sans-serif" font-size="11" fill="#333">
+                <text x="700" y="150">Eff 18.01%</text>
+                <text x="700" y="166">Voc 1.08 V</text>
+              </g>
+            </svg>
+          </div>
+          <div class="figcap">Fig. 1 · Publication J–V, all devices by group · rendered server-side (frozen pipeline)</div>
+        </div>
+
+        <div class="ap2-panel">
+          <details class="ap2-dev" open>
+            <summary>Device metrics <span>· 12 devices × 2 scans · check rows to plot</span></summary>
+            <table class="ap2-t" style="margin-top:10px">
+              <thead><tr><th></th><th>Device</th><th>Substrate</th><th>Group</th><th>Scan</th>
+                <th class="num">Voc</th><th class="num">Jsc</th><th class="num">FF</th><th class="num">PCE</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td><input type="checkbox" checked></td><td class="ap2-mono">C-S01-D1</td><td>C-S01</td><td>Control</td><td>Forward</td>
+                  <td class="num">1.081</td><td class="num">21.31</td><td class="num">78.1</td><td class="num"><b>18.01</b></td><td><span class="st ok"><i></i>valid</span></td></tr>
+                <tr><td><input type="checkbox" checked></td><td class="ap2-mono">C-S01-D1</td><td>C-S01</td><td>Control</td><td>Reverse</td>
+                  <td class="num">1.079</td><td class="num">21.24</td><td class="num">76.8</td><td class="num">17.61</td><td><span class="st ok"><i></i>valid</span></td></tr>
+                <tr><td><input type="checkbox"></td><td class="ap2-mono">T1-S03-D2</td><td>T1-S03</td><td>+CsBr</td><td>Forward</td>
+                  <td class="num">1.102</td><td class="num">20.87</td><td class="num">74.2</td><td class="num">17.05</td><td><span class="st ok"><i></i>valid</span></td></tr>
+                <tr><td><input type="checkbox"></td><td class="ap2-mono">T1-S03-D2</td><td>T1-S03</td><td>+CsBr</td><td>Reverse</td>
+                  <td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td><span class="st warn"><i></i>hysteresis</span></td></tr>
+                <tr><td><input type="checkbox"></td><td class="ap2-mono">T1-S05-D1</td><td>T1-S05</td><td>+CsBr</td><td>Forward</td>
+                  <td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td><span class="st mut"><i></i>excluded</span></td></tr>
+              </tbody>
+            </table>
+          </details>
+        </div>
+      </div>
+    </div>
+    <p class="caption"><b>Apple 皮肤（第 0 期现状）：</b>tab 下划线主色、细边框无阴影卡片、灰底填充控件、
+      圆点状态（valid 绿 / hysteresis 琥珀 / excluded 灰）。图本体同一份 matplotlib 输出。</p>
+  </section>
+
+  <!-- ==================== STRICT APPLE (official spec) ==================== -->
+  <section class="style-tab" id="tab-strict">
+    <div class="frame sc">
+      <div class="sc-main">
+        <div class="sc-crumbs"><a href="#">usual_v1-v1</a> › result 2026-09-30_comp-r1_A.csv</div>
+        <h2>J–V curves <span class="sc-mono" style="font-size:15px">comp-r1</span></h2>
+        <p class="sc-sub">6 substrates · 12 devices · 12 valid traces · matplotlib publication rendering</p>
+        <div class="sc-tabs">
+          <div class="sc-tab">Assignments</div>
+          <div class="sc-tab">Statistics</div>
+          <div class="sc-tab active">J–V curves</div>
+          <div class="sc-tab">Uniformity</div>
+          <div class="sc-tab">Data &amp; provenance</div>
+        </div>
+
+        <div class="sc-panel">
+          <h3>Publication J–V curves</h3>
+          <div class="sc-ctl">
+            <label>Color palette</label>
+            <select><option>Standalone J–V (orange / teal)</option><option>Nature Classic</option>
+              <option>Science / Paul Tol</option><option>Lancet Clinical</option><option>NEJM Palette</option></select>
+            <button class="sc-btn">Select all</button>
+            <button class="sc-btn primary">Plot selected</button>
+            <button class="sc-btn">Clear</button>
+            <span class="sc-count">3 selected</span>
+            <span style="flex:1"></span>
+            <button class="sc-btn dl">SVG</button><button class="sc-btn dl">PNG</button><button class="sc-btn dl">TIFF</button>
+          </div>
+          <div class="sc-figcard">
+            <svg viewBox="0 0 860 340" role="img" aria-label="J-V curves">
+              <rect x="0" y="0" width="860" height="340" fill="#fff"/>
+              <g stroke="#e6e6e6" stroke-width="1">
+                <line x1="70" y1="60" x2="70" y2="290"/><line x1="70" y1="290" x2="820" y2="290"/>
+                <line x1="70" y1="112" x2="820" y2="112" stroke-dasharray="3 4"/>
+                <line x1="70" y1="175" x2="820" y2="175" stroke-dasharray="3 4"/>
+                <line x1="70" y1="233" x2="820" y2="233" stroke-dasharray="3 4"/>
+              </g>
+              <g font-family="ui-monospace,Consolas,monospace" font-size="10" fill="#666">
+                <text x="30" y="115">0.8</text><text x="30" y="178">0.6</text><text x="30" y="236">0.4</text>
+                <text x="66" y="306">0</text><text x="255" y="306">0.4</text><text x="450" y="306">0.8</text>
+                <text x="645" y="306">1.2</text>
+                <text x="420" y="330">Voltage (V)</text>
+                <text x="14" y="30" transform="rotate(-90 14 30)">Current density (mA/cm²)</text>
+              </g>
+              <path d="M70,290 C180,288 300,282 380,250 C430,225 460,150 480,90" fill="none" stroke="#e07b39" stroke-width="2.4"/>
+              <path d="M70,290 C190,289 310,284 390,255 C440,232 470,160 492,95" fill="none" stroke="#e07b39" stroke-width="1.6" stroke-dasharray="5 3" opacity=".75"/>
+              <path d="M70,290 C185,288 305,278 385,240 C435,215 462,145 485,82" fill="none" stroke="#2a8f8a" stroke-width="2.4"/>
+              <path d="M70,290 C195,289 320,280 400,248 C450,224 478,152 498,88" fill="none" stroke="#2a8f8a" stroke-width="1.6" stroke-dasharray="5 3" opacity=".75"/>
+              <path d="M70,290 C175,288 290,284 370,258 C425,238 458,168 482,105" fill="none" stroke="#7b61c6" stroke-width="2.4"/>
+              <g font-family="-apple-system,Segoe UI,sans-serif" font-size="11">
+                <rect x="640" y="62" width="170" height="74" rx="4" fill="#fbfbfb" stroke="#e0e0e0"/>
+                <line x1="650" y1="78" x2="674" y2="78" stroke="#e07b39" stroke-width="2.4"/><text x="680" y="82" fill="#333">C · control fwd</text>
+                <line x1="650" y1="97" x2="674" y2="97" stroke="#e07b39" stroke-width="1.6" stroke-dasharray="5 3"/><text x="680" y="101" fill="#333">C · control rev</text>
+                <line x1="650" y1="116" x2="674" y2="116" stroke="#2a8f8a" stroke-width="2.4"/><text x="680" y="120" fill="#333">T1 · +CsBr fwd</text>
+              </g>
+              <g font-family="-apple-system,Segoe UI,sans-serif" font-size="11" fill="#333">
+                <text x="700" y="150">Eff 18.01%</text>
+                <text x="700" y="166">Voc 1.08 V</text>
+              </g>
+            </svg>
+          </div>
+          <div class="sc-figcap">Fig. 1 · Publication J–V, all devices by group · rendered server-side (frozen pipeline)</div>
+        </div>
+
+        <div class="sc-panel">
+          <details class="sc-dev" open>
+            <summary>Device metrics <span>· 12 devices × 2 scans · check rows to plot</span></summary>
+            <table class="sc-t" style="margin-top:10px">
+              <thead><tr><th></th><th>Device</th><th>Substrate</th><th>Group</th><th>Scan</th>
+                <th class="num">Voc</th><th class="num">Jsc</th><th class="num">FF</th><th class="num">PCE</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td><input type="checkbox" checked></td><td class="sc-mono">C-S01-D1</td><td>C-S01</td><td>Control</td><td>Forward</td>
+                  <td class="num">1.081</td><td class="num">21.31</td><td class="num">78.1</td><td class="num"><b>18.01</b></td><td><span class="sst ok"><i></i>valid</span></td></tr>
+                <tr><td><input type="checkbox" checked></td><td class="sc-mono">C-S01-D1</td><td>C-S01</td><td>Control</td><td>Reverse</td>
+                  <td class="num">1.079</td><td class="num">21.24</td><td class="num">76.8</td><td class="num">17.61</td><td><span class="sst ok"><i></i>valid</span></td></tr>
+                <tr><td><input type="checkbox"></td><td class="sc-mono">T1-S03-D2</td><td>T1-S03</td><td>+CsBr</td><td>Forward</td>
+                  <td class="num">1.102</td><td class="num">20.87</td><td class="num">74.2</td><td class="num">17.05</td><td><span class="sst ok"><i></i>valid</span></td></tr>
+                <tr><td><input type="checkbox"></td><td class="sc-mono">T1-S03-D2</td><td>T1-S03</td><td>+CsBr</td><td>Reverse</td>
+                  <td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td><span class="sst warn"><i></i>hysteresis</span></td></tr>
+                <tr><td><input type="checkbox"></td><td class="sc-mono">T1-S05-D1</td><td>T1-S05</td><td>+CsBr</td><td>Forward</td>
+                  <td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td><span class="sst mut"><i></i>excluded</span></td></tr>
+              </tbody>
+            </table>
+            <div style="margin-top:10px"><a class="sc-link" href="#">View direction-specific statistics ›</a></div>
+          </details>
+        </div>
+      </div>
+    </div>
+    <p class="caption"><b>★ Apple 官方规范严格版（你选定的最终规范）：</b>#f5f5f7 灰盒直接放在白底上（无边框、
+      无阴影，层级靠背景对比）、全文本负字距、tab 改为官方风格的胶囊高亮、按钮 8px 圆角/常规字重、
+      次级按钮 #fafafc+3px 环、下载按钮 11px 圆角、面包屑与文字链接用 #0066cc、CTA 用 #0071e3、
+      matplotlib 图装进白底圆角卡。领域状态圆点保留（valid/hysteresis/excluded）。</p>
+  </section>
+</div>
+
+<script>
+  const buttons = document.querySelectorAll(".switcher button");
+  buttons.forEach((b) =>
+    b.addEventListener("click", () => {
+      buttons.forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      document.querySelectorAll(".style-tab").forEach((d) =>
+        d.classList.toggle("visible", d.id === "tab-" + b.dataset.t));
+    })
+  );
+</script>
+</body>
+</html>

@@ -263,6 +263,8 @@ def _result_list_item_response(record: dict[str, Any]) -> ResultListItemResponse
 
 def _fabrication_batch_list_item_response(
     record: dict[str, Any],
+    *,
+    best_metrics: dict[str, float] | None = None,
 ) -> FabricationBatchListItemResponse:
     return FabricationBatchListItemResponse(
         id=record["id"],
@@ -279,6 +281,8 @@ def _fabrication_batch_list_item_response(
         started_at=record["started_at"],
         completed_at=record["completed_at"],
         cancelled_at=record["cancelled_at"],
+        best_pce=best_metrics.get("pce") if best_metrics else None,
+        best_jsc=best_metrics.get("jsc") if best_metrics else None,
     )
 
 
@@ -531,7 +535,11 @@ def _student_owner_id(auth_context: AuthContext) -> int | None:
     return None
 
 
-def _record_response(record: ExperimentRecord) -> ExperimentResponse:
+def _record_response(
+    record: ExperimentRecord,
+    *,
+    best_metrics: dict[str, float] | None = None,
+) -> ExperimentResponse:
     return ExperimentResponse(
         id=record.id,
         recipe=record.recipe.to_dict(),
@@ -546,6 +554,8 @@ def _record_response(record: ExperimentRecord) -> ExperimentResponse:
         plan_type=record.plan_type,
         plan_status=record.plan_status,
         device_summary=record.device_summary,
+        best_pce=best_metrics.get("pce") if best_metrics else None,
+        best_jsc=best_metrics.get("jsc") if best_metrics else None,
     )
 
 

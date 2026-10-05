@@ -1,4 +1,5 @@
 import { useCallback, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { useSession } from "../auth/session";
 import { DataTable, type Column } from "../components/DataTable";
 import { EmptyState } from "../components/EmptyState";
@@ -78,7 +79,9 @@ export function CampaignsPage() {
       header: "Campaign",
       render: (row) => (
         <div className="record-title">
-          <strong>{row.display_name}</strong>
+          <Link className="record-link" to={`/campaigns/${row.code}`}>
+            <strong>{row.display_name}</strong>
+          </Link>
           <code>{row.code}</code>
         </div>
       ),

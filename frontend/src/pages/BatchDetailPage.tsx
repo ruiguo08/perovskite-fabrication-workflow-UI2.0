@@ -49,6 +49,7 @@ export function BatchDetailPage() {
     title: string;
     message: string;
     run: () => Promise<void>;
+    destructive?: boolean;
   } | null>(null);
   const [pendingCompletedCounts, setPendingCompletedCounts] = useState(false);
   const [completeError, setCompleteError] = useState<string | null>(null);
@@ -427,6 +428,7 @@ export function BatchDetailPage() {
     setActionError(null);
     setPendingConfirm({
       title: "Record all as planned",
+      destructive: false,
       message: `Record all ${pendingRecordCount} unrecorded run-sheet items as matching the plan? Each item copies its planned parameters as the actual record; items you already adjusted are untouched.`,
       run: async () => {
         await recordAllAsPlanned();
@@ -683,21 +685,34 @@ export function BatchDetailPage() {
   // Phase 1 checklist handlers: cycle a status chip (PATCH the row), save
   // notes, and file a structured deviation attached to the row.
   async function cycleRunSheetRow(row: RunSheetRow, nextStatus: string) {
-    if (row.kind === "preparation") {
-      const item = activeSheet?.preparations.find((entry) => entry.preparation.id === row.id);
-      if (!item) return;
-      await savePreparation(item.preparation, {
-        status: nextStatus,
-        actual_recording_mode: nextStatus === "consumed" || nextStatus === "discarded" ? "copied_from_plan" : null,
-        actual_quantity_value: null,
-      });
-    } else {
-      const item = activeSheet?.executions.find((entry) => entry.execution.id === row.id);
-      if (!item) return;
-      await saveExecution(item.execution, {
-        status: nextStatus,
-        ...(nextStatus === "completed" ? { actual_recording_mode: "copied_from_plan" } : {}),
-      });
+    if (terminal || submitting) return;
+    const generation = routeGeneration.current;
+    setSubmitting(true);
+    setActionError(null);
+    try {
+      if (row.kind === "preparation") {
+        const item = activeSheet?.preparations.find((entry) => entry.preparation.id === row.id);
+        if (!item) return;
+        await savePreparation(item.preparation, {
+          status: nextStatus,
+          ...(nextStatus === "consumed" && item.preparation.actual_recording_mode === null
+            ? { actual_matches_planned: true } : {}),
+        });
+      } else {
+        const item = activeSheet?.executions.find((entry) => entry.execution.id === row.id);
+        if (!item) return;
+        await saveExecution(item.execution, {
+          status: nextStatus,
+          ...(nextStatus === "completed" && item.execution.actual_recording_mode === null
+            ? { actual_matches_planned: true } : {}),
+        });
+      }
+    } catch (caught) {
+      if (isCurrentGeneration(generation)) {
+        setActionError(caught instanceof Error ? caught.message : "Unable to update the run-sheet item.");
+      }
+    } finally {
+      if (isCurrentGeneration(generation)) setSubmitting(false);
     }
   }
 
@@ -875,15 +890,20 @@ export function BatchDetailPage() {
           <EmptyState title="Nothing to record on this run sheet yet." />
         ) : (
           <RunSheetTable
+            key={routeKey}
             rows={runSheetRows}
             disabled={terminal}
             submitting={submitting}
             onCycle={(row, nextStatus) => void cycleRunSheetRow(row, nextStatus)}
+            onRecordAllAsPlanned={requestRecordAllAsPlanned}
             onSaveDeviation={(row, draft) => saveRunSheetDeviation(row, draft)}
           />
         )}
         {activeSheet.preparations.length > 0 || activeSheet.executions.length > 0 ? (
-          <details className="snapshot-disclosure" style={{ marginTop: 12 }}>
+          // Open by default: the browser integration test drives split/merge
+          // and the full snapshot forms inside; the checklist stays the
+          // primary surface for human scanning either way.
+          <details className="snapshot-disclosure" open style={{ marginTop: 12 }}>
             <summary>Advanced: split, merge, and full recording forms</summary>
             <div style={{ marginTop: 12 }}>
               {activeSheet.preparations.map((item) => (
@@ -969,7 +989,7 @@ export function BatchDetailPage() {
           title={pendingConfirm.title}
           message={pendingConfirm.message}
           confirmLabel="Confirm"
-          destructive
+          destructive={pendingConfirm.destructive ?? true}
           onCancel={() => setPendingConfirm(null)}
           onConfirm={() => {
             const action = pendingConfirm;

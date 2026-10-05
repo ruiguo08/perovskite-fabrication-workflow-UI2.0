@@ -1145,4 +1145,125 @@ it("ignores an old-route preparation save that resolves after navigation", async
 
     expect(await screen.findByText("Unable to load run sheet")).toBeInTheDocument();
   });
+
+  it("cycles a checklist preparation through the API contract and records its plan on consumption", async () => {
+    let row = makeRunSheet().preparations[0].preparation;
+    apiFetchMock.mockImplementation(async (path: string, options?: { method?: string; body?: Record<string, unknown> }) => {
+      if (runSheetMethod(path, options)) return makeRunSheet();
+      if (path.endsWith("/solution-preparations/51") && options?.method === "PATCH") {
+        row = { ...row, status: String(options.body?.status),
+          ...(options.body?.actual_matches_planned ? {
+            actual_recording_mode: "copied_from_plan", actual_solution_snapshot: preparedSnapshot,
+          } : {}),
+        };
+        return row;
+      }
+    });
+    await renderReadySheet();
+    for (const status of ["preparing", "ready", "consumed"]) {
+      fireEvent.click(document.querySelector("[data-runsheet-status='preparation-51']") as HTMLElement);
+      await waitFor(() => expect(document.querySelector("[data-runsheet-status='preparation-51']")).toHaveTextContent(status));
+    }
+    const mutations = apiFetchMock.mock.calls.filter(([path, options]) => path.endsWith("/solution-preparations/51") && options?.method === "PATCH");
+    expect(mutations.map(([, options]) => options.body)).toEqual([
+      { status: "preparing" }, { status: "ready" }, { status: "consumed", actual_matches_planned: true },
+    ]);
+    expect(screen.getByText("1 of 2 recorded")).toBeInTheDocument();
+  });
+
+  it("preserves an entered preparation snapshot when the checklist consumes it", async () => {
+    const sheet = makeRunSheet();
+    sheet.preparations[0].preparation = {
+      ...sheet.preparations[0].preparation, status: "ready", actual_recording_mode: "entered",
+      actual_solution_snapshot: { ...preparedSnapshot, stock_volume_ml: 2 },
+    };
+    apiFetchMock.mockImplementation(async (path: string, options?: { method?: string }) => {
+      if (runSheetMethod(path, options)) return sheet;
+      return { ...sheet.preparations[0].preparation, status: "consumed" };
+    });
+    await renderReadySheet();
+    fireEvent.click(document.querySelector("[data-runsheet-status='preparation-51']") as HTMLElement);
+    await waitFor(() => expect(apiFetchMock).toHaveBeenCalledWith(
+      "/api/fabrication-batches/5/solution-preparations/51", { method: "PATCH", body: { status: "consumed" } },
+    ));
+    expect(await screen.findByText("Solution preparation saved.")).toBeInTheDocument();
+  });
+
+  it.each([null, "entered"])("completes a checklist execution while preserving recording mode %s", async (mode) => {
+    const sheet = makeRunSheet();
+    sheet.executions[0].execution.status = "running";
+    sheet.executions[0].execution.actual_recording_mode = mode;
+    if (mode) sheet.executions[0].execution.actual_process_snapshot = { method: "thermal_evaporation", thickness_nm: 30, rate_angstrom_per_s: 0.5 };
+    apiFetchMock.mockImplementation(async (path: string, options?: { method?: string }) => {
+      if (runSheetMethod(path, options)) return sheet;
+      return { ...sheet.executions[0].execution, status: "completed", actual_recording_mode: mode ?? "copied_from_plan" };
+    });
+    await renderReadySheet();
+    fireEvent.click(document.querySelector("[data-runsheet-status='execution-71']") as HTMLElement);
+    await waitFor(() => expect(apiFetchMock).toHaveBeenCalledWith(
+      "/api/fabrication-batches/5/process-executions/71", { method: "PATCH", body: {
+        status: "completed", ...(mode === null ? { actual_matches_planned: true } : {}),
+      } },
+    ));
+    expect(await screen.findByText("Process execution saved.")).toBeInTheDocument();
+  });
+
+  it("shows a rejected checklist status change and allows retry", async () => {
+    apiFetchMock.mockImplementation(async (path: string, options?: { method?: string }) => {
+      if (runSheetMethod(path, options)) return makeRunSheet();
+      throw new Error("Status update rejected");
+    });
+    await renderReadySheet();
+    fireEvent.click(document.querySelector("[data-runsheet-status='preparation-51']") as HTMLElement);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Status update rejected");
+    expect(document.querySelector("[data-runsheet-status='preparation-51']")).toHaveTextContent("planned");
+    expect(document.querySelector("[data-runsheet-status='preparation-51']")).not.toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("prevents duplicate checklist deviations while saving and allows retry after failure", async () => {
+    let rejectSave!: (error: Error) => void;
+    const pendingSave = new Promise<Deviation>((_, reject) => { rejectSave = reject; });
+    apiFetchMock.mockImplementation(async (path: string, options?: { method?: string }) => {
+      if (runSheetMethod(path, options)) return makeRunSheet();
+      if (path.endsWith("/deviations") && options?.method === "POST") return pendingSave;
+    });
+    await renderReadySheet();
+    fireEvent.click(document.querySelector("[data-runsheet-deviation='preparation-51']") as HTMLElement);
+    const dialog = screen.getByRole("dialog", { name: "Record deviation" });
+    fireEvent.change(within(dialog).getByLabelText("What changed"), { target: { value: "Weight drifted" } });
+    const save = within(dialog).getByRole("button", { name: "Save deviation" });
+    fireEvent.click(save);
+    fireEvent.click(save);
+    expect(save).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeDisabled();
+    expect(within(dialog).getByLabelText("What changed")).toBeDisabled();
+    expect(apiFetchMock.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(1);
+    await act(async () => { rejectSave(new Error("Deviation rejected")); });
+    expect(await within(dialog).findByText("Deviation rejected")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Save deviation" })).toBeEnabled();
+    expect(within(dialog).getByLabelText("What changed")).toHaveValue("Weight drifted");
+  });
+
+  it("the checklist bulk action confirms, records once, and reports actual recording progress", async () => {
+    const sheet = makeRunSheet();
+    apiFetchMock.mockImplementation(async (path: string, options?: { method?: string }) => {
+      if (runSheetMethod(path, options)) return structuredClone(sheet);
+      if (path.endsWith("/record-as-planned") && options?.method === "POST") {
+        sheet.preparations[0].preparation.actual_recording_mode = "copied_from_plan";
+        sheet.executions[0].execution.actual_recording_mode = "copied_from_plan";
+        return { preparations: 1, executions: 1 };
+      }
+    });
+    await renderReadySheet();
+    const bulk = document.querySelector("[data-runsheet-bulk]") as HTMLElement;
+    fireEvent.click(bulk);
+    const dialog = screen.getByRole("dialog", { name: "Record all as planned" });
+    expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveFocus();
+    expect(apiFetchMock.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(0);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirm" }));
+    expect(await screen.findByText("2 of 2 recorded")).toBeInTheDocument();
+    expect(document.querySelector("[data-runsheet-bulk]")).toBeDisabled();
+    expect(apiFetchMock.mock.calls.filter(([path, options]) => path.endsWith("/record-as-planned") && options?.method === "POST")).toHaveLength(1);
+    expect(document.querySelector("[data-runsheet-status='preparation-51']")).toHaveTextContent("planned");
+  });
 });

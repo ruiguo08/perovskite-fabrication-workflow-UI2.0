@@ -203,3 +203,28 @@ Follow-ups (2026-10-03, during phase 0):
 | 09-results.png | Results | raw-id filters, bytes/hash/schema values |
 | 10/11-result-*.png | Result detail | KPI strip, tabs, J-V curves |
 | 12-materials.png | Materials | always-open create form, JSON spec, card-per-material |
+
+## 5. Stabilization review (2026-10-04)
+
+Repairs follow the existing stack: phase 2 (#14), phase 3 (#15), then phase 4
+(#16). Each later branch incorporates the preceding repairs before its own
+changes, preserving incremental PR diffs.
+
+Phase 1/2 stabilization shares the existing bulk-record confirmation and save
+handler with the checklist, uses the same PATCH contract as the Advanced forms,
+and preserves entered actual snapshots when cycling statuses. Advanced remains
+open by default. Workspace state is explicit in text and accessible selection
+attributes; its columns collapse at 720px. List best PCE means the highest valid,
+assigned, non-excluded forward scan, independently of a manually pinned
+representative; Jsc comes from that same scan.
+
+The default strict mypy gate covers the core package. A separate strict check
+now covers the SPA entrypoint and Database boundary; the wider web typing
+migration remains pending. Browser checks must exercise the checklist controls
+and populated new pages, as the earlier Advanced-form checks did not cover them.
+
+The checklist and Advanced forms share mutation behavior, but retain two
+presentations. A later consolidation should reuse recording controls and remove
+duplicate editing surfaces only after split, merge, full snapshots, and browser
+coverage have equivalent support in the checklist. This is follow-up maintenance,
+outside the five redesign phases.

@@ -16,6 +16,7 @@ import { NotReady } from "./pages/NotReady";
 import { OverviewPage } from "./pages/OverviewPage";
 import { WorkflowGuidePage } from "./pages/WorkflowGuidePage";
 import { CampaignsPage } from "./pages/CampaignsPage";
+import { CampaignWorkspacePage } from "./pages/CampaignWorkspacePage";
 import { DeviceLayoutsPage } from "./pages/DeviceLayoutsPage";
 import { MaterialsPage } from "./pages/MaterialsPage";
 import { LayerPresetsPage } from "./pages/LayerPresetsPage";
@@ -159,6 +160,10 @@ export default function App() {
                 <Route
                   path="campaigns"
                   element={<CampaignsPage />}
+                />
+                <Route
+                  path="campaigns/:code"
+                  element={<CampaignWorkspacePage />}
                 />
                 <Route element={<RequireRole minimum="administrator" />}>
                   <Route path="users" element={<UsersPage />} />

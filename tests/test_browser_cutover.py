@@ -100,6 +100,29 @@ class CutoverBrowserTests(unittest.TestCase):
             for status in ("ready", "in_progress"):
                 client.patch(f"/api/fabrication-batches/{cls.batch_id}/status", json={"status": status})
 
+            # A populated, campaign-linked plan exercises the workspace's
+            # narrow layout without changing the export/session-expiry fixture.
+            cls.workspace_campaign_code = "cutover-workspace-synthetic"
+            campaign = client.post(
+                "/api/campaigns",
+                json={
+                    "code": cls.workspace_campaign_code,
+                    "display_name": "Synthetic campaign workspace",
+                    "description": "Browser regression fixture",
+                },
+            )
+            assert campaign.status_code == 201, campaign.text
+            workspace_plan = client.post(
+                "/api/experiments",
+                json={
+                    "recipe": releasable_result_recipe(),
+                    "campaign_id": cls.workspace_campaign_code,
+                },
+            )
+            assert workspace_plan.status_code == 201, workspace_plan.text
+            cls.workspace_experiment_id = int(workspace_plan.json()["id"])
+            cls.workspace_experiment_code = workspace_plan.json()["experiment_code"]
+
             # Store admin session token for session-expiry test.
             users = asyncio.run(cls.app.state.repository.list_users())
             cls.student_id = next(r.id for r in users if r.username == STUDENT_USERNAME)
@@ -182,6 +205,54 @@ class CutoverBrowserTests(unittest.TestCase):
     # ------------------------------------------------------------------
     # C4: Exact cutover redirect tests
     # ------------------------------------------------------------------
+
+    def test_populated_campaign_workspace_selection_at_320px(self) -> None:
+        profile = str(Path(self.temporary_directory.name) / "chrome-campaign-workspace")
+        process, session = self._open("/app/login", profile)
+        try:
+            wait_for_expression(session, "Boolean(document.querySelector('#root'))")
+            self._login_via_fetch(session, ADMIN_USERNAME, ADMIN_PASSWORD)
+            self._navigate(session, f"/app/campaigns/{self.workspace_campaign_code}")
+            wait_for_expression(session, "Boolean(document.querySelector('nav[aria-label=\"Campaign records\"] button'))")
+            self._assert_viewport(session, 320)
+            self._assert_no_overflow(session, "populated campaign workspace")
+            record = "document.querySelector('nav[aria-label=\"Campaign records\"] button')"
+            status = evaluate(
+                session,
+                f"(function() {{ const row = {record}; const dot = row.querySelector('[aria-hidden=true]'); "
+                "return {text: row.textContent, selected: row.getAttribute('aria-pressed'), "
+                "dotColor: dot && getComputedStyle(dot).backgroundColor}; })()",
+            )
+            self.assertIn(self.workspace_experiment_code, status["text"])
+            self.assertIn("draft", status["text"])
+            self.assertEqual(status["selected"], "false")
+            self.assertEqual(status["dotColor"], "rgb(104, 82, 184)")
+            click_center(session, record)
+            wait_for_expression(session, f"{record}.getAttribute('aria-pressed') === 'true'")
+            wait_for_expression(session, "Boolean(document.querySelector('#campaign-record-detail a'))")
+            detail = evaluate(
+                session,
+                "(function() { const pane = document.querySelector('#campaign-record-detail'); "
+                "const link = pane.querySelector('a'); return {text: pane.textContent, "
+                "path: link.pathname, label: link.textContent, radius: getComputedStyle(link).borderRadius, "
+                "background: getComputedStyle(link).backgroundColor}; })()",
+            )
+            self.assertIn(self.workspace_experiment_code, detail["text"])
+            self.assertIn("draft", detail["text"])
+            self.assertIn("Planning", detail["text"])
+            self.assertEqual(detail["label"], "Open experiment")
+            self.assertEqual(detail["path"], f"/app/experiments/{self.workspace_experiment_id}")
+            self.assertEqual(detail["radius"], "8px")
+            self.assertEqual(detail["background"], "rgb(0, 113, 227)")
+            self._assert_no_overflow(session, "selected campaign record")
+            session.check_errors()
+        finally:
+            session.close()
+            process.kill()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                pass
 
     def test_root_redirects_exactly_to_app_root(self) -> None:
         """Unauthenticated / → 303 → exact /app/ (not any /app/* path)."""
