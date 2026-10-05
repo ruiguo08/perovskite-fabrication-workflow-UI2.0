@@ -15,6 +15,8 @@ export interface RequestOptions {
   body?: unknown;
   /** Raw form body for multipart uploads. Mutually exclusive with `body`. */
   multipart?: FormData;
+  /** Return the body as a Blob instead of parsing JSON (binary endpoints). */
+  blob?: boolean;
   /** Disable global login navigation when the caller owns 401 handling. */
   redirectOnUnauthorized?: boolean;
 }
@@ -166,6 +168,9 @@ export async function apiFetch<T>(
   }
   if (response.status === 204) {
     return undefined as T;
+  }
+  if (options.blob) {
+    return (await response.blob()) as T;
   }
   return (await response.json()) as T;
 }

@@ -15,6 +15,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { NotReady } from "./pages/NotReady";
 import { OverviewPage } from "./pages/OverviewPage";
 import { WorkflowGuidePage } from "./pages/WorkflowGuidePage";
+import { AnalysisWorkbenchPage } from "./pages/AnalysisWorkbenchPage";
 import { CampaignsPage } from "./pages/CampaignsPage";
 import { CampaignWorkspacePage } from "./pages/CampaignWorkspacePage";
 import { DeviceLayoutsPage } from "./pages/DeviceLayoutsPage";
@@ -128,6 +129,10 @@ export default function App() {
                 <Route
                   path="results"
                   element={<ResultsPage />}
+                />
+                <Route
+                  path="analysis"
+                  element={<AnalysisWorkbenchPage />}
                 />
                 <Route
                   path="results/:resultId"

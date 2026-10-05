@@ -228,3 +228,15 @@ presentations. A later consolidation should reuse recording controls and remove
 duplicate editing surfaces only after split, merge, full snapshots, and browser
 coverage have equivalent support in the checklist. This is follow-up maintenance,
 outside the five redesign phases.
+
+Phase 3 stabilization compares the saved planned snapshots for every control
+and target condition in each selected experiment. Numeric experiment/condition
+identities deduplicate requests and columns; visible codes and names identify
+them. The matrix includes substrate/layout geometry, formulations, layer
+processes, and all perovskite deposition steps, with units and explicit missing
+value differences. These are planned values, not actual run-sheet records.
+Selection changes invalidate pending comparisons and image callbacks. The
+workbench collapses at 720px, contains horizontal table scrolling, and reports
+overlay failures while retaining the direct authenticated image endpoint and
+the unchanged nonce CSP/publication renderer. Result-row PCE labels state the
+batch or experiment aggregation scope.

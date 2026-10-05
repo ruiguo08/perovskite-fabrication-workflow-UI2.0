@@ -120,6 +120,8 @@ export interface ConditionDeviceConfiguration {
   junction_type: string;
   perovskite_bandgap: string | null;
   tandem_type?: string | null;
+  /** Canonical snapshots carry a non-null architecture; older snapshots may omit it. */
+  architecture?: "pin" | "nip";
   substrate: DeviceSubstrate;
   layers: DeviceLayer[];
 }

@@ -42,6 +42,7 @@ from ..publication_plots import (
     PlotInputError,
     PlotUnavailableError,
     figure_filename,
+    render_jv_overlay,
     render_publication_figure,
 )
 from ..repository import WebRepository
@@ -233,6 +234,62 @@ def create_results_router(
             # The same URL can represent different saved assignments.
             # Matplotlib's content-keyed SVG cache avoids repeat rendering;
             # the browser must revalidate the current analysis every time.
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+            "Vary": "Accept-Encoding",
+        }
+        if format == "svg" and "gzip" in request.headers.get("accept-encoding", "").lower():
+            content = gzip.compress(content, compresslevel=6, mtime=0)
+            headers["Content-Encoding"] = "gzip"
+        return Response(
+            content=content,
+            media_type=MEDIA_TYPES[format],
+            headers=headers,
+        )
+
+    @router.get("/api/analysis/jv-overlay")
+    async def get_jv_overlay_api(
+        request: Request,
+        auth_context: Annotated[AuthContext, Depends(require_user)],
+        result_id: list[int] = Query(default=[]),
+        format: str = Query(default="svg", pattern="^(svg|pdf|tiff)$"),
+        palette: str = Query(default="science-tol"),
+    ) -> Response:
+        """Cross-result J-V overlay (phase 3 workbench): one representative
+        forward curve per selected result file, rendered server-side by the
+        frozen matplotlib pipeline."""
+        unique_ids = list(dict.fromkeys(result_id))
+        if not 1 <= len(unique_ids) <= 12:
+            raise HTTPException(status_code=400, detail="select between 1 and 12 results")
+        curves = []
+        for file_id in unique_ids:
+            result = await _result_for_actor_or_404(repository, file_id, auth_context)
+            detail = await _result_detail_response(repository, result)
+            # get_result returns raw ids without codes; resolve them once per
+            # curve for the legend label.
+            experiment_code = (
+                (await repository.get_experiment(int(result["experiment_id"]))).experiment_code
+                or f"Experiment {result['experiment_id']}"
+            )
+            batch = await repository.get_fabrication_batch(int(result["fabrication_batch_id"]))
+            label = f"{experiment_code}/{batch.batch_code}"
+            curves.append(
+                (label, detail.analysis, [group.model_dump() for group in detail.groups])
+            )
+        try:
+            content = await run_in_threadpool(
+                render_jv_overlay,
+                curves,
+                figure_format=format,
+                palette=palette,
+            )
+        except PlotInputError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+        except PlotUnavailableError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        filename = figure_filename("jv", None, format)
+        headers = {
+            "Content-Disposition": f'inline; filename="overlay-{filename}"',
             "Cache-Control": "private, no-store",
             "X-Content-Type-Options": "nosniff",
             "Vary": "Accept-Encoding",

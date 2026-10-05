@@ -7,12 +7,15 @@ from datetime import datetime, timezone
 from tests.test_jv_parser import instrument_named_csv
 from web.jv_parser import assign_substrates_to_groups, parse_jv_analysis
 from web.publication_plots import (
+    CATEGORICAL_PALETTES,
     PlotInputError,
+    _build_jv_overlay,
     _render_boxplot,
     _render_jv,
     _render_uniformity,
     _representative_trace,
     _trace_points,
+    render_jv_overlay,
     render_publication_figure,
 )
 from web.repository.result import _result_record
@@ -378,3 +381,58 @@ class PublicationPlotTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class JvOverlayTests(unittest.TestCase):
+    """Cross-result overlay (phase 3 analysis workbench)."""
+
+    def setUp(self) -> None:
+        self.analysis_a = {"devices": [device("a-1", 1), device("a-2", 2)]}
+        self.analysis_b = {"devices": [device("b-1", 1)]}
+        self.groups = [{"group_id": "control", "name": "Control", "kind": "control"}]
+
+    def test_overlay_draws_one_best_curve_per_result(self) -> None:
+        figure = _build_jv_overlay(
+            [
+                ("exp1/B01", self.analysis_a, self.groups),
+                ("exp2/B01", self.analysis_b, self.groups),
+            ],
+            CATEGORICAL_PALETTES["science-tol"],
+        )
+        # One plotted curve per result (best-PCE device's forward scan).
+        curves = [line for line in figure.axes[0].lines if line.get_label() != "_nolegend_"]
+        self.assertEqual(len(curves), 2)
+        labels = [line.get_label() for line in curves]
+        self.assertTrue(labels[0].startswith("exp1/B01"))
+        self.assertTrue(labels[1].startswith("exp2/B01"))
+        # Labels carry the winning device's PCE percentage.
+        self.assertIn("12.00%", labels[0])
+
+    def test_overlay_picks_the_higher_pce_device_within_each_result(self) -> None:
+        figure = _build_jv_overlay(
+            [("exp1/B01", self.analysis_a, self.groups)],
+            CATEGORICAL_PALETTES["science-tol"],
+        )
+        (curve,) = [line for line in figure.axes[0].lines if line.get_label() != "_nolegend_"]
+        # The representative "best" trace (highest-PCE, pce 12.0) wins.
+        self.assertEqual([round(value, 1) for value in curve.get_ydata()], [22.0, 0.0])
+
+    def test_overlay_rejects_empty_and_oversized_selections(self) -> None:
+        with self.assertRaises(PlotInputError):
+            render_jv_overlay([], figure_format="svg")
+        thirteen = [("label", self.analysis_a, self.groups)] * 13
+        with self.assertRaises(PlotInputError):
+            render_jv_overlay(thirteen, figure_format="svg")
+
+    def test_overlay_rejects_results_without_valid_traces(self) -> None:
+        broken = {"devices": [{"device_id": "x-1", "group_id": "control", "excluded": True, "traces": []}]}
+        with self.assertRaises(PlotInputError):
+            render_jv_overlay([("exp1/B01", broken, self.groups)], figure_format="svg")
+
+    def test_overlay_rejects_unknown_palette(self) -> None:
+        with self.assertRaises(PlotInputError):
+            render_jv_overlay(
+                [("exp1/B01", self.analysis_a, self.groups)],
+                figure_format="svg",
+                palette="not-a-palette",
+            )
