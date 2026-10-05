@@ -123,6 +123,70 @@ class CutoverBrowserTests(unittest.TestCase):
             cls.workspace_experiment_id = int(workspace_plan.json()["id"])
             cls.workspace_experiment_code = workspace_plan.json()["experiment_code"]
 
+            # Independent portfolio fixtures keep draft fabrication and the
+            # completed-to-first-upload handoff visible without altering the
+            # batch used by export and session-expiry scenarios.
+            portfolio_plan = client.post("/api/experiments", json={"recipe": releasable_result_recipe()})
+            assert portfolio_plan.status_code == 201, portfolio_plan.text
+            cls.portfolio_experiment_id = int(portfolio_plan.json()["id"])
+            for status in ("pending_approval", "approved", "released"):
+                response = client.patch(
+                    f"/api/experiments/{cls.portfolio_experiment_id}/plan-status",
+                    json={"status": status},
+                )
+                assert response.status_code == 204, response.text
+            completed_batch = client.post(
+                f"/api/experiments/{cls.portfolio_experiment_id}/fabrication-batches", json={}
+            )
+            assert completed_batch.status_code == 201, completed_batch.text
+            cls.portfolio_completed_batch_id = int(completed_batch.json()["id"])
+            cls.portfolio_completed_batch_code = completed_batch.json()["batch_code"]
+            for status in ("ready", "in_progress"):
+                response = client.patch(
+                    f"/api/fabrication-batches/{cls.portfolio_completed_batch_id}/status", json={"status": status}
+                )
+                assert response.status_code == 204, response.text
+            run_sheet = client.get(f"/api/fabrication-batches/{cls.portfolio_completed_batch_id}/run-sheet").json()
+            for item in run_sheet["preparations"]:
+                preparation = item["preparation"]
+                for status in ("preparing", "ready", "consumed"):
+                    payload = {"status": status}
+                    if status == "consumed":
+                        payload["actual_matches_planned"] = True
+                    response = client.patch(
+                        f"/api/fabrication-batches/{cls.portfolio_completed_batch_id}"
+                        f"/solution-preparations/{preparation['id']}", json=payload,
+                    )
+                    assert response.status_code == 200, response.text
+            for item in run_sheet["executions"]:
+                execution = item["execution"]
+                for status in ("ready", "running", "completed"):
+                    payload = {"status": status}
+                    if status == "completed":
+                        payload["actual_matches_planned"] = True
+                    response = client.patch(
+                        f"/api/fabrication-batches/{cls.portfolio_completed_batch_id}"
+                        f"/process-executions/{execution['id']}", json=payload,
+                    )
+                    assert response.status_code == 200, response.text
+            response = client.patch(
+                f"/api/fabrication-batches/{cls.portfolio_completed_batch_id}/status",
+                json={
+                    "status": "completed",
+                    "actual_substrate_counts": {
+                        str(condition["id"]): condition["planned_substrate_count"]
+                        for condition in run_sheet["conditions"]
+                    },
+                },
+            )
+            assert response.status_code == 204, response.text
+            draft_batch = client.post(
+                f"/api/experiments/{cls.portfolio_experiment_id}/fabrication-batches", json={}
+            )
+            assert draft_batch.status_code == 201, draft_batch.text
+            cls.portfolio_draft_batch_id = int(draft_batch.json()["id"])
+            cls.portfolio_draft_batch_code = draft_batch.json()["batch_code"]
+
             # Store admin session token for session-expiry test.
             users = asyncio.run(cls.app.state.repository.list_users())
             cls.student_id = next(r.id for r in users if r.username == STUDENT_USERNAME)
@@ -205,6 +269,71 @@ class CutoverBrowserTests(unittest.TestCase):
     # ------------------------------------------------------------------
     # C4: Exact cutover redirect tests
     # ------------------------------------------------------------------
+
+    def test_portfolio_handoff_and_surfaces_at_320px(self) -> None:
+        """Draft fabrication and completed batches awaiting uploads remain actionable."""
+        profile = str(Path(self.temporary_directory.name) / "chrome-portfolio")
+        process, session = self._open("/app/login", profile)
+        try:
+            wait_for_expression(session, "Boolean(document.querySelector('#root'))")
+            self._login_via_fetch(session, ADMIN_USERNAME, ADMIN_PASSWORD)
+            self._navigate(session, "/app/")
+            wait_for_expression(session, "Boolean(document.querySelector('[data-portfolio-board]'))")
+            self._assert_viewport(session, 320)
+            self._assert_no_overflow(session, "portfolio board")
+            cards = evaluate(
+                session,
+                "Array.from(document.querySelectorAll('[data-portfolio-record]')).map(card => {"
+                "const style = getComputedStyle(card); const dot = card.querySelector('[aria-hidden=true]');"
+                "return {record: card.getAttribute('data-portfolio-record'), text: card.textContent, "
+                "path: card.pathname, column: card.closest('section').getAttribute('aria-label'), "
+                "radius: style.borderRadius, shadow: style.boxShadow, border: style.borderLeftWidth, "
+                "dotColor: dot && getComputedStyle(dot).backgroundColor};})",
+            )
+            by_record = {card["record"]: card for card in cards}
+            draft = by_record[f"batch-{self.portfolio_draft_batch_id}"]
+            completed = by_record[f"batch-{self.portfolio_completed_batch_id}"]
+            self.assertIn(self.portfolio_draft_batch_code, draft["text"])
+            self.assertIn("draft", draft["text"])
+            self.assertEqual(draft["column"], "Fabrication")
+            self.assertEqual(draft["dotColor"], "rgb(104, 82, 184)")
+            self.assertIn(self.portfolio_completed_batch_code, completed["text"])
+            self.assertIn("awaiting measurements", completed["text"])
+            self.assertEqual(completed["column"], "Characterization")
+            self.assertEqual(completed["dotColor"], "rgb(182, 106, 0)")
+            for card in (draft, completed):
+                self.assertEqual(card["radius"], "8px")
+                self.assertEqual(card["shadow"], "none")
+                self.assertEqual(card["border"], "0px")
+            expected_path = (
+                f"/app/experiments/{self.portfolio_experiment_id}"
+                f"/batches/{self.portfolio_completed_batch_id}"
+            )
+            self.assertEqual(completed["path"], expected_path)
+            tracking = evaluate(
+                session,
+                "Array.from(document.querySelectorAll('[data-portfolio-board] .MuiTypography-root'))"
+                ".every(text => parseFloat(getComputedStyle(text).letterSpacing) < 0)",
+            )
+            self.assertTrue(tracking, "portfolio text must use negative tracking at every size")
+            card_selector = (
+                "document.querySelector('[data-portfolio-record="
+                f"\"batch-{self.portfolio_completed_batch_id}\"]')"
+            )
+            evaluate(session, f"{card_selector}.scrollIntoView({{block: 'center'}}); {card_selector}.focus()")
+            self.assertTrue(evaluate(session, f"document.activeElement === {card_selector}"))
+            click_center(session, card_selector)
+            wait_for_expression(session, f"location.pathname === {_js_escape(expected_path)}")
+            wait_for_expression(session, "Boolean(document.querySelector('[data-runsheet-bulk]'))")
+            self._assert_no_overflow(session, "portfolio completed-batch destination")
+            session.check_errors()
+        finally:
+            session.close()
+            process.kill()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                pass
 
     def test_populated_campaign_workspace_selection_at_320px(self) -> None:
         profile = str(Path(self.temporary_directory.name) / "chrome-campaign-workspace")

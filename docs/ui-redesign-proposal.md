@@ -240,3 +240,13 @@ workbench collapses at 720px, contains horizontal table scrolling, and reports
 overlay failures while retaining the direct authenticated image endpoint and
 the unchanged nonce CSP/publication renderer. Result-row PCE labels state the
 batch or experiment aggregation scope.
+
+Phase 4 stabilization keeps draft batches in Fabrication and completed batches
+without an upload in Characterization as awaiting measurements. Once a result
+exists, its card represents the uploaded file; any PCE is explicitly the owning
+batch's best eligible forward scan, without borrowing an experiment-wide value
+from another batch. Statuses retain visible text and domain-colored dots.
+Cards use 8px corners inside 12px stage surfaces, negative tracking at every
+size, background contrast, link-blue identities, and visible focus outlines.
+Aging is amber text rather than a card border or shadow. PCE sparklines remain
+deferred until a defined measurement time-series contract is available.
