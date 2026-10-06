@@ -90,9 +90,14 @@ class CutoverBrowserTests(unittest.TestCase):
             assert created.status_code == 201, created.text
             cls.experiment_id = int(created.json()["id"])
             for status in ("pending_approval", "approved", "released"):
+                payload: dict[str, object] = {"status": status}
+                if status == "approved":
+                    payload["expected_approval_digest"] = client.get(
+                        f"/api/experiments/{cls.experiment_id}"
+                    ).json()["approval_scope_digest"]
                 assert client.patch(
                     f"/api/experiments/{cls.experiment_id}/plan-status",
-                    json={"status": status},
+                    json=payload,
                 ).status_code == 204
             batch = client.post(f"/api/experiments/{cls.experiment_id}/fabrication-batches", json={})
             assert batch.status_code == 201, batch.text
@@ -130,9 +135,14 @@ class CutoverBrowserTests(unittest.TestCase):
             assert portfolio_plan.status_code == 201, portfolio_plan.text
             cls.portfolio_experiment_id = int(portfolio_plan.json()["id"])
             for status in ("pending_approval", "approved", "released"):
+                payload: dict[str, object] = {"status": status}
+                if status == "approved":
+                    payload["expected_approval_digest"] = client.get(
+                        f"/api/experiments/{cls.portfolio_experiment_id}"
+                    ).json()["approval_scope_digest"]
                 response = client.patch(
                     f"/api/experiments/{cls.portfolio_experiment_id}/plan-status",
-                    json={"status": status},
+                    json=payload,
                 )
                 assert response.status_code == 204, response.text
             completed_batch = client.post(

@@ -990,7 +990,12 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 record.id, PlanStatus.PENDING_APPROVAL, actor_user_id=instructor.id
             )
             await repository.update_plan_status(
-                record.id, PlanStatus.APPROVED, actor_user_id=instructor.id
+                record.id,
+                PlanStatus.APPROVED,
+                actor_user_id=instructor.id,
+                expected_approval_digest=await repository.approval_scope_digest(
+                    record.id
+                ),
             )
             conditions = await repository.list_conditions_for_experiment(
                 record.id
@@ -1302,6 +1307,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                             experiment_id,
                             status_name,
                             actor_user_id=instructor_id,
+                            expected_approval_digest=(
+                                await repo.approval_scope_digest(experiment_id)
+                                if status_name == PlanStatus.APPROVED
+                                else None
+                            ),
                         )
 
                 outcomes = await asyncio.gather(
@@ -2281,9 +2291,17 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             logout()
             login("instructor")
             for status_name in ("approved", "released"):
+                payload: dict[str, object] = {"status": status_name}
+                if status_name == "approved":
+                    detail = client.get(
+                        f"/api/experiments/{experiment_id}"
+                    ).json()
+                    payload["expected_approval_digest"] = detail[
+                        "approval_scope_digest"
+                    ]
                 transition = client.patch(
                     f"/api/experiments/{experiment_id}/plan-status",
-                    json={"status": status_name},
+                    json=payload,
                 )
                 self.assertEqual(transition.status_code, 204, transition.text)
             logout()
@@ -2593,6 +2611,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                     experiment.id,
                     target,
                     actor_user_id=user.id,
+                    expected_approval_digest=(
+                        await repository.approval_scope_digest(experiment.id)
+                        if target == PlanStatus.APPROVED
+                        else None
+                    ),
                 )
             batch = await repository.create_fabrication_batch(
                 experiment.id,
@@ -2787,9 +2810,17 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             logout()
             login("instructor")
             for status_name in ("approved", "released"):
+                payload: dict[str, object] = {"status": status_name}
+                if status_name == "approved":
+                    detail = client.get(
+                        f"/api/experiments/{experiment_id}"
+                    ).json()
+                    payload["expected_approval_digest"] = detail[
+                        "approval_scope_digest"
+                    ]
                 transition = client.patch(
                     f"/api/experiments/{experiment_id}/plan-status",
-                    json={"status": status_name},
+                    json=payload,
                 )
                 self.assertEqual(transition.status_code, 204, transition.text)
             logout()

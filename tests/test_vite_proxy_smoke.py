@@ -436,9 +436,13 @@ class ViteProxySmokeTests(unittest.TestCase):
         self.assertEqual(created.status_code, 201, created.text)
         experiment_id = created.json()["id"]
         for status in ("pending_approval", "approved", "released"):
+            payload: dict[str, object] = {"status": status}
+            if status == "approved":
+                detail = client.get(f"/api/experiments/{experiment_id}").json()
+                payload["expected_approval_digest"] = detail["approval_scope_digest"]
             transition = client.patch(
                 f"/api/experiments/{experiment_id}/plan-status",
-                json={"status": status},
+                json=payload,
             )
             self.assertEqual(transition.status_code, 204)
         batch = client.post(
