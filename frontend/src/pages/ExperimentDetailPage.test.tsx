@@ -8,7 +8,18 @@ const apiFetchMock = vi.hoisted(() => vi.fn());
 const sessionState = vi.hoisted(() => ({
   role: "student" as "student" | "instructor" | "administrator",
 }));
-vi.mock("../lib/api", () => ({ apiFetch: apiFetchMock }));
+vi.mock("../lib/api", () => ({
+  apiFetch: apiFetchMock,
+  ApiError: class ApiError extends Error {
+    readonly status: number;
+    constructor(status: number, message: string) {
+      super(message);
+      this.name = "ApiError";
+      this.status = status;
+    }
+  },
+}));
+import { ApiError } from "../lib/api";
 vi.mock("../auth/session", () => ({
   useSession: () => ({ user: { id: 2, username: "plan-user", display_name: "Plan User", role: sessionState.role, csrf_available: true } }),
 }));
@@ -98,6 +109,7 @@ function detail(overrides: Record<string, unknown> = {}) {
     substrate_exceptions: [],
     fabrication_batches: [],
     results: [],
+    approval_scope_digest: "digest-7",
   };
 }
 
@@ -208,8 +220,37 @@ describe("ExperimentDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Approve plan" }));
     await waitFor(() => expect(apiFetchMock).toHaveBeenCalledWith("/api/experiments/7/plan-status", {
       method: "PATCH",
-      body: { status: "approved" },
+      body: { status: "approved", expected_approval_digest: "digest-7" },
     }));
+  });
+
+  it("flags stale content and blocks re-approval when the approval conflicts (409)", async () => {
+    sessionState.role = "instructor";
+    let detailLoads = 0;
+    apiFetchMock.mockImplementation((path: string, options?: { method?: string; body?: unknown }) => {
+      if (path === "/api/experiments/7/plan-status" && options?.method === "PATCH") {
+        return Promise.reject(new ApiError(409, "plan content changed since it was loaded for review"));
+      }
+      if (path === "/api/experiments/7") {
+        detailLoads += 1;
+        if (detailLoads > 1) {
+          // Keep the post-conflict reload pending so the stale-scope state
+          // stays on screen for the assertions below.
+          return new Promise<void>(() => {});
+        }
+        return Promise.resolve(detail({ plan_status: "pending_approval" }));
+      }
+      return Promise.resolve({});
+    });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Approve plan" }));
+    await waitFor(() => expect(apiFetchMock).toHaveBeenCalledWith("/api/experiments/7/plan-status", {
+      method: "PATCH",
+      body: { status: "approved", expected_approval_digest: "digest-7" },
+    }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/changed after you loaded it/i);
+    expect(screen.getByRole("button", { name: "Approve plan" })).toBeDisabled();
   });
 
   it("creates a frozen batch only from a released plan", async () => {

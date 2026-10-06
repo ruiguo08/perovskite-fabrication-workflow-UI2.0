@@ -165,6 +165,9 @@ def create_experiments_router(
     ) -> ExperimentDetailResponse:
         record = await _get_record_or_404(repository, experiment_id, auth_context)
         return ExperimentDetailResponse(
+            approval_scope_digest=await repository.approval_scope_digest(
+                experiment_id
+            ),
             experiment=_record_response(record),
             conditions=[
                 _condition_response(condition)
@@ -369,6 +372,7 @@ def create_experiments_router(
                 actor_user_id=auth_context.user.id,
                 client_ip=_client_ip(request),
                 actor_role=auth_context.user.role,
+                expected_approval_digest=payload.expected_approval_digest,
             )
         except OperationError as error:
             raise _operation_error_to_http(error) from error

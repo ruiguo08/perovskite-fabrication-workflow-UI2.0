@@ -54,6 +54,7 @@ function makeExperiment() {
       },
     ],
     substrate_exceptions: [],
+    approval_scope_digest: "digest-7",
     fabrication_batches: [
       { id: 5, batch_code: "B01", status: "draft" },
       { id: 6, batch_code: "B02", status: "in_progress" },

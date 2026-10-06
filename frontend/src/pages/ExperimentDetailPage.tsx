@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useSession } from "../auth/session";
 import { ConditionCard } from "../components/ConditionCard";
@@ -11,7 +11,7 @@ import { PageHeader } from "../components/PageHeader";
 import { RecipeSnapshotSummary } from "../components/RecipeSnapshotSummary";
 import { StatusBadge } from "../components/StatusBadge";
 import { useToast } from "../components/Toast";
-import { apiFetch } from "../lib/api";
+import { ApiError, apiFetch } from "../lib/api";
 import { formatDateTime } from "../lib/format";
 import { useApiResource } from "../lib/useApiResource";
 import type { ExperimentDetail, FabricationBatchSummary, SubstrateException } from "../types/api";
@@ -55,6 +55,10 @@ export function ExperimentDetailPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [batchNotes, setBatchNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Set when an approval conflicts (409): the plan changed between the
+  // reviewer's load and their click, so the current content must be
+  // re-reviewed before approve is offered again.
+  const [staleScope, setStaleScope] = useState(false);
   const serverDetail = resource.data;
   const detail = localDetail ?? serverDetail;
   // Only render a detail whose id matches the current route; a stale detail
@@ -73,10 +77,17 @@ export function ExperimentDetailPage() {
     setActionError(null);
     setBatchNotes("");
     setSubmitting(false);
+    setStaleScope(false);
     return () => {
       routeGeneration.current += 1;
     };
   }, [routeKey]);
+
+  // Fresh server content supersedes the stale-scope warning: once the
+  // reloaded detail lands, the reviewer is looking at current content again.
+  useEffect(() => {
+    setStaleScope(false);
+  }, [serverDetail]);
 
   const isCurrentGeneration = useCallback(
     (generation: number) => routeGeneration.current === generation,
@@ -110,7 +121,11 @@ export function ExperimentDetailPage() {
     try {
       await apiFetch<void>(`/api/experiments/${id}/plan-status`, {
         method: "PATCH",
-        body: { status: action.status },
+        body: {
+          status: action.status,
+          expected_approval_digest:
+            action.status === "approved" ? activeDetail.approval_scope_digest : undefined,
+        },
       });
       if (!isCurrentGeneration(generation)) {
         return;
@@ -118,9 +133,19 @@ export function ExperimentDetailPage() {
       setLocalDetail({ ...activeDetail, experiment: { ...activeDetail.experiment, plan_status: action.status } });
       show(`Plan status changed to ${action.status.replace(/_/g, " ")}.`, "success");
     } catch (caught) {
-      if (isCurrentGeneration(generation)) {
-        setActionError(caught instanceof Error ? caught.message : "Unable to update the plan status.");
+      if (!isCurrentGeneration(generation)) {
+        return;
       }
+      if (caught instanceof ApiError && caught.status === 409) {
+        // The plan was edited between load and approval: drop optimistic
+        // local state, reload the current content, and require re-review
+        // before the approve action is offered again.
+        setLocalDetail(null);
+        setStaleScope(true);
+        void resource.reload();
+        return;
+      }
+      setActionError(caught instanceof Error ? caught.message : "Unable to update the plan status.");
     } finally {
       if (isCurrentGeneration(generation)) {
         setSubmitting(false);
@@ -222,10 +247,22 @@ export function ExperimentDetailPage() {
           <h2 className="panel__title" id="plan-actions-title">Plan actions</h2>
           <div className="button-row">
             {action ? (
-              <button className={`button button--${action.tone}`} type="button" disabled={submitting} onClick={() => void changePlanStatus(action)}>{action.label}</button>
+              <button
+                className={`button button--${action.tone}`}
+                type="button"
+                disabled={submitting || (action.status === "approved" && staleScope)}
+                onClick={() => void changePlanStatus(action)}
+              >
+                {action.label}
+              </button>
             ) : null}
             <button className="button button--danger" type="button" disabled={submitting} onClick={() => void changePlanStatus({ status: "cancelled", label: "Cancel plan", tone: "danger" })}>Cancel plan</button>
           </div>
+          {staleScope ? (
+            <p className="inline-warning" role="alert">
+              Plan content changed after you loaded it. The latest version is shown below — review it again before approving.
+            </p>
+          ) : null}
           <InlineFormError message={actionError} />
           {missingBatches ? (
             <p className="inline-warning" role="status">

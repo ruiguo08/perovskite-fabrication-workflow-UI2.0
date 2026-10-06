@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import datetime
 from typing import Any, Mapping
@@ -438,6 +439,7 @@ class ConditionsMixin:
         *,
         actor_user_id: int | None,
         client_ip: str | None = None,
+        expected_approval_digest: str | None = None,
     ) -> None:
         """Deprecated delegate: :mod:`web.operations.conditions` owns this
         use case. The in-transaction role/ownership re-check stays here, so
@@ -450,7 +452,20 @@ class ConditionsMixin:
             plan_status,
             actor_user_id=actor_user_id,
             client_ip=client_ip,
+            expected_approval_digest=expected_approval_digest,
         )
+
+    async def approval_scope_digest(self, experiment_id: int) -> str:
+        """Current approval-scope digest of the plan.
+
+        Detail views embed this so an approving client can echo it back;
+        :meth:`update_plan_status` verifies it inside the approval
+        transaction.
+        """
+        async with self.database.engine.connect() as connection:
+            return await compute_approval_scope_digest(
+                connection, experiment_id
+            )
 
     # ------------------------------------------------------------------
     # Substrate exception approval
@@ -963,6 +978,100 @@ async def apply_condition_delete(
         client_ip=client_ip,
     )
 
+
+class StaleApprovalScope(ValueError):
+    """The submitted approval digest does not match the plan's current content.
+
+    Raised inside the approval transaction when the plan changed between the
+    reviewer's load and their approval click. The operations layer maps this
+    to HTTP 409 so the client reloads the current content and re-reviews.
+    """
+
+
+async def compute_approval_scope_digest(
+    connection: AsyncConnection,
+    experiment_id: int,
+) -> str:
+    """Deterministic SHA-256 over everything a plan approval covers.
+
+    Scope: the plan type, each condition's code/name/role/recipe snapshot
+    hash/layout/planned substrate count, and every approved substrate-count
+    exception. Titles, notes, and timestamps are deliberately excluded so
+    unrelated edits do not invalidate an in-flight review. Approvals embed
+    the digest they matched in the audit event as approval evidence.
+    """
+
+    plan_row = (
+        await connection.execute(
+            select(experiments.c.plan_type).where(
+                experiments.c.id == experiment_id
+            )
+        )
+    ).one_or_none()
+    if plan_row is None:
+        raise KeyError(f"unknown experiment id: {experiment_id}")
+    condition_rows = (
+        await connection.execute(
+            select(
+                experiment_conditions.c.condition_code,
+                experiment_conditions.c.condition_name,
+                experiment_conditions.c.role,
+                experiment_conditions.c.canonical_hash,
+                experiment_conditions.c.planned_substrate_count,
+                experiment_conditions.c.device_layout_code,
+            )
+            .where(experiment_conditions.c.experiment_id == experiment_id)
+            .order_by(experiment_conditions.c.condition_code)
+        )
+    ).mappings().all()
+    exception_rows = (
+        await connection.execute(
+            select(
+                condition_substrate_exceptions.c.condition_id,
+                condition_substrate_exceptions.c.requested_count,
+            )
+            .select_from(
+                condition_substrate_exceptions.join(
+                    experiment_conditions,
+                    experiment_conditions.c.id
+                    == condition_substrate_exceptions.c.condition_id,
+                )
+            )
+            .where(
+                experiment_conditions.c.experiment_id == experiment_id,
+                condition_substrate_exceptions.c.decision
+                == ExceptionDecision.APPROVED.value,
+            )
+            .order_by(condition_substrate_exceptions.c.condition_id)
+        )
+    ).mappings().all()
+    scope = {
+        "plan_type": plan_row.plan_type,
+        "conditions": [
+            {
+                "condition_code": row["condition_code"],
+                "condition_name": row["condition_name"],
+                "role": row["role"],
+                "canonical_hash": row["canonical_hash"],
+                "planned_substrate_count": row["planned_substrate_count"],
+                "device_layout_code": row["device_layout_code"],
+            }
+            for row in condition_rows
+        ],
+        "approved_exceptions": [
+            {
+                "condition_id": row["condition_id"],
+                "requested_count": row["requested_count"],
+            }
+            for row in exception_rows
+        ],
+    }
+    return hashlib.sha256(
+        json.dumps(
+            scope, sort_keys=True, separators=(",", ":"), default=str
+        ).encode("utf-8")
+    ).hexdigest()
+
 async def apply_plan_status_update(
     connection: AsyncConnection,
     *,
@@ -970,9 +1079,16 @@ async def apply_plan_status_update(
     plan_status: PlanStatus,
     actor_user_id: int | None,
     client_ip: str | None = None,
+    expected_approval_digest: str | None = None,
 ) -> None:
     """Connection-level plan-status transition: role/ownership check,
-    transition and condition validation, batch guards, audit."""
+    transition and condition validation, batch guards, audit.
+
+    Approving additionally requires ``expected_approval_digest`` to equal
+    the plan's current approval-scope digest, guaranteeing the approving
+    reviewer saw the content they approve; a mismatch raises
+    :class:`StaleApprovalScope` (HTTP 409) without mutating anything.
+    """
 
     plan = (
         await connection.execute(
@@ -1005,22 +1121,40 @@ async def apply_plan_status_update(
         plan_type=plan.plan_type,
         target_status=plan_status,
     )
+    approval_digest: str | None = None
+    if plan_status == PlanStatus.APPROVED:
+        approval_digest = await compute_approval_scope_digest(
+            connection, experiment_id
+        )
+        if not expected_approval_digest:
+            raise ValueError(
+                "approving a plan requires the expected approval digest"
+            )
+        if expected_approval_digest != approval_digest:
+            raise StaleApprovalScope(
+                "plan content changed since it was loaded for review; "
+                "reload the plan and review it again before approving"
+            )
     await _require_fabrication_batches(connection, experiment_id, plan_status)
     await connection.execute(
         update(experiments)
         .where(experiments.c.id == experiment_id)
         .values(plan_status=plan_status.value, updated_at=_utc_now())
     )
+    details: dict[str, Any] = {
+        "from": current.value,
+        "to": plan_status.value,
+    }
+    if approval_digest is not None:
+        details["approval_scope_digest"] = approval_digest
+        details["expected_approval_digest"] = expected_approval_digest
     await _add_audit_event(
         connection,
         actor_user_id=actor_user_id,
         action="plan.status_change",
         entity_type="experiment",
         entity_id=str(experiment_id),
-        details={
-            "from": current.value,
-            "to": plan_status.value,
-        },
+        details=details,
         client_ip=client_ip,
     )
 

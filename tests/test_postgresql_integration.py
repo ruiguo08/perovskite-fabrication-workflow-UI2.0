@@ -664,9 +664,13 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             self.assertEqual(submitted.status_code, 204, submitted.text)
             logout()
             login("instructor")
+            detail = client.get(f"/api/experiments/{experiment_id}").json()
             approved = client.patch(
                 f"/api/experiments/{experiment_id}/plan-status",
-                json={"status": "approved"},
+                json={
+                    "status": "approved",
+                    "expected_approval_digest": detail["approval_scope_digest"],
+                },
             )
             self.assertEqual(approved.status_code, 204, approved.text)
             released = client.patch(

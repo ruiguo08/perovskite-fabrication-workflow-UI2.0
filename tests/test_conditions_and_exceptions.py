@@ -21,6 +21,7 @@ from web.condition_snapshot import (
     canonical_hash,
     validate_condition_snapshot,
 )
+from web.operations.errors import StateConflict
 from web.repository import (
     ConditionRole,
     ExceptionDecision,
@@ -297,10 +298,17 @@ class ConditionRepositoryTests(unittest.TestCase):
 
         async def scenario() -> None:
             experiment_id = await self._create_fresh_experiment()
-            for status in (PlanStatus.PENDING_APPROVAL, PlanStatus.APPROVED):
-                await repo.update_plan_status(
-                    experiment_id, status, actor_user_id=1
-                )
+            await repo.update_plan_status(
+                experiment_id, PlanStatus.PENDING_APPROVAL, actor_user_id=1
+            )
+            await repo.update_plan_status(
+                experiment_id,
+                PlanStatus.APPROVED,
+                actor_user_id=1,
+                expected_approval_digest=await repo.approval_scope_digest(
+                    experiment_id
+                ),
+            )
             await repo.create_condition(
                 experiment_id=experiment_id,
                 role=ConditionRole.TARGET,
@@ -325,14 +333,20 @@ class ConditionRepositoryTests(unittest.TestCase):
                 )
             # The full re-approval chain works and includes the new
             # condition in the release validation.
-            for status in (
-                PlanStatus.PENDING_APPROVAL,
+            await repo.update_plan_status(
+                experiment_id, PlanStatus.PENDING_APPROVAL, actor_user_id=1
+            )
+            await repo.update_plan_status(
+                experiment_id,
                 PlanStatus.APPROVED,
-                PlanStatus.RELEASED,
-            ):
-                await repo.update_plan_status(
-                    experiment_id, status, actor_user_id=1
-                )
+                actor_user_id=1,
+                expected_approval_digest=await repo.approval_scope_digest(
+                    experiment_id
+                ),
+            )
+            await repo.update_plan_status(
+                experiment_id, PlanStatus.RELEASED, actor_user_id=1
+            )
             record = await repo.get_experiment(experiment_id)
             self.assertEqual(
                 str(record.plan_status), PlanStatus.RELEASED.value
@@ -342,6 +356,110 @@ class ConditionRepositoryTests(unittest.TestCase):
             )
             self.assertTrue(
                 any(c.condition_name == "Unreviewed target" for c in conditions)
+            )
+
+        asyncio.run(scenario())
+
+    def test_approval_requires_matching_scope_digest(self) -> None:
+        """Regression for the stale-review hole: a reviewer who loaded two
+        conditions cannot approve a plan that has gained a third (condition
+        create keeps pending-approval), and approval without the digest the
+        reviewer saw is rejected outright."""
+
+        import asyncio
+        import json as json_module
+
+        snapshot = _condition_snapshot()
+        repo = self.repository
+
+        async def scenario() -> None:
+            experiment_id = await self._create_fresh_experiment()
+            await repo.update_plan_status(
+                experiment_id, PlanStatus.PENDING_APPROVAL, actor_user_id=1
+            )
+            digest = await repo.approval_scope_digest(experiment_id)
+
+            # Approving without the digest is rejected outright.
+            with self.assertRaisesRegex(ValueError, "requires the expected"):
+                await repo.update_plan_status(
+                    experiment_id, PlanStatus.APPROVED, actor_user_id=1
+                )
+
+            # A condition added mid-review keeps pending-approval but changes
+            # the scope, so the stale digest must not approve.
+            await repo.create_condition(
+                experiment_id=experiment_id,
+                role=ConditionRole.TARGET,
+                condition_code=None,
+                condition_name="Unseen target",
+                recipe_snapshot=json_module.loads(json_module.dumps(snapshot)),
+                source_baseline_version_id=None,
+                device_layout_code="25x25_six_010",
+                planned_substrate_count=3,
+                actor_user_id=1,
+            )
+            with self.assertRaisesRegex(
+                StateConflict, "changed since it was loaded"
+            ):
+                await repo.update_plan_status(
+                    experiment_id,
+                    PlanStatus.APPROVED,
+                    actor_user_id=1,
+                    expected_approval_digest=digest,
+                )
+
+            # Approving the content the reviewer actually saw succeeds.
+            fresh = await repo.approval_scope_digest(experiment_id)
+            self.assertNotEqual(fresh, digest)
+            await repo.update_plan_status(
+                experiment_id,
+                PlanStatus.APPROVED,
+                actor_user_id=1,
+                expected_approval_digest=fresh,
+            )
+            record = await repo.get_experiment(experiment_id)
+            self.assertEqual(str(record.plan_status), PlanStatus.APPROVED.value)
+
+        asyncio.run(scenario())
+
+    def test_approval_records_scope_digest_in_audit(self) -> None:
+        import asyncio
+
+        from web.database import audit_events
+
+        repo = self.repository
+
+        async def scenario() -> None:
+            experiment_id = await self._create_fresh_experiment()
+            await repo.update_plan_status(
+                experiment_id, PlanStatus.PENDING_APPROVAL, actor_user_id=1
+            )
+            digest = await repo.approval_scope_digest(experiment_id)
+            await repo.update_plan_status(
+                experiment_id,
+                PlanStatus.APPROVED,
+                actor_user_id=1,
+                expected_approval_digest=digest,
+            )
+            async with repo.database.engine.connect() as connection:
+                rows = (
+                    await connection.execute(
+                        audit_events.select()
+                        .where(audit_events.c.action == "plan.status_change")
+                        .order_by(audit_events.c.id.desc())
+                    )
+                ).mappings().all()
+            approval = next(
+                row
+                for row in rows
+                if int(row["entity_id"]) == experiment_id
+                and row["details"].get("to") == "approved"
+            )
+            self.assertEqual(
+                approval["details"]["approval_scope_digest"], digest
+            )
+            self.assertEqual(
+                approval["details"]["expected_approval_digest"], digest
             )
 
         asyncio.run(scenario())
@@ -676,6 +794,9 @@ class SubstrateExceptionTests(unittest.TestCase):
             1,
             PlanStatus.APPROVED,
             actor_user_id=1,
+            expected_approval_digest=asyncio.run(
+                self.repository.approval_scope_digest(1)
+            ),
         ))
         asyncio.run(self.repository.update_plan_status(
             1,

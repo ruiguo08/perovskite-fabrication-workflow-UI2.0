@@ -219,6 +219,7 @@ export interface ExperimentDetail {
   substrate_exceptions: SubstrateException[];
   fabrication_batches: FabricationBatchSummary[];
   results: ResultSummary[];
+  approval_scope_digest: string;
 }
 
 export interface Baseline {

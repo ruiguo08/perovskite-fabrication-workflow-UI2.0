@@ -700,6 +700,10 @@ class PlanStatusUpdatePayload(ApiModel):
         "completed",
         "cancelled",
     ]
+    # Required by the server for the pending_approval -> approved transition:
+    # the digest the approving client read from the detail view, proving the
+    # reviewer approves the content they actually saw. A mismatch is 409.
+    expected_approval_digest: str | None = None
 
 
 # ------------------------------------------------------------------
@@ -752,6 +756,9 @@ class ExperimentDetailResponse(ApiModel):
     substrate_exceptions: list[SubstrateExceptionResponse]
     fabrication_batches: list[FabricationBatchResponse]
     results: list[ResultSummaryResponse]
+    # Digest of the current approval scope; approving clients echo it back
+    # in the plan-status payload so the server can detect stale reviews.
+    approval_scope_digest: str
 
 
 class FrozenBatchConditionResponse(ApiModel):
