@@ -1292,15 +1292,28 @@ def _group_statistics(
             }
         )
 
-    def group_metric_values(group_row: Mapping[str, Any], direction: str, metric_name: str) -> list[float]:
-        return [
-            value
-            for device in devices
-            if device.get("group_id") == group_row["group_id"]
-            and device.get("metrics")
-            and not device.get("excluded")
-            if (value := _device_metric_value(device, direction, metric_name)) is not None
-        ]
+    def substrate_metric_values(
+        group_row: Mapping[str, Any], direction: str, metric_name: str
+    ) -> list[float]:
+        """Per-substrate means of the representative device metric.
+
+        Devices on one substrate share fabrication and treatment, so they
+        are averaged into a single exchangeable unit before any permutation;
+        treating them as independent replicates is pseudo-replication and
+        inflates significance.
+        """
+
+        buckets: dict[str, list[float]] = {}
+        for device in devices:
+            if device.get("group_id") != group_row["group_id"]:
+                continue
+            if not device.get("metrics") or device.get("excluded"):
+                continue
+            value = _device_metric_value(device, direction, metric_name)
+            if value is None:
+                continue
+            buckets.setdefault(str(device["substrate_id"]), []).append(value)
+        return [statistics.fmean(values) for values in buckets.values()]
 
     control = next((group for group in group_rows if group["kind"] == "control"), None)
     comparisons = []
@@ -1316,8 +1329,8 @@ def _group_statistics(
                     if control_mean is None or target_mean is None:
                         metric_comparisons[metric_name] = None
                         continue
-                    control_values = group_metric_values(control, direction, metric_name)
-                    target_values = group_metric_values(target, direction, metric_name)
+                    control_values = substrate_metric_values(control, direction, metric_name)
+                    target_values = substrate_metric_values(target, direction, metric_name)
                     difference = target_mean - control_mean
                     denominator = _pooled_standard_deviation(
                         control_values,
@@ -1337,6 +1350,9 @@ def _group_statistics(
                         "p_value": p_value,
                         "adjusted_p_value": None,
                         "test_method": test_method,
+                        "inference_unit": "substrate",
+                        "n_independent_units_control": len(control_values),
+                        "n_independent_units_target": len(target_values),
                     }
                 _add_benjamini_hochberg_adjustment(metric_comparisons)
                 comparisons.append(
@@ -1371,7 +1387,14 @@ def _permutation_p_value(
     """Return a two-sided randomization p-value for the difference in means."""
 
     if len(control) < 2 or len(target) < 2:
-        return None, None
+        # One exchangeable unit per side supports no permutation at all;
+        # reporting a device-level p here manufactured significance from
+        # pseudo-replicated sub-samples.
+        return (
+            None,
+            "insufficient independent units (substrates=%d)"
+            % min(len(control), len(target)),
+        )
     combined = control + target
     control_size = len(control)
     observed = abs(statistics.fmean(target) - statistics.fmean(control))
