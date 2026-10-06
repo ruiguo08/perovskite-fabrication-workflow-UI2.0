@@ -139,6 +139,8 @@ class AdminMixin:
         *,
         experiment_id: int | None = None,
         batch_id: int | None = None,
+        representative: str = "latest",
+        keep_all_rows: bool = False,
     ) -> list[dict[str, Any]]:
         """Extract read-only (X, y) training rows from recorded executions.
 
@@ -154,6 +156,18 @@ class AdminMixin:
         Rows combine the ``perovskite_bo.web_adapter`` feature/metric
         extraction with batch provenance; conditions without measured devices
         keep ``metrics=None`` instead of fabricated values.
+
+        Metrics carry v2 measurement provenance: re-measurements of one
+        physical device (across re-uploaded result files) collapse to a
+        single representative entry per (device, direction) before
+        aggregation — ``representative="latest"`` keeps the most recent
+        upload, ``"mean"`` averages across uploads — so re-measured devices
+        do not gain target weight. ``device_count`` counts distinct physical
+        devices separately from ``scan_count`` (raw entries), and
+        per-direction medians ride in ``metrics["per_direction"]``. With
+        ``keep_all_rows=True`` one row per raw measurement (device x
+        direction, carrying its provenance) is emitted instead of the
+        per-condition aggregate; unmeasured conditions then yield no rows.
         """
         condition_filters = []
         if batch_id is not None:
@@ -210,7 +224,11 @@ class AdminMixin:
                                 result_device_assignments.c.analysis_device_id,
                                 result_device_assignments.c.batch_condition_id,
                                 result_device_assignments.c.result_file_id,
+                                result_device_assignments.c.fabrication_device_id,
                                 result_files.c.analysis,
+                                result_files.c.created_at.label(
+                                    "result_file_created_at"
+                                ),
                             )
                             .select_from(result_device_assignments)
                             .join(
@@ -304,25 +322,39 @@ class AdminMixin:
                 elif isinstance(metrics, Mapping):
                     # Schema 6 stores metrics per scan direction (forward /
                     # reverse are separate physical measurements); each
-                    # direction seeds its own training sample, exactly like
-                    # the pooled statistics. The legacy flat shape and the
-                    # migrated "combined" tier are single-entry records.
+                    # direction seeds its own training sample. Every entry
+                    # carries per-measurement provenance (physical device
+                    # binding, direction, source file) so re-measurements of
+                    # one device collapse to a representative before
+                    # aggregation. The legacy flat shape and the migrated
+                    # "combined" tier are single-entry records.
                     if "forward" in metrics or "reverse" in metrics:
-                        metric_entries = [
-                            dict(tier)
+                        tier_entries = [
+                            (direction, dict(metrics[direction]))
                             for direction in ("forward", "reverse")
-                            if isinstance(
-                                tier := metrics.get(direction), Mapping
-                            )
+                            if isinstance(metrics.get(direction), Mapping)
                         ]
                     else:
-                        metric_entries = [dict(metrics)]
-                    if not metric_entries:
-                        metric_entries = []
+                        tier_entries = [("combined", dict(metrics))]
+                    file_created_at = assignment["result_file_created_at"]
+                    file_created_at = (
+                        file_created_at.isoformat()
+                        if hasattr(file_created_at, "isoformat")
+                        else file_created_at
+                    )
                     hysteresis_index = device.get("hysteresis_index")
-                    for entry in metric_entries:
+                    for direction, entry in tier_entries:
                         if isinstance(hysteresis_index, (int, float)):
                             entry["hysteresis_index"] = float(hysteresis_index)
+                        entry["direction"] = direction
+                        entry["fabrication_device_id"] = assignment[
+                            "fabrication_device_id"
+                        ]
+                        entry["fabrication_substrate_id"] = device.get(
+                            "fabrication_substrate_id"
+                        )
+                        entry["result_file_id"] = file_id
+                        entry["result_file_created_at"] = file_created_at
                         device_metrics_by_condition.setdefault(condition_id, []).append(
                             entry
                         )
@@ -375,6 +407,59 @@ class AdminMixin:
                             (method, digest)
                         ]
         rows: list[dict[str, Any]] = []
+
+        def append_metric_rows(
+            *,
+            base: dict[str, Any],
+            substrate_ids: list[int],
+            variant_index: int,
+            feature_source: str,
+            features: dict[str, Any] | None,
+            entries: list[dict[str, Any]],
+        ) -> None:
+            if keep_all_rows:
+                # Per-measurement mode: one row per raw scan entry, carrying
+                # its device/direction provenance so the training side can
+                # weight or aggregate rows itself.
+                for entry in entries:
+                    rows.append(
+                        {
+                            **base,
+                            "substrate_ids": substrate_ids,
+                            "variant_index": variant_index,
+                            "feature_source": feature_source,
+                            "features": features,
+                            "direction": entry.get("direction"),
+                            "fabrication_device_id": entry.get(
+                                "fabrication_device_id"
+                            ),
+                            "fabrication_substrate_id": entry.get(
+                                "fabrication_substrate_id"
+                            ),
+                            "representative_rule": "all-measurements",
+                            "metrics": extract_result_metrics(
+                                [entry], representative=representative
+                            ),
+                        }
+                    )
+                return
+            rows.append(
+                {
+                    **base,
+                    "substrate_ids": substrate_ids,
+                    "variant_index": variant_index,
+                    "feature_source": feature_source,
+                    "features": features,
+                    "direction": None,
+                    "fabrication_device_id": None,
+                    "fabrication_substrate_id": None,
+                    "representative_rule": representative,
+                    "metrics": extract_result_metrics(
+                        entries, representative=representative
+                    ),
+                }
+            )
+
         for source in condition_rows:
             condition_id = int(source["id"])
             base = {
@@ -397,17 +482,13 @@ class AdminMixin:
             )
             variants = variants_by_condition.get(condition_id) or {}
             if not variants:
-                rows.append(
-                    {
-                        **base,
-                        "substrate_ids": [],
-                        "variant_index": 0,
-                        "feature_source": "planned",
-                        "features": planned_features,
-                        "metrics": extract_result_metrics(
-                            device_metrics_by_condition.get(condition_id, [])
-                        ),
-                    }
+                append_metric_rows(
+                    base=base,
+                    substrate_ids=[],
+                    variant_index=0,
+                    feature_source="planned",
+                    features=planned_features,
+                    entries=device_metrics_by_condition.get(condition_id, []),
                 )
                 continue
             metrics_map = substrate_metrics_by_condition.get(condition_id) or {}
@@ -448,15 +529,13 @@ class AdminMixin:
                     for substrate_id in substrate_ids
                     for metric_entry in metrics_map.get(substrate_id, [])
                 ]
-                rows.append(
-                    {
-                        **base,
-                        "substrate_ids": substrate_ids,
-                        "variant_index": variant_index,
-                        "feature_source": feature_source,
-                        "features": features,
-                        "metrics": extract_result_metrics(variant_metrics),
-                    }
+                append_metric_rows(
+                    base=base,
+                    substrate_ids=substrate_ids,
+                    variant_index=variant_index,
+                    feature_source=feature_source,
+                    features=features,
+                    entries=variant_metrics,
                 )
             # Measured substrates whose perovskite executions carried no
             # actual snapshot (cancelled without recording, or analyses that
@@ -476,14 +555,12 @@ class AdminMixin:
                 for metric_entry in metrics_map[substrate_id]
             ] + unmatched_metrics_by_condition.get(condition_id, [])
             if leftover_substrate_ids or leftover_metrics:
-                rows.append(
-                    {
-                        **base,
-                        "substrate_ids": leftover_substrate_ids,
-                        "variant_index": len(variants),
-                        "feature_source": "planned",
-                        "features": planned_features,
-                        "metrics": extract_result_metrics(leftover_metrics),
-                    }
+                append_metric_rows(
+                    base=base,
+                    substrate_ids=leftover_substrate_ids,
+                    variant_index=len(variants),
+                    feature_source="planned",
+                    features=planned_features,
+                    entries=leftover_metrics,
                 )
         return rows
