@@ -330,7 +330,7 @@ class TrainingExportTests(unittest.TestCase):
 
     def _upload_and_assign_a001(
         self, batch_id: int, forward_current: int
-    ) -> None:
+    ) -> int:
         """Upload one A001 result file (forward current varies) and assign it."""
 
         content = (
@@ -373,6 +373,7 @@ class TrainingExportTests(unittest.TestCase):
             },
         )
         self.assertEqual(assigned.status_code, 200, assigned.text)
+        return file_id
 
     def test_remeasured_device_collapses_to_latest_representative(self) -> None:
         """Regression for the review probe: the same physical device
@@ -430,8 +431,8 @@ class TrainingExportTests(unittest.TestCase):
 
     def test_keep_all_rows_emits_one_row_per_measurement(self) -> None:
         batch_id = self._completed_batch()
-        self._upload_and_assign_a001(batch_id, 20)
-        self._upload_and_assign_a001(batch_id, 24)
+        first_file = self._upload_and_assign_a001(batch_id, 20)
+        second_file = self._upload_and_assign_a001(batch_id, 24)
 
         rows = asyncio.run(
             self.repository.build_training_dataset(
@@ -452,6 +453,13 @@ class TrainingExportTests(unittest.TestCase):
         self.assertTrue(
             all(row["metrics"]["device_count"] == 1 for row in rows)
         )
+        self.assertTrue(all(row["metrics"]["representative_rule"] == "all-measurements" for row in rows))
+        self.assertEqual({row["result_file_id"] for row in rows}, {first_file, second_file})
+        for file_id, expected_pces in ((first_file, [10.0, 10.0]), (second_file, [10.0, 12.0])):
+            file_rows = [row for row in rows if row["result_file_id"] == file_id]
+            self.assertEqual(sorted(row["metrics"]["pce"] for row in file_rows), expected_pces)
+            self.assertTrue(all(row["result_file_created_at"] for row in file_rows))
+            self.assertTrue(all(row["result_file_ids"] == [file_id] for row in file_rows))
         measured_pces = sorted(row["metrics"]["pce"] for row in rows)
         self.assertEqual(measured_pces, [10.0, 10.0, 10.0, 12.0])
 
@@ -487,6 +495,40 @@ class TrainingExportCliTests(TrainingExportTests):
             asyncio.run(run_command(args, self.app.state.database))
         return output.getvalue()
 
+    def test_raw_cli_exports_preserve_each_source_file_and_upload_time(self) -> None:
+        import csv as csv_module
+        from datetime import datetime
+
+        batch_id = self._completed_batch()
+        first_file = self._upload_and_assign_a001(batch_id, 20)
+        second_file = self._upload_and_assign_a001(batch_id, 24)
+        for representative in ("latest", "mean"):
+            for export_format in ("json", "csv"):
+                with self.subTest(representative=representative, format=export_format):
+                    output = self._run_cli(
+                        "export-training-data", "--batch-id", str(batch_id),
+                        "--keep-all-rows", "--representative", representative,
+                        "--format", export_format,
+                    )
+                    if export_format == "json":
+                        header, *rows = [json.loads(line) for line in output.splitlines()]
+                        self.assertEqual(header["representative_rule"], "all-measurements")
+                        self.assertIn("result_file_id", header["measurement_fields"])
+                        self.assertIn("result_file_created_at", header["measurement_fields"])
+                        self.assertTrue(all(row["metrics"]["representative_rule"] == "all-measurements" for row in rows))
+                        values = [(row["result_file_id"], row["result_file_created_at"], row["metrics"]["pce"]) for row in rows]
+                    else:
+                        rows = list(csv_module.DictReader(io.StringIO(output)))
+                        values = [(int(row["result_file_id"]), row["result_file_created_at"], float(row["pce"])) for row in rows]
+                    self.assertEqual(len(rows), 4)
+                    self.assertTrue(all(row["representative_rule"] == "all-measurements" for row in rows))
+                    for file_id, expected_pces in ((first_file, [10.0, 10.0]), (second_file, [10.0, 12.0])):
+                        file_values = [value for value in values if value[0] == file_id]
+                        self.assertEqual(sorted(value[2] for value in file_values), expected_pces)
+                        timestamps = {value[1] for value in file_values}
+                        self.assertEqual(len(timestamps), 1)
+                        self.assertTrue(datetime.fromisoformat(timestamps.pop()))
+
     def test_cli_exports_json_lines_and_csv(self) -> None:
         batch_id = self._completed_batch()
         self._upload_and_assign_control(batch_id)
@@ -513,6 +555,8 @@ class TrainingExportCliTests(TrainingExportTests):
         )
         measured = [r for r in rows if r["metrics"]]
         self.assertEqual(len(measured), 1)
+        self.assertTrue(all(row["result_file_id"] is None for row in rows))
+        self.assertTrue(all(row["result_file_created_at"] is None for row in rows))
 
         csv_output = self._run_cli(
             "export-training-data",

@@ -422,6 +422,9 @@ class AdminMixin:
                 # its device/direction provenance so the training side can
                 # weight or aggregate rows itself.
                 for entry in entries:
+                    metrics = extract_result_metrics([entry])
+                    if metrics is not None:
+                        metrics["representative_rule"] = "all-measurements"
                     rows.append(
                         {
                             **base,
@@ -429,6 +432,9 @@ class AdminMixin:
                             "variant_index": variant_index,
                             "feature_source": feature_source,
                             "features": features,
+                            "result_file_id": entry.get("result_file_id"),
+                            "result_file_created_at": entry.get("result_file_created_at"),
+                            "result_file_ids": [entry["result_file_id"]],
                             "direction": entry.get("direction"),
                             "fabrication_device_id": entry.get(
                                 "fabrication_device_id"
@@ -437,9 +443,7 @@ class AdminMixin:
                                 "fabrication_substrate_id"
                             ),
                             "representative_rule": "all-measurements",
-                            "metrics": extract_result_metrics(
-                                [entry], representative=representative
-                            ),
+                            "metrics": metrics,
                         }
                     )
                 return
@@ -450,6 +454,8 @@ class AdminMixin:
                     "variant_index": variant_index,
                     "feature_source": feature_source,
                     "features": features,
+                    "result_file_id": None,
+                    "result_file_created_at": None,
                     "direction": None,
                     "fabrication_device_id": None,
                     "fabrication_substrate_id": None,

@@ -455,6 +455,13 @@ def training_export_header(
         "export_schema_version": TRAINING_EXPORT_SCHEMA_VERSION,
         "representative_rule": representative_rule,
         "feature_fields": list(_PARAMETER_NAMES),
+        "measurement_fields": [
+            "result_file_id",
+            "result_file_created_at",
+            "fabrication_device_id",
+            "fabrication_substrate_id",
+            "direction",
+        ],
         "metric_fields": metric_fields,
         "units": {**_feature_units(), **_TRAINING_METRIC_UNITS},
         "notes": [
@@ -471,7 +478,10 @@ def training_export_header(
             "values across uploads. device_count counts distinct physical "
             "devices; scan_count counts raw measurement entries before the "
             "collapse; per_direction splits the medians by scan direction. "
-            "--keep-all-rows emits one row per measurement instead.",
+            "--keep-all-rows emits one row per measurement instead, retaining "
+            "its source result_file_id and result_file_created_at (upload time). "
+            "Its row and metric representative_rule are 'all-measurements'; "
+            "aggregate rows have no single source file or upload timestamp.",
             "Feature values are None where the frozen recipe snapshot has no "
             "such step (e.g. a two-spin recipe has no spin_thin_* fields); "
             "impute or drop rows downstream.",

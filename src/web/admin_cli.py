@@ -274,6 +274,8 @@ TRAINING_META_COLUMNS = [
     "role",
     "source_condition_hash",
     "result_file_ids",
+    "result_file_id",
+    "result_file_created_at",
     "excluded_device_count",
     "feature_source",
     "variant_index",
