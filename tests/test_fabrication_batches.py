@@ -114,7 +114,10 @@ async def _create_released_experiment_with_conditions(
         exp_id, PlanStatus.PENDING_APPROVAL, actor_user_id=actor_user_id
     )
     await repo.update_plan_status(
-        exp_id, PlanStatus.APPROVED, actor_user_id=actor_user_id
+        exp_id,
+        PlanStatus.APPROVED,
+        actor_user_id=actor_user_id,
+        expected_approval_digest=await repo.approval_scope_digest(exp_id),
     )
     await repo.update_plan_status(
         exp_id, PlanStatus.RELEASED, actor_user_id=actor_user_id
@@ -273,7 +276,12 @@ class LayoutFreezeTests(unittest.TestCase):
         )
         asyncio.run(
             self.repository.update_plan_status(
-                draft_experiment, PlanStatus.APPROVED, actor_user_id=1
+                draft_experiment,
+                PlanStatus.APPROVED,
+                actor_user_id=1,
+                expected_approval_digest=asyncio.run(
+                    self.repository.approval_scope_digest(draft_experiment)
+                ),
             )
         )
         # Release validation compares the frozen snapshot against the exact
@@ -679,7 +687,12 @@ class FabricationBatchCreationTests(unittest.TestCase):
             exc.id, decision=ExceptionDecision.APPROVED, decided_by_id=1, decision_note="OK",
         ))
         asyncio.run(self.repository.update_plan_status(exp_id, PlanStatus.PENDING_APPROVAL, actor_user_id=1))
-        asyncio.run(self.repository.update_plan_status(exp_id, PlanStatus.APPROVED, actor_user_id=1))
+        asyncio.run(self.repository.update_plan_status(
+            exp_id,
+            PlanStatus.APPROVED,
+            actor_user_id=1,
+            expected_approval_digest=asyncio.run(self.repository.approval_scope_digest(exp_id)),
+        ))
         asyncio.run(self.repository.update_plan_status(exp_id, PlanStatus.RELEASED, actor_user_id=1))
         batch = asyncio.run(self.repository.create_fabrication_batch(
             exp_id, actor_user_id=1,

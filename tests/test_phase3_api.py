@@ -188,9 +188,13 @@ class Phase3ApiTests(unittest.TestCase):
         self.assertEqual(submitted.status_code, 204, submitted.text)
         self.logout()
         self.login(ADMIN_USERNAME, ADMIN_PASSWORD)
+        detail = self.client.get(f"/api/experiments/{experiment_id}").json()
         approved = self.client.patch(
             f"/api/experiments/{experiment_id}/plan-status",
-            json={"status": "approved"},
+            json={
+                "status": "approved",
+                "expected_approval_digest": detail["approval_scope_digest"],
+            },
         )
         self.assertEqual(approved.status_code, 204, approved.text)
         released = self.client.patch(

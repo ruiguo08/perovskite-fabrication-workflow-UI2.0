@@ -223,9 +223,13 @@ class FastAPIWebAppTests(unittest.TestCase):
             json={"status": "pending_approval"},
         )
         if response.status_code == 204:
+            detail = self.client.get(f"/api/experiments/{experiment_id}").json()
             response = self.client.patch(
                 f"/api/experiments/{experiment_id}/plan-status",
-                json={"status": "approved"},
+                json={
+                    "status": "approved",
+                    "expected_approval_digest": detail["approval_scope_digest"],
+                },
             )
             self.assertEqual(response.status_code, 204, response.text)
         else:
@@ -861,9 +865,13 @@ class FastAPIWebAppTests(unittest.TestCase):
             json={"decision": "approved", "decision_note": "Approved for this run."},
         )
         self.assertEqual(approved_exception.status_code, 200, approved_exception.text)
+        detail = self.client.get("/api/experiments/1").json()
         approved_plan = self.client.patch(
             "/api/experiments/1/plan-status",
-            json={"status": "approved"},
+            json={
+                "status": "approved",
+                "expected_approval_digest": detail["approval_scope_digest"],
+            },
         )
         self.assertEqual(approved_plan.status_code, 204, approved_plan.text)
         self.assertEqual(self.client.get("/api/experiments/1").json()["experiment"]["plan_status"], "approved")

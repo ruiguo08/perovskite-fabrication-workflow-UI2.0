@@ -118,9 +118,17 @@ class AuthenticationSecurityTests(unittest.TestCase):
         self.assertEqual(created.status_code, 201, created.text)
         experiment_id = int(created.json()["id"])
         for status in ("pending_approval", "approved", "released"):
+            payload: dict[str, object] = {"status": status}
+            if status == "approved":
+                detail = self.client.get(
+                    f"/api/experiments/{experiment_id}"
+                ).json()
+                payload["expected_approval_digest"] = detail[
+                    "approval_scope_digest"
+                ]
             transition = self.client.patch(
                 f"/api/experiments/{experiment_id}/plan-status",
-                json={"status": status},
+                json=payload,
             )
             self.assertEqual(transition.status_code, 204, transition.text)
         batch = self.client.post(

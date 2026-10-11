@@ -19,6 +19,7 @@ from ..condition_snapshot import (
     validate_condition_snapshot,
 )
 from ..repository.condition import (
+    StaleApprovalScope,
     apply_condition_create,
     apply_condition_delete,
     apply_condition_update,
@@ -33,7 +34,7 @@ from ..repository.records import (
     PlanStatus,
     UserRole,
 )
-from .errors import AccessDenied, InvalidInput, RecordNotFound
+from .errors import AccessDenied, InvalidInput, RecordNotFound, StateConflict
 
 
 def _owner_scope(
@@ -244,6 +245,7 @@ async def update_plan_status(
     actor_user_id: int | None,
     client_ip: str | None = None,
     actor_role: UserRole | None = None,
+    expected_approval_digest: str | None = None,
 ) -> None:
     """Authorize and apply one plan-status transition."""
 
@@ -266,6 +268,7 @@ async def update_plan_status(
                 plan_status=plan_status,
                 actor_user_id=actor_user_id,
                 client_ip=client_ip,
+                expected_approval_digest=expected_approval_digest,
             )
     except KeyError as error:
         raise RecordNotFound(*error.args) from error
@@ -274,6 +277,11 @@ async def update_plan_status(
         # students transitioning their own plan past draft (403, as the
         # historical route mapped it).
         raise AccessDenied(str(error)) from error
+    except StaleApprovalScope as error:
+        # Must precede the ValueError mapping: the stale-scope signal is a
+        # ValueError subclass but means "review what you are approving
+        # again" (409), not "malformed input" (400).
+        raise StateConflict(str(error)) from error
     except ValueError as error:
         raise InvalidInput(str(error)) from error
 

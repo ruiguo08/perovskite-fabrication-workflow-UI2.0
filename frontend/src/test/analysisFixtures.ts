@@ -34,7 +34,7 @@ export function experiment(id: number, code = `Plan-${id}`): Experiment {
 
 export function detail(id: number, code = `Plan-${id}`): ExperimentDetail {
   return { experiment: experiment(id, code), conditions: [condition(id * 10, 1000), condition(id * 10 + 1, 2000, "target")],
-    substrate_exceptions: [], fabrication_batches: [], results: [] };
+    substrate_exceptions: [], fabrication_batches: [], results: [], approval_scope_digest: `digest-${id}` };
 }
 
 export function result(id: number, experimentId: number): ResultListItem {
