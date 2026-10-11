@@ -724,6 +724,10 @@ export interface AnalysisComparisonMetric {
   p_value: number | null;
   adjusted_p_value: number | null;
   test_method: string | null;
+  /** Exchangeable unit the permutation treats as independent (schema 6+). */
+  inference_unit?: string;
+  n_independent_units_control?: number;
+  n_independent_units_target?: number;
 }
 
 export interface AnalysisComparison {

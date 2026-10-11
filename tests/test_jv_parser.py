@@ -286,6 +286,136 @@ class JVParserTests(unittest.TestCase):
         self.assertEqual(comparison["test_method"], "exact permutation")
         self.assertIsNotNone(comparison["p_value"])
         self.assertIsNotNone(comparison["adjusted_p_value"])
+        self.assertEqual(comparison["inference_unit"], "substrate")
+        self.assertEqual(comparison["n_independent_units_control"], 2)
+        self.assertEqual(comparison["n_independent_units_target"], 2)
+
+    def test_comparison_effects_use_substrates_with_unequal_device_counts(self) -> None:
+        """Unequal device counts must not reverse a substrate-level effect."""
+        from web.jv_parser import _group_statistics
+
+        devices = []
+        for group, substrate, count, pce in (
+            ("control", "A001", 1, 0.0),
+            ("control", "A002", 9, 10.0),
+            ("target", "A003", 9, 2.0),
+            ("target", "A004", 1, 12.0),
+        ):
+            for channel in range(count):
+                devices.append({
+                    "device_id": f"{substrate}-{channel}",
+                    "substrate_id": substrate,
+                    "group_id": group,
+                    "metrics": {"forward": {"pce": pce}},
+                })
+        devices.append({
+            "device_id": "excluded", "substrate_id": "A005",
+            "group_id": "control", "excluded": True,
+            "metrics": {"forward": {"pce": 1000.0}},
+        })
+        stats = _group_statistics(devices, [
+            {"group_id": "control", "name": "Control", "kind": "control"},
+            {"group_id": "target", "name": "Target", "kind": "target"},
+        ])
+        comparison = next(row for row in stats["comparisons"] if row["direction"] == "forward")["metrics"]["pce"]
+        # Substrate means: control [0, 10], target [2, 12]. Their means
+        # are 5 and 7; pooled SD is sqrt(50), giving an effect of 2/sqrt(50).
+        self.assertAlmostEqual(comparison["mean_difference"], 2.0)
+        self.assertAlmostEqual(comparison["percent_difference"], 40.0)
+        self.assertAlmostEqual(comparison["effect_size"], 0.282842712474619)
+        self.assertAlmostEqual(comparison["p_value"], 2.0 / 3.0)
+        self.assertEqual(comparison["n_independent_units_control"], 2)
+        self.assertEqual(comparison["n_independent_units_target"], 2)
+        # Device-level descriptive means remain 9 and 3; neither those
+        # unequal sample weights nor an excluded substrate enter inference.
+        self.assertAlmostEqual(stats["groups"][0]["metrics"]["forward"]["pce"]["mean"], 9.0)
+        self.assertAlmostEqual(stats["groups"][1]["metrics"]["forward"]["pce"]["mean"], 3.0)
+
+    def test_comparisons_refuse_p_value_with_one_substrate_per_group(self) -> None:
+        """Regression for the review probe: three devices per side but only
+        one substrate per group. Devices on a substrate are not independent
+        replicates, so the comparison reports no p-value instead of the
+        device-level permutation's manufactured significance."""
+
+        content = multi_device_csv(
+            [10, 10, 10, 10, 10, 10, 11, 11, 11, 11, 11, 11],
+            device_labels=[
+                "A001 Channel 1",
+                "A001 Channel 2",
+                "A001 Channel 3",
+                "A002 Channel 1",
+                "A002 Channel 2",
+                "A002 Channel 3",
+            ],
+        )
+        analysis = parse_jv_analysis(content)
+        groups = [
+            {"group_id": "control", "name": "Control", "kind": "control"},
+            {"group_id": "target-1", "name": "ADH", "kind": "target"},
+        ]
+        assignments = {"A001": "control", "A002": "target-1"}
+
+        assigned = assign_substrates_to_groups(analysis, assignments, groups)
+
+        comparison = next(
+            row for row in assigned["statistics"]["comparisons"] if row["direction"] == "forward"
+        )["metrics"]["pce"]
+        self.assertIsNone(comparison["p_value"])
+        self.assertIsNone(comparison["adjusted_p_value"])
+        self.assertEqual(
+            comparison["test_method"],
+            "insufficient independent units (substrates=1)",
+        )
+        self.assertEqual(comparison["inference_unit"], "substrate")
+        self.assertEqual(comparison["n_independent_units_control"], 1)
+        self.assertEqual(comparison["n_independent_units_target"], 1)
+        # With one substrate per side the means agree with the device
+        # averages, but the group has no independent replication.
+        self.assertAlmostEqual(comparison["mean_difference"], 0.5)
+
+    def test_device_replication_within_substrate_does_not_inflate_significance(self) -> None:
+        """Two devices per substrate: the permutation must run on the two
+        substrate means per side, not on the four device values, and the
+        p-value must match the hand-computed substrate-level exact test."""
+
+        content = multi_device_csv(
+            [20, 20, 24, 24, 18, 18, 22, 22, 24, 24, 28, 28, 22, 22, 30, 30],
+            device_labels=[
+                "A001 Channel 1",
+                "A001 Channel 2",
+                "A002 Channel 1",
+                "A002 Channel 2",
+                "A003 Channel 1",
+                "A003 Channel 2",
+                "A004 Channel 1",
+                "A004 Channel 2",
+            ],
+        )
+        analysis = parse_jv_analysis(content)
+        groups = [
+            {"group_id": "control", "name": "Control", "kind": "control"},
+            {"group_id": "target-1", "name": "ADH", "kind": "target"},
+        ]
+        assignments = {
+            "A001": "control",
+            "A002": "control",
+            "A003": "target-1",
+            "A004": "target-1",
+        }
+
+        assigned = assign_substrates_to_groups(analysis, assignments, groups)
+
+        comparison = next(
+            row for row in assigned["statistics"]["comparisons"] if row["direction"] == "forward"
+        )["metrics"]["pce"]
+        self.assertEqual(comparison["n_independent_units_control"], 2)
+        self.assertEqual(comparison["n_independent_units_target"], 2)
+        # Substrate means (pce = current/2 on this curve): control {11, 10},
+        # target {13, 13}; observed difference 2.5. Exact permutation over
+        # C(4,2)=6 splits: only the two splits keeping {10,11} or {13,13}
+        # together reach it → p = 2/6.
+        self.assertAlmostEqual(comparison["mean_difference"], 2.5)
+        self.assertAlmostEqual(comparison["p_value"], 2.0 / 6.0)
 
     def test_extracts_short_marks_and_instrument_local_timestamp(self) -> None:
         content = (
