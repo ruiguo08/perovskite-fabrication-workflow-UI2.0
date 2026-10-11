@@ -1331,6 +1331,11 @@ def _group_statistics(
                         continue
                     control_values = substrate_metric_values(control, direction, metric_name)
                     target_values = substrate_metric_values(target, direction, metric_name)
+                    # Comparison estimates use the same equally weighted
+                    # substrate units as the test and pooled SD. Device-level
+                    # group summaries remain descriptive only.
+                    control_mean = statistics.fmean(control_values)
+                    target_mean = statistics.fmean(target_values)
                     difference = target_mean - control_mean
                     denominator = _pooled_standard_deviation(
                         control_values,

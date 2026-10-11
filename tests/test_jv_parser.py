@@ -290,6 +290,47 @@ class JVParserTests(unittest.TestCase):
         self.assertEqual(comparison["n_independent_units_control"], 2)
         self.assertEqual(comparison["n_independent_units_target"], 2)
 
+    def test_comparison_effects_use_substrates_with_unequal_device_counts(self) -> None:
+        """Unequal device counts must not reverse a substrate-level effect."""
+        from web.jv_parser import _group_statistics
+
+        devices = []
+        for group, substrate, count, pce in (
+            ("control", "A001", 1, 0.0),
+            ("control", "A002", 9, 10.0),
+            ("target", "A003", 9, 2.0),
+            ("target", "A004", 1, 12.0),
+        ):
+            for channel in range(count):
+                devices.append({
+                    "device_id": f"{substrate}-{channel}",
+                    "substrate_id": substrate,
+                    "group_id": group,
+                    "metrics": {"forward": {"pce": pce}},
+                })
+        devices.append({
+            "device_id": "excluded", "substrate_id": "A005",
+            "group_id": "control", "excluded": True,
+            "metrics": {"forward": {"pce": 1000.0}},
+        })
+        stats = _group_statistics(devices, [
+            {"group_id": "control", "name": "Control", "kind": "control"},
+            {"group_id": "target", "name": "Target", "kind": "target"},
+        ])
+        comparison = next(row for row in stats["comparisons"] if row["direction"] == "forward")["metrics"]["pce"]
+        # Substrate means: control [0, 10], target [2, 12]. Their means
+        # are 5 and 7; pooled SD is sqrt(50), giving an effect of 2/sqrt(50).
+        self.assertAlmostEqual(comparison["mean_difference"], 2.0)
+        self.assertAlmostEqual(comparison["percent_difference"], 40.0)
+        self.assertAlmostEqual(comparison["effect_size"], 0.282842712474619)
+        self.assertAlmostEqual(comparison["p_value"], 2.0 / 3.0)
+        self.assertEqual(comparison["n_independent_units_control"], 2)
+        self.assertEqual(comparison["n_independent_units_target"], 2)
+        # Device-level descriptive means remain 9 and 3; neither those
+        # unequal sample weights nor an excluded substrate enter inference.
+        self.assertAlmostEqual(stats["groups"][0]["metrics"]["forward"]["pce"]["mean"], 9.0)
+        self.assertAlmostEqual(stats["groups"][1]["metrics"]["forward"]["pce"]["mean"], 3.0)
+
     def test_comparisons_refuse_p_value_with_one_substrate_per_group(self) -> None:
         """Regression for the review probe: three devices per side but only
         one substrate per group. Devices on a substrate are not independent

@@ -202,6 +202,8 @@
   `p=None`，`test_method="insufficient independent units (substrates=N)"`，描述
   统计照旧。输出 JSON 增加 `inference_unit="substrate"` 与两侧
   `n_independent_units`；BH 校正只在可用 p 上进行（现有逻辑已按可用项过滤）。
+  比较块的均值差、百分比差与效应量分子也使用等权基底均值，与置换和 pooled SD 保持一致；
+  分组描述统计仍按器件报告。基底内有效器件数不等时，不允许器件权重改变推断效应的方向。
 - 4B：计划层声明实验单位（device/substrate/batch）+ Winkler 式分层受限置换。最
   严谨，需要迁移、UI 声明入口与更多验证；等出现"基底内随机化"的真实设计再上。
 - 4C：单位机制落地前完全停止输出 p。最保守，但把尚能正确用于"处理确实施加于器件
