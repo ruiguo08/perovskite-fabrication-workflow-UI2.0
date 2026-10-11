@@ -112,6 +112,24 @@ def parser() -> argparse.ArgumentParser:
     training.add_argument("--experiment-id", type=int)
     training.add_argument("--batch-id", type=int)
     training.add_argument("--format", choices=["json", "csv"], default="json")
+    training.add_argument(
+        "--representative",
+        choices=["latest", "mean"],
+        default="latest",
+        help=(
+            "How re-measurements of one physical device collapse before "
+            "aggregation: keep the latest upload (default) or average the "
+            "metric values across uploads"
+        ),
+    )
+    training.add_argument(
+        "--keep-all-rows",
+        action="store_true",
+        help=(
+            "Emit one row per raw measurement (device x direction) with its "
+            "provenance instead of the per-condition aggregate"
+        ),
+    )
     export_catalog = subcommands.add_parser(
         "export-catalog",
         help="Export catalog data (layouts, materials, presets, baselines) as one JSON document",
@@ -256,15 +274,23 @@ TRAINING_META_COLUMNS = [
     "role",
     "source_condition_hash",
     "result_file_ids",
+    "result_file_id",
+    "result_file_created_at",
     "excluded_device_count",
     "feature_source",
     "variant_index",
     "substrate_ids",
+    "direction",
+    "fabrication_device_id",
+    "fabrication_substrate_id",
+    "representative_rule",
     "export_schema_version",
     "exported_at",
 ]
 TRAINING_METRIC_COLUMNS = [
     "device_count",
+    "scan_count",
+    "n_substrates",
     "voc",
     "jsc",
     "ff",
@@ -281,6 +307,8 @@ async def _run_export_training_data(args: argparse.Namespace, repository: Any) -
     rows = await repository.build_training_dataset(
         experiment_id=args.experiment_id,
         batch_id=args.batch_id,
+        representative=args.representative,
+        keep_all_rows=args.keep_all_rows,
     )
     # Self-description: the header leads the JSON output and its field lists
     # match the CSV columns, so a consumer can validate the shape and units
@@ -290,9 +318,12 @@ async def _run_export_training_data(args: argparse.Namespace, repository: Any) -
         training_export_header,
     )
 
+    representative_rule = (
+        "all-measurements" if args.keep_all_rows else args.representative
+    )
     exported_at = datetime.now(timezone.utc).isoformat()
     if args.format == "json":
-        header = training_export_header()
+        header = training_export_header(representative_rule=representative_rule)
         header["exported_at"] = exported_at
         print(json.dumps(header))
         for row in rows:
