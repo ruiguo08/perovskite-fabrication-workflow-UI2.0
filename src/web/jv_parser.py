@@ -1392,9 +1392,9 @@ def _permutation_p_value(
     """Return a two-sided randomization p-value for the difference in means."""
 
     if len(control) < 2 or len(target) < 2:
-        # One exchangeable unit per side supports no permutation at all;
-        # reporting a device-level p here manufactured significance from
-        # pseudo-replicated sub-samples.
+        # A single substrate on either side provides no within-group
+        # replication. Suppress inference instead of treating its devices
+        # as independent replicates.
         return (
             None,
             "insufficient independent units (substrates=%d)"

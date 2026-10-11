@@ -369,7 +369,8 @@ class JVParserTests(unittest.TestCase):
         self.assertEqual(comparison["inference_unit"], "substrate")
         self.assertEqual(comparison["n_independent_units_control"], 1)
         self.assertEqual(comparison["n_independent_units_target"], 1)
-        # Descriptive statistics are untouched by the unit decision.
+        # With one substrate per side the means agree with the device
+        # averages, but the group has no independent replication.
         self.assertAlmostEqual(comparison["mean_difference"], 0.5)
 
     def test_device_replication_within_substrate_does_not_inflate_significance(self) -> None:
