@@ -328,6 +328,141 @@ class TrainingExportTests(unittest.TestCase):
         )
         self.assertAlmostEqual(control["metrics"]["hysteresis_index"], -0.25)
 
+    def _upload_and_assign_a001(
+        self, batch_id: int, forward_current: int
+    ) -> int:
+        """Upload one A001 result file (forward current varies) and assign it."""
+
+        content = (
+            "No.,1,,,,,,No.,2,,,,,\n"
+            "[Information],,[Volt (V)],[Current (mA)],[J (mA/cm^2)],,,"
+            "[Information],,[Volt (V)],[Current (mA)],[J (mA/cm^2)],,\n"
+            f"Name,A001 Channel 1.Forward,0,-2,-{forward_current},,,"
+            "Name,A001 Channel 1.Reverse,0,-2,-20,,\n"
+            f",,0.5,-2,-{forward_current},,,,,0.5,-2,-20,,\n"
+            ",,1,0,0,,,,,1,0,0,,\n"
+        )
+        uploaded = self.client.post(
+            f"/api/experiments/{self.experiment_id}/results",
+            files={
+                "result_file": (
+                    f"A001 Channel 1 {forward_current}.csv",
+                    content.encode("utf-8"),
+                    "text/csv",
+                )
+            },
+            data={"fabrication_batch_id": str(batch_id)},
+        )
+        self.assertEqual(uploaded.status_code, 201, uploaded.text)
+        file_id = int(uploaded.json()["id"])
+        detail = self.client.get(f"/api/results/{file_id}").json()
+        control_id = next(
+            group["batch_condition_id"]
+            for group in detail["groups"]
+            if group["kind"] == "control"
+        )
+        assigned = self.client.post(
+            f"/api/results/{file_id}/assignments",
+            json={
+                "assignments": [
+                    {
+                        "analysis_substrate_id": "A001",
+                        "batch_condition_id": control_id,
+                    }
+                ]
+            },
+        )
+        self.assertEqual(assigned.status_code, 200, assigned.text)
+        return file_id
+
+    def test_remeasured_device_collapses_to_latest_representative(self) -> None:
+        """Regression for the review probe: the same physical device
+        re-measured and re-uploaded must not gain target weight —
+        device_count stays 1 and the aggregate uses the latest upload."""
+
+        batch_id = self._completed_batch()
+        self._upload_and_assign_a001(batch_id, 20)
+        self._upload_and_assign_a001(batch_id, 24)
+
+        rows = asyncio.run(
+            self.repository.build_training_dataset(
+                experiment_id=self.experiment_id
+            )
+        )
+        control = next(row for row in rows if row["metrics"] is not None)
+        metrics = control["metrics"]
+        self.assertEqual(metrics["device_count"], 1)
+        # Two uploads x (forward + reverse) = 4 raw measurement entries.
+        self.assertEqual(metrics["scan_count"], 4)
+        self.assertEqual(metrics["n_substrates"], 1)
+        self.assertEqual(metrics["representative_rule"], "latest")
+        # Forward representatives: latest upload is 24 mA/cm2 -> pce 12;
+        # reverse representatives are both 20 mA/cm2 -> pce 10. The pooled
+        # median over the two representatives is 11.
+        self.assertAlmostEqual(metrics["pce"], 11.0)
+        self.assertAlmostEqual(metrics["pce_best"], 12.0)
+        self.assertEqual(metrics["per_direction"]["forward"]["pce"], 12.0)
+        self.assertEqual(metrics["per_direction"]["reverse"]["pce"], 10.0)
+        self.assertEqual(metrics["per_direction"]["forward"]["count"], 1)
+        # Aggregate rows carry no per-measurement provenance.
+        self.assertIsNone(control["direction"])
+        self.assertIsNone(control["fabrication_device_id"])
+        self.assertEqual(control["representative_rule"], "latest")
+
+    def test_mean_representative_averages_remeasurements(self) -> None:
+        batch_id = self._completed_batch()
+        self._upload_and_assign_a001(batch_id, 20)
+        self._upload_and_assign_a001(batch_id, 24)
+
+        rows = asyncio.run(
+            self.repository.build_training_dataset(
+                experiment_id=self.experiment_id,
+                representative="mean",
+            )
+        )
+        control = next(row for row in rows if row["metrics"] is not None)
+        metrics = control["metrics"]
+        self.assertEqual(metrics["representative_rule"], "mean")
+        self.assertEqual(metrics["scan_count"], 4)
+        # Forward representative = fmean(pce 10, pce 12) = 11; reverse
+        # representative = fmean(10, 10) = 10; pooled median = 10.5.
+        self.assertAlmostEqual(metrics["per_direction"]["forward"]["pce"], 11.0)
+        self.assertAlmostEqual(metrics["pce"], 10.5)
+
+    def test_keep_all_rows_emits_one_row_per_measurement(self) -> None:
+        batch_id = self._completed_batch()
+        first_file = self._upload_and_assign_a001(batch_id, 20)
+        second_file = self._upload_and_assign_a001(batch_id, 24)
+
+        rows = asyncio.run(
+            self.repository.build_training_dataset(
+                experiment_id=self.experiment_id,
+                keep_all_rows=True,
+            )
+        )
+
+        # Two uploads x (forward + reverse) on one substrate = 4 measurement
+        # rows; the unmeasured condition yields none in this mode.
+        self.assertEqual(len(rows), 4)
+        self.assertEqual(
+            {row["representative_rule"] for row in rows}, {"all-measurements"}
+        )
+        self.assertTrue(
+            all(row["direction"] in ("forward", "reverse") for row in rows)
+        )
+        self.assertTrue(
+            all(row["metrics"]["device_count"] == 1 for row in rows)
+        )
+        self.assertTrue(all(row["metrics"]["representative_rule"] == "all-measurements" for row in rows))
+        self.assertEqual({row["result_file_id"] for row in rows}, {first_file, second_file})
+        for file_id, expected_pces in ((first_file, [10.0, 10.0]), (second_file, [10.0, 12.0])):
+            file_rows = [row for row in rows if row["result_file_id"] == file_id]
+            self.assertEqual(sorted(row["metrics"]["pce"] for row in file_rows), expected_pces)
+            self.assertTrue(all(row["result_file_created_at"] for row in file_rows))
+            self.assertTrue(all(row["result_file_ids"] == [file_id] for row in file_rows))
+        measured_pces = sorted(row["metrics"]["pce"] for row in rows)
+        self.assertEqual(measured_pces, [10.0, 10.0, 10.0, 12.0])
+
     def test_total_current_upload_converts_with_batch_layout_area(self) -> None:
         batch_id = self._completed_batch()
         content = "voltage,current\n0.0,-1.0\n0.5,-1.0\n1.0,0.0\n"
@@ -360,6 +495,40 @@ class TrainingExportCliTests(TrainingExportTests):
             asyncio.run(run_command(args, self.app.state.database))
         return output.getvalue()
 
+    def test_raw_cli_exports_preserve_each_source_file_and_upload_time(self) -> None:
+        import csv as csv_module
+        from datetime import datetime
+
+        batch_id = self._completed_batch()
+        first_file = self._upload_and_assign_a001(batch_id, 20)
+        second_file = self._upload_and_assign_a001(batch_id, 24)
+        for representative in ("latest", "mean"):
+            for export_format in ("json", "csv"):
+                with self.subTest(representative=representative, format=export_format):
+                    output = self._run_cli(
+                        "export-training-data", "--batch-id", str(batch_id),
+                        "--keep-all-rows", "--representative", representative,
+                        "--format", export_format,
+                    )
+                    if export_format == "json":
+                        header, *rows = [json.loads(line) for line in output.splitlines()]
+                        self.assertEqual(header["representative_rule"], "all-measurements")
+                        self.assertIn("result_file_id", header["measurement_fields"])
+                        self.assertIn("result_file_created_at", header["measurement_fields"])
+                        self.assertTrue(all(row["metrics"]["representative_rule"] == "all-measurements" for row in rows))
+                        values = [(row["result_file_id"], row["result_file_created_at"], row["metrics"]["pce"]) for row in rows]
+                    else:
+                        rows = list(csv_module.DictReader(io.StringIO(output)))
+                        values = [(int(row["result_file_id"]), row["result_file_created_at"], float(row["pce"])) for row in rows]
+                    self.assertEqual(len(rows), 4)
+                    self.assertTrue(all(row["representative_rule"] == "all-measurements" for row in rows))
+                    for file_id, expected_pces in ((first_file, [10.0, 10.0]), (second_file, [10.0, 12.0])):
+                        file_values = [value for value in values if value[0] == file_id]
+                        self.assertEqual(sorted(value[2] for value in file_values), expected_pces)
+                        timestamps = {value[1] for value in file_values}
+                        self.assertEqual(len(timestamps), 1)
+                        self.assertTrue(datetime.fromisoformat(timestamps.pop()))
+
     def test_cli_exports_json_lines_and_csv(self) -> None:
         batch_id = self._completed_batch()
         self._upload_and_assign_control(batch_id)
@@ -377,7 +546,8 @@ class TrainingExportCliTests(TrainingExportTests):
         records = [json.loads(line) for line in lines]
         header, rows = records[0], records[1:]
         self.assertEqual(header["record_type"], "header")
-        self.assertEqual(header["export_schema_version"], 2)
+        self.assertEqual(header["export_schema_version"], 3)
+        self.assertEqual(header["representative_rule"], "latest")
         self.assertIn("units", header)
         self.assertTrue(all(row["record_type"] == "data" for row in rows))
         self.assertEqual(
@@ -385,6 +555,8 @@ class TrainingExportCliTests(TrainingExportTests):
         )
         measured = [r for r in rows if r["metrics"]]
         self.assertEqual(len(measured), 1)
+        self.assertTrue(all(row["result_file_id"] is None for row in rows))
+        self.assertTrue(all(row["result_file_created_at"] is None for row in rows))
 
         csv_output = self._run_cli(
             "export-training-data",
@@ -405,7 +577,7 @@ class TrainingExportCliTests(TrainingExportTests):
         self.assertIn("export_schema_version", header)
         self.assertEqual(table[1][header.index("batch_id")], str(batch_id))
         self.assertEqual(
-            table[1][header.index("export_schema_version")], "2"
+            table[1][header.index("export_schema_version")], "3"
         )
 
 
@@ -736,11 +908,14 @@ class TrainingExportCliTests(TrainingExportTests):
         self.assertEqual(planned_row["features"]["spin_cast_rpm"], 1000)
         self.assertEqual(planned_row["substrate_ids"], [first_substrate_id])
         # Metrics follow the substrate grouping: each measured device lands
-        # on exactly one row. Under schema 6 both scan directions of the
-        # device are independent samples, so the recorded variant's single
-        # device contributes two samples.
-        self.assertEqual(actual_row["metrics"]["device_count"], 2)
-        self.assertEqual(planned_row["metrics"]["device_count"], 2)
+        # on exactly one row. Under export schema 3 the physical device is
+        # the counting unit — one device measured once contributes one device
+        # and two scan entries (forward + reverse); re-measurements would not
+        # raise device_count.
+        self.assertEqual(actual_row["metrics"]["device_count"], 1)
+        self.assertEqual(actual_row["metrics"]["scan_count"], 2)
+        self.assertEqual(planned_row["metrics"]["device_count"], 1)
+        self.assertEqual(planned_row["metrics"]["scan_count"], 2)
 
         # The list API reads the write-time flat cache pooled from the
         # stored, non-excluded valid traces (v7 keeps no aggregate summaries

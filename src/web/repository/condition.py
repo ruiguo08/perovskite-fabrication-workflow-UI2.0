@@ -994,9 +994,10 @@ async def compute_approval_scope_digest(
 ) -> str:
     """Deterministic SHA-256 over everything a plan approval covers.
 
-    Scope: the plan type, each condition's code/name/role/recipe snapshot
-    hash/layout/planned substrate count, and every approved substrate-count
-    exception. Titles, notes, and timestamps are deliberately excluded so
+    Scope: the plan type, each condition's identity/provenance, code/name/role,
+    recipe snapshot hash, frozen layout (including its version and geometry),
+    planned substrate count, and every approved substrate-count exception.
+    Titles, notes, and timestamps are deliberately excluded so
     unrelated edits do not invalidate an in-flight review. Approvals embed
     the digest they matched in the audit event as approval evidence.
     """
@@ -1013,12 +1014,16 @@ async def compute_approval_scope_digest(
     condition_rows = (
         await connection.execute(
             select(
+                experiment_conditions.c.id,
                 experiment_conditions.c.condition_code,
                 experiment_conditions.c.condition_name,
                 experiment_conditions.c.role,
                 experiment_conditions.c.canonical_hash,
                 experiment_conditions.c.planned_substrate_count,
                 experiment_conditions.c.device_layout_code,
+                experiment_conditions.c.device_layout_snapshot,
+                experiment_conditions.c.source_baseline_version_id,
+                experiment_conditions.c.requires_manual_review,
             )
             .where(experiment_conditions.c.experiment_id == experiment_id)
             .order_by(experiment_conditions.c.condition_code)
@@ -1027,8 +1032,10 @@ async def compute_approval_scope_digest(
     exception_rows = (
         await connection.execute(
             select(
+                condition_substrate_exceptions.c.id,
                 condition_substrate_exceptions.c.condition_id,
                 condition_substrate_exceptions.c.requested_count,
+                condition_substrate_exceptions.c.approved_condition_hash,
             )
             .select_from(
                 condition_substrate_exceptions.join(
@@ -1046,22 +1053,29 @@ async def compute_approval_scope_digest(
         )
     ).mappings().all()
     scope = {
+        "experiment_id": experiment_id,
         "plan_type": plan_row.plan_type,
         "conditions": [
             {
+                "condition_id": row["id"],
                 "condition_code": row["condition_code"],
                 "condition_name": row["condition_name"],
                 "role": row["role"],
                 "canonical_hash": row["canonical_hash"],
                 "planned_substrate_count": row["planned_substrate_count"],
                 "device_layout_code": row["device_layout_code"],
+                "device_layout_snapshot": row["device_layout_snapshot"],
+                "source_baseline_version_id": row["source_baseline_version_id"],
+                "requires_manual_review": row["requires_manual_review"],
             }
             for row in condition_rows
         ],
         "approved_exceptions": [
             {
+                "exception_id": row["id"],
                 "condition_id": row["condition_id"],
                 "requested_count": row["requested_count"],
+                "approved_condition_hash": row["approved_condition_hash"],
             }
             for row in exception_rows
         ],

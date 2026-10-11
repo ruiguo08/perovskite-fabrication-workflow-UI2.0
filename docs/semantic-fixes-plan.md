@@ -75,9 +75,13 @@
 （sort_keys、紧凑分隔符，同 `condition_snapshot` 惯例）取 SHA-256，内容：
 
 - `plan_type`；
-- 每条条件：`condition_code`、`name`、`role`、`canonical_hash`、
-  `planned_substrate_count`、`device_layout_code`；
-- 每条已批准例外：`condition_id`、`requested_count`。
+- 实验标识与计划类型；
+- 每条条件：条件标识、`condition_code`、`name`、`role`、`canonical_hash`、
+  `planned_substrate_count`、`device_layout_code`、完整冻结布局（版本与几何）、
+  来源基线版本及人工复核标记；
+- 每条已批准例外：例外标识、`condition_id`、`requested_count`、批准时的条件哈希。
+
+布局代码不能代替冻结布局：同一代码可有多个版本；删除后重建同名条件也必须使旧审批摘要失效。
 
 明确不含：实验标题、notes、时间戳、操作者——避免无关编辑触发 409。
 

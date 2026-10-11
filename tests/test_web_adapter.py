@@ -139,7 +139,10 @@ class WebAdapterTests(unittest.TestCase):
         header = training_export_header()
 
         self.assertEqual(header["record_type"], "header")
-        self.assertEqual(header["export_schema_version"], 2)
+        self.assertEqual(header["export_schema_version"], 3)
+        self.assertEqual(header["representative_rule"], "latest")
+        self.assertIn("scan_count", header["metric_fields"])
+        self.assertIn("n_substrates", header["metric_fields"])
         self.assertEqual(
             tuple(header["feature_fields"]), search_space_parameter_names()
         )
