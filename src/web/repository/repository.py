@@ -13,6 +13,7 @@ from .base import WebRepositoryBase
 from .baseline import BaselinesMixin
 from .batch import FabricationBatchesMixin
 from .campaign import CampaignsMixin
+from .campaign_analysis import CampaignAnalysisMixin
 from .condition import ConditionsMixin
 from .experiment import ExperimentsMixin
 from .identity import UsersMixin
@@ -30,6 +31,7 @@ class WebRepository(
     UsersMixin,
     AdminMixin,
     CampaignsMixin,
+    CampaignAnalysisMixin,
     ConditionsMixin,
     FabricationBatchesMixin,
     WebRepositoryBase,

@@ -124,6 +124,7 @@ class RepositorySurfaceTests(unittest.TestCase):
                 "UsersMixin",
                 "AdminMixin",
                 "CampaignsMixin",
+                "CampaignAnalysisMixin",
                 "ConditionsMixin",
                 "FabricationBatchesMixin",
             ],

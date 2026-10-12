@@ -9,6 +9,7 @@ cross-domain helpers and the OperationError-to-HTTP mapping. This module keeps
 from fastapi import APIRouter
 
 from ..repository import WebRepository
+from .analysis import create_analysis_router
 from .batches import create_batches_router
 from .campaigns import create_campaigns_router
 from .catalogs import create_catalogs_router
@@ -32,4 +33,5 @@ def create_router(
     router.include_router(create_campaigns_router(repository, default_campaign_id=default_campaign_id))
     router.include_router(create_batches_router(repository, default_campaign_id=default_campaign_id))
     router.include_router(create_devices_router(repository, default_campaign_id=default_campaign_id))
+    router.include_router(create_analysis_router(repository))
     return router

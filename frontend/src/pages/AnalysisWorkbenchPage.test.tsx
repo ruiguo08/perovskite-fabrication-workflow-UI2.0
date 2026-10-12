@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AnalysisWorkbenchPage } from "./AnalysisWorkbenchPage";
 import { batch, detail, experiment, result } from "../test/analysisFixtures";
+import { analysisFixture } from "../features/campaign-analysis/campaignView.test";
 import * as matrices from "../lib/conditionMatrix";
 import type { ExperimentDetail } from "../types/api";
 
@@ -15,10 +16,16 @@ function directory(path: string) {
   if (path === "/api/fabrication-batches") return Promise.resolve([batch(100, 1), batch(200, 2)]);
   if (path === "/api/experiments/1") return Promise.resolve(detail(1));
   if (path === "/api/experiments/2") return Promise.resolve(detail(2));
+  if (path.startsWith("/api/campaigns/") && path.includes("/analysis")) {
+    return Promise.resolve(analysisFixture());
+  }
   return Promise.reject(new Error(`Unexpected API request: ${path}`));
 }
 async function select(id: number) {
   fireEvent.click(await screen.findByRole("checkbox", { name: new RegExp(`scan-${id}\\.csv$`) }));
+}
+function findConditionTable() {
+  return screen.findByRole("region", { name: "Condition comparison table" });
 }
 
 describe("AnalysisWorkbenchPage", () => {
@@ -35,7 +42,7 @@ describe("AnalysisWorkbenchPage", () => {
     expect(apiFetchMock.mock.calls.filter(([path]) => path === "/api/experiments/2")).toHaveLength(1);
     expect(screen.getByText("Loading frozen conditions for the selected experiments…")).toBeInTheDocument();
     await act(async () => resolveFirst(detail(1)));
-    const table = await screen.findByRole("table");
+    const table = await findConditionTable();
     const headers = within(table).getAllByRole("columnheader").map((header) => header.textContent);
     expect(headers).toEqual(["Parameter", "Plan-1C10 · Controlcontrol", "Plan-1C11 · Targettarget", "Plan-2C20 · Controlcontrol", "Plan-2C21 · Targettarget"]);
     const spin = within(table).getByText("Deposition › Spin step 1 › Speed").closest("tr")!;
@@ -52,7 +59,7 @@ describe("AnalysisWorkbenchPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Compare conditions" }));
     await select(1); await select(3);
     fireEvent.click(screen.getByRole("button", { name: "Compare conditions" }));
-    const table = await screen.findByRole("table");
+    const table = await findConditionTable();
     expect(within(table).getAllByRole("columnheader")).toHaveLength(3);
     await act(async () => resolveOld(detail(1)));
     expect(within(table).queryByText("Plan-1")).not.toBeInTheDocument();
@@ -63,9 +70,9 @@ describe("AnalysisWorkbenchPage", () => {
     render(<AnalysisWorkbenchPage />);
     await select(1);
     fireEvent.click(screen.getByRole("button", { name: "Compare conditions" }));
-    await screen.findByRole("table");
+    await findConditionTable();
     await select(3);
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Condition comparison table" })).not.toBeInTheDocument();
     apiFetchMock.mockRejectedValue(new Error("Snapshot validation failed"));
     fireEvent.click(screen.getByRole("button", { name: "Compare conditions" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Snapshot validation failed");
