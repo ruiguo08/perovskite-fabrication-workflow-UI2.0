@@ -1,0 +1,173 @@
+/* Layer presets feature styles: summary chips, gap hints, revision diff,
+   and live preview panels. Scoped to preset-specific class names so the
+   shared catalog/builder styles stay untouched. */
+
+.preset-summary {
+  margin-top: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.preset-summary__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.preset-chip {
+  display: inline-block;
+  padding: 2px var(--space-3);
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--fill-quiet);
+  font-size: var(--text-xs);
+}
+
+.preset-chip--ok {
+  border-color: var(--success-border);
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.preset-chip--partial {
+  border-color: var(--steel);
+  background: var(--neutral-soft);
+}
+
+.preset-chip--warn {
+  border-color: var(--amber-border);
+  background: var(--amber-soft);
+}
+
+.preset-summary__facts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.preset-gaps {
+  border-left: 3px solid var(--amber-border);
+  background: var(--amber-soft);
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.preset-gaps__title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.preset-gaps ul {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+.preset-gaps code {
+  font-size: var(--text-xs);
+  color: var(--graphite);
+  opacity: 0.75;
+}
+
+.preset-preview {
+  margin-top: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--fill-quiet);
+  padding: var(--space-3) var(--space-4);
+}
+
+.preset-preview__title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-md);
+}
+
+.preset-diff__body {
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+}
+
+.preset-diff__pickers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.preset-diff__meta {
+  margin: 0;
+}
+
+.preset-diff__group h4 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.preset-diff__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.preset-diff__row {
+  display: grid;
+  grid-template-columns: 1.4em minmax(0, 1fr) minmax(0, 1.2fr);
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+  background: var(--fill-quiet);
+}
+
+.preset-diff__row--added {
+  border-left: 3px solid var(--success-border);
+}
+
+.preset-diff__row--removed {
+  border-left: 3px solid var(--danger-border);
+}
+
+.preset-diff__row--changed {
+  border-left: 3px solid var(--amber-border);
+}
+
+.preset-diff__mark {
+  font-family: var(--font-mono);
+}
+
+.preset-diff__label {
+  min-width: 0;
+}
+
+.preset-diff__label code {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--graphite);
+  opacity: 0.7;
+  overflow-wrap: anywhere;
+}
+
+.preset-diff__values {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.preset-diff__value {
+  overflow-wrap: anywhere;
+}
+
+.preset-diff__value--left {
+  text-decoration: line-through;
+  color: var(--graphite);
+}
+
+.preset-diff__value--right {
+  font-weight: 600;
+}
+
+.preset-diff__arrow {
+  color: var(--steel);
+}

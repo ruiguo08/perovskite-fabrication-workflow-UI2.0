@@ -1,0 +1,423 @@
+/* Card-library styles for the Materials and Layer presets pages.
+   Scoped to .lib- class names and imported only by these two pages, so
+   catalog pages that still use .catalog-* (e.g. Baselines) are unaffected.
+   Colors, radii, and spacing come from the shared design tokens. */
+
+/* --- shared page furniture ------------------------------------------------ */
+
+.lib-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.lib-toolbar .form-field {
+  margin-bottom: 0;
+  min-width: 0;
+}
+
+.lib-toolbar__search {
+  flex: 1 1 16rem;
+  min-width: 14rem;
+}
+
+.lib-results-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+  color: var(--graphite);
+  font-size: var(--text-sm);
+}
+
+.lib-results-head__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* --- card grid and record cards ------------------------------------------- */
+
+.lib-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
+  gap: var(--space-4);
+  align-items: stretch;
+}
+
+.lib-record {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  min-width: 0;
+}
+
+.lib-record__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.lib-record__title {
+  margin: 0;
+  font-size: var(--text-lg);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.lib-record__subtitle {
+  margin: var(--space-1) 0 0;
+  color: var(--graphite);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.lib-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.lib-tag {
+  font-size: var(--text-xs);
+  color: var(--graphite);
+  background: var(--fill-quiet);
+  border-radius: 999px;
+  padding: 2px var(--space-3);
+  overflow-wrap: anywhere;
+}
+
+.lib-tag--scope {
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.lib-tag--ok {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.lib-tag--warn {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.lib-tag--info {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.lib-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+}
+
+.lib-facts > div {
+  min-width: 0;
+}
+
+.lib-facts dt {
+  font-size: var(--text-xs);
+  color: var(--graphite);
+  margin-bottom: 2px;
+}
+
+.lib-facts dd {
+  margin: 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.lib-facts--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.lib-card-note {
+  font-size: var(--text-sm);
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-3);
+  background: var(--amber-soft);
+  color: var(--amber);
+  overflow-wrap: anywhere;
+}
+
+.lib-card-note--info {
+  background: var(--fill-quiet);
+  color: var(--graphite);
+}
+
+.lib-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  border-top: 1px solid var(--hairline);
+  padding-top: var(--space-3);
+  margin-top: auto;
+}
+
+.lib-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.lib-muted {
+  color: var(--graphite);
+  font-size: var(--text-sm);
+}
+
+/* --- detail surface -------------------------------------------------------- */
+
+.lib-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.lib-detail {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  min-width: 0;
+}
+
+.lib-detail__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.lib-detail__title {
+  margin: 0;
+  font-size: var(--text-2xl);
+  overflow-wrap: anywhere;
+}
+
+.lib-section {
+  border-top: 1px solid var(--hairline);
+  padding-top: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.lib-section > h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-lg);
+}
+
+.lib-section > .lib-section-hint {
+  color: var(--graphite);
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-3);
+}
+
+.lib-product {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--fill-quiet);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-3);
+  min-width: 0;
+}
+
+.lib-product__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.lib-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lib-steps li {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.lib-steps li:last-child {
+  border-bottom: 0;
+}
+
+.lib-steps__num {
+  color: var(--graphite);
+  font-size: var(--text-sm);
+  padding-top: 3px;
+}
+
+.lib-steps__body {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.lib-provenance {
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.lib-provenance code,
+.lib-provenance pre {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font-size: var(--text-xs);
+}
+
+/* --- editor workspace ------------------------------------------------------ */
+
+.lib-editor {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  min-width: 0;
+}
+
+.lib-editor__title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-2xl);
+}
+
+.lib-editor__subtitle {
+  color: var(--graphite);
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-4);
+}
+
+.lib-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(15rem, 0.85fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.lib-editor-grid > .lib-editor__form {
+  min-width: 0;
+}
+
+.lib-preview {
+  background: var(--fill-quiet);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.lib-preview > h3 {
+  margin: 0;
+  font-size: var(--text-md);
+}
+
+.lib-savebar {
+  border-top: 1px solid var(--hairline);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.lib-savebar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* --- mode picker (From scratch / Copy existing) ----------------------------- */
+
+.lib-modes {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.lib-modes .button[aria-pressed="true"] {
+  outline: 2px solid var(--ito);
+  outline-offset: -2px;
+  font-weight: 600;
+}
+
+/* --- specification editor --------------------------------------------------- */
+
+.lib-spec-rows {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.lib-spec-row {
+  display: grid;
+  grid-template-columns: minmax(6rem, 1fr) 7rem minmax(8rem, 1.2fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.lib-spec-row--locked {
+  grid-template-columns: minmax(6rem, 1fr) 7rem minmax(8rem, 1.2fr) auto;
+  color: var(--graphite);
+}
+
+.lib-spec-row input,
+.lib-spec-row select {
+  min-width: 0;
+}
+
+.lib-spec-advanced {
+  margin-top: var(--space-2);
+}
+
+.lib-spec-advanced summary {
+  cursor: pointer;
+  color: var(--link);
+}
+
+/* --- narrow screens --------------------------------------------------------- */
+
+@media (max-width: 720px) {
+  .lib-editor-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lib-spec-row {
+    grid-template-columns: minmax(0, 1fr) 6rem auto;
+  }
+
+  .lib-spec-row > .lib-spec-row__value {
+    grid-column: 1 / -1;
+  }
+
+  .lib-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
