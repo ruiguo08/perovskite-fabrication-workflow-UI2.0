@@ -7,6 +7,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { PageHeader } from "../components/PageHeader";
+import { CampaignAnalysisPanel } from "../features/campaign-analysis/CampaignAnalysisPanel";
 import { apiFetch } from "../lib/api";
 import { buildConditionMatrix, type ConditionMatrix } from "../lib/conditionMatrix";
 import { formatRelativeTime } from "../lib/format";
@@ -51,6 +52,14 @@ export function AnalysisWorkbenchPage() {
   const experimentById = useMemo(() => new Map((experiments ?? []).map((row) => [row.id, row])), [experiments]);
   const batchById = useMemo(() => new Map((batches ?? []).map((row) => [row.id, row])), [batches]);
   const resultById = useMemo(() => new Map((results ?? []).map((row) => [row.id, row])), [results]);
+  const campaignIds = useMemo(
+    () => [...new Set((experiments ?? []).map((row) => row.campaign_id).filter((code): code is string => Boolean(code)))].sort(),
+    [experiments],
+  );
+  const experimentCampaignById = useMemo(
+    () => new Map((experiments ?? []).map((row) => [row.id, row.campaign_id])),
+    [experiments],
+  );
 
   function toggle(id: number) {
     conditionRequest.current += 1;
@@ -92,7 +101,7 @@ export function AnalysisWorkbenchPage() {
 
   return (
     <>
-      <PageHeader title="Analysis workbench" description="Overlay J-V curves and compare frozen planned conditions across characterization results." />
+      <PageHeader title="Analysis workbench" description="Overlay J-V curves, compare frozen planned conditions, and review campaign-level measurements across characterization results." />
       {error ? <Typography role="alert" sx={{ color: "#b3261e", fontSize: 14, letterSpacing: "-0.224px" }}>{error}</Typography>
         : results === null || experiments === null || batches === null ? <div className="page-loading" role="status">Loading the workbench…</div>
         : results.length === 0 ? <Typography sx={{ color: "rgba(0,0,0,.48)", fontSize: 14, letterSpacing: "-0.224px" }}>No characterization results exist yet — upload a result file first.</Typography>
@@ -169,6 +178,10 @@ export function AnalysisWorkbenchPage() {
                     </table>
                   </Box>}
               </Box> : null}
+
+              <Box sx={{ bgcolor: "#f5f5f7", borderRadius: "12px", p: 2, minWidth: 0 }}>
+                <CampaignAnalysisPanel campaignIds={campaignIds} experimentCampaignById={experimentCampaignById} batches={batches ?? []} />
+              </Box>
             </Stack>
           </Box>
         )}
