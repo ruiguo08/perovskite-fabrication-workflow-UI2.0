@@ -35,6 +35,17 @@ export const appTheme: Theme = createTheme({
   },
   shape: { borderRadius: 8 },
   components: {
+    /* CssBaseline's default `* { box-sizing: inherit }` relies on cascading
+       down from html, but Chromium exposes <details> expanded content through
+       UA shadow slots the `*` selector cannot reach; those children inherit
+       content-box and every input inside <details> overflows its grid cell by
+       its own padding. Re-assert the explicit global from styles/tokens.css
+       so the app-wide border-box contract does not depend on inheritance. */
+    MuiCssBaseline: {
+      styleOverrides: {
+        "*, *::before, *::after": { boxSizing: "border-box" },
+      },
+    },
     /* Apple: focus rings are blue outlines; ripples are Material and stay out. */
     MuiButtonBase: { defaultProps: { disableRipple: true } },
     MuiButton: {
