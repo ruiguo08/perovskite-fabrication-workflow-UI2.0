@@ -14,7 +14,9 @@ confirmation dialogs, and loading/error states. Business-page copy covers the
 overview, workflow guide, experiment series, experiment planning and details,
 fabrication batches and recording, materials, layer presets, baselines, layouts,
 users, results, and analysis. The workflow guide has Chinese and English SVG
-previews; the enlargement link opens the selected language.
+previews; an accessible enlargement dialog displays the selected language inside
+the application. Keeping the SVG in an image context also preserves its styles
+under the existing content security policy.
 
 Core terminology follows [the approved inventory](ui-strings-en-zh.md):
 实验系列, 制备记录单, 创建制备批次, 条件关联, 发布已批准计划, and 原液.

@@ -1,4 +1,9 @@
 import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
+import { useState } from "react";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
 import { Link } from "react-router-dom";
 import { PageHeader } from "../components/PageHeader";
 import workflowPreview from "../assets/user-workflow-sop.svg";
@@ -7,6 +12,7 @@ import workflowPreviewZh from "../assets/user-workflow-sop-zh.svg";
 export function WorkflowGuidePage() {
   const { language } = useUiLanguage();
   const preview = language === "zh" ? workflowPreviewZh : workflowPreview;
+  const [diagramOpen, setDiagramOpen] = useState(false);
   return (
     <div className="workflow-guide">
       <PageHeader
@@ -33,7 +39,7 @@ export function WorkflowGuidePage() {
             <span className="workflow-guide__eyebrow">{tr("workflowGuidePage.processMap")}</span>
             <h2 id="workflow-map-title">{tr("workflowGuidePage.theFullPathAtAGlance")}</h2>
           </div>
-          <a href={preview} target="_blank" rel="noopener noreferrer">{tr("workflowGuidePage.enlargeDiagram")}</a>
+          <button type="button" className="button button--link" onClick={() => setDiagramOpen(true)}>{tr("workflowGuidePage.enlargeDiagram")}</button>
         </div>
         <figure className="workflow-guide__figure">
           <img
@@ -45,6 +51,15 @@ export function WorkflowGuidePage() {
           />
           <figcaption>{tr("workflowGuidePage.staticOverviewUseTheLinkedStepsBelowToContinue")}</figcaption>
         </figure>
+        <Dialog open={diagramOpen} onClose={() => setDiagramOpen(false)} fullWidth maxWidth="xl" aria-labelledby="workflow-diagram-title">
+          <DialogTitle id="workflow-diagram-title">{tr("workflowGuidePage.theFullPathAtAGlance")}</DialogTitle>
+          <DialogContent>
+            <img className="workflow-guide__diagram-image" src={preview} alt={tr("workflowGuidePage.archifyWorkflowCreateAndSubmitAnExperimentObtainInstructor")} width="1112" height="660" />
+          </DialogContent>
+          <DialogActions>
+            <button type="button" className="button button--secondary" onClick={() => setDiagramOpen(false)}>{tr("common.close")}</button>
+          </DialogActions>
+        </Dialog>
       </section>
 
       <section aria-labelledby="workflow-steps-title">

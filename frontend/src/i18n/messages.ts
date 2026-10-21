@@ -38,6 +38,7 @@ export const messages = {
   "common.retry": ["Retry", "重试"],
   "common.confirm": ["Confirm", "确认"],
   "common.cancel": ["Cancel", "取消"],
+  "common.close": ["Close", "关闭"],
   "common.exclude": ["Exclude", "排除"],
   "common.reason": ["Reason", "原因"],
   "common.openBatches": ["Open fabrication batches", "打开制备批次"],
