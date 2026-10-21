@@ -697,8 +697,8 @@ export function ResultDetailPage() {
         <div>
           <strong>{tr("resultDetailPage.unsavedAnalysisPreview")}</strong>
           <span>{[
-            assignmentChangeCount ? `${assignmentChangeCount} assignment change${assignmentChangeCount === 1 ? "" : "s"}` : "",
-            exclusionChangeCount ? `${exclusionChangeCount} exclusion change${exclusionChangeCount === 1 ? "" : "s"}` : "",
+            assignmentChangeCount ? tr("summary.assignmentChanges", { n: assignmentChangeCount, s: assignmentChangeCount === 1 ? "" : "s" }) : "",
+            exclusionChangeCount ? tr("summary.exclusionChanges", { n: exclusionChangeCount, s: exclusionChangeCount === 1 ? "" : "s" }) : "",
           ].filter(Boolean).join(" · ")} · {exclusionChangeCount
             ? tr("resultDetailPage.statisticsAndFilteredFiguresPreviewYourExclusionSelection")
             : tr("resultDetailPage.assignmentChangesTakeEffectAfterSaving")}{assignmentChangeCount && exclusionChangeCount

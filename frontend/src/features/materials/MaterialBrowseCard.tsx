@@ -1,4 +1,4 @@
-import { translate as tr, useLanguage as useUiLanguage } from "../../i18n";
+import { enumLabel, translate as tr, useLanguage as useUiLanguage } from "../../i18n";
 import { formatRelativeTime } from "../../lib/format";
 import type { Material } from "../../types/api";
 import { LibFacts, LibRecord, LibTag, LibTags } from "../library/LibraryPrimitives";
@@ -24,7 +24,7 @@ export function MaterialBrowseCard({ material, canManage, onOpenDetails, onEdit 
     <LibRecord labelledBy={titleId}>
       <LibTags>
         <LibTag tone="info">{materialCategoryLabel(material.category)}</LibTag>
-        {material.status !== "active" ? <LibTag tone={material.status === "pending" ? "warn" : undefined}>{material.status}</LibTag> : null}
+        {material.status !== "active" ? <LibTag tone={material.status === "pending" ? "warn" : undefined}>{enumLabel(material.status, "catalog")}</LibTag> : null}
       </LibTags>
       <div className="lib-record__head">
         <div>
@@ -42,7 +42,7 @@ export function MaterialBrowseCard({ material, canManage, onOpenDetails, onEdit 
       )}
       <div className="lib-card-foot">
         <span className="lib-muted">
-          {material.products.length} {tr("materialBrowseCard.supplierProduct")}{material.products.length === 1 ? "" : "s"} {tr("presetBrowseCard.updated")}{formatRelativeTime(material.updated_at)}
+          {tr("summary.supplierProducts", { n: material.products.length, s: material.products.length === 1 ? "" : "s" })} {tr("presetBrowseCard.updated")}{formatRelativeTime(material.updated_at)}
         </span>
         <div className="lib-actions">
           <button

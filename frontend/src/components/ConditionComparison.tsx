@@ -1,5 +1,5 @@
 import { enumLabel, localizeAppText } from "../i18n";
-import { useMemo } from "react";
+import { useLocalizedMemo as useMemo } from "../i18n";
 import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
 import { useState } from "react";
 import type {
@@ -66,7 +66,7 @@ function formatSolution(solution: LayerSolution | null): string | null {
   }
   if (solution.formulation_type === "diluted_dispersion") {
     const volume = nullable(solution.stock_volume_ml, (value) => ` · ${value} mL`);
-    return `Dispersion: ${solution.stock_dispersion}${volume ?? ""}`;
+    return `${tr("comparison.dispersion")}: ${solution.stock_dispersion}${volume ?? ""}`;
   }
   const solids = solution.solids
     .filter((solid) => solid.chemical)
@@ -75,8 +75,8 @@ function formatSolution(solution: LayerSolution | null): string | null {
     .filter((solvent) => solvent.solvent)
     .map((solvent) => (solvent.volume_ml !== null ? `${solvent.solvent} ${solvent.volume_ml} mL` : solvent.solvent));
   return [
-    solids.length > 0 ? `Solids: ${solids.join(" · ")}` : null,
-    solvents.length > 0 ? `Solvents: ${solvents.join(" · ")}` : null,
+    solids.length > 0 ? `${tr("comparison.solids")}: ${solids.join(" · ")}` : null,
+    solvents.length > 0 ? `${tr("comparison.solvents")}: ${solvents.join(" · ")}` : null,
   ]
     .filter(Boolean)
     .join("\n") || null;
@@ -85,10 +85,10 @@ function formatSolution(solution: LayerSolution | null): string | null {
 function formatLayerProcess(process: LayerProcess): string | null {
   const parts: string[] = [];
   if (process.spin_steps?.length) {
-    parts.push(`Spin: ${process.spin_steps.map((step) => formatSpinStep(step) ?? "?").join(" → ")}`);
+    parts.push(`${tr("comparison.spin")}: ${process.spin_steps.map((step) => formatSpinStep(step) ?? "?").join(" → ")}`);
   }
   if (process.anneal_steps?.length) {
-    parts.push(`Anneal: ${process.anneal_steps.map((step) => formatAnnealStep(step) ?? "?").join(" → ")}`);
+    parts.push(`${tr("comparison.anneal")}: ${process.anneal_steps.map((step) => formatAnnealStep(step) ?? "?").join(" → ")}`);
   }
   const scalars: [string, string | null][] = [
     ["Mode", process.sputter_mode ?? null],
@@ -114,7 +114,7 @@ function formatLayerProcess(process: LayerProcess): string | null {
   ];
   for (const [label, value] of scalars) {
     if (value !== null) {
-      parts.push(`${label}: ${value}`);
+      parts.push(`${localizeAppText(label)}: ${value}`);
     }
   }
   return parts.length > 0 ? parts.join("\n") : enumLabel(process.method);
@@ -341,11 +341,11 @@ export function ConditionComparison({ conditions }: { conditions: Condition[] })
             }}
           >
             <summary>
-              {group.title}
+              {group.key === "device" ? tr("deviceExclusionsPanel.device") : group.title}
               {group.meta ? <span className="condition-comparison__role">{group.meta}</span> : null}
               {group.hasDifference ? (
                 <span className="condition-comparison__mark condition-comparison__mark--diff">
-                  {group.diffRowCount} {group.diffRowCount === 1 ? "difference" : "differences"}
+                  {tr("summary.differences", { n: group.diffRowCount, s: group.diffRowCount === 1 ? "" : "s" })}
                 </span>
               ) : (
                 <span className="condition-comparison__mark condition-comparison__mark--same">{tr("conditionComparison.identical")}</span>
@@ -360,7 +360,7 @@ export function ConditionComparison({ conditions }: { conditions: Condition[] })
                       <th scope="col" key={condition.id}>
                         {condition.condition_name}
                         <span className="condition-comparison__role">
-                          {condition.role}
+                          {enumLabel(condition.role)}
                           {index === controlIndex ? tr("conditionComparison.reference") : ""}
                         </span>
                       </th>

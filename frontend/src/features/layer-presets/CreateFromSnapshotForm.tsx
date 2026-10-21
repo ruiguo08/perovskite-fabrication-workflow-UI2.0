@@ -1,5 +1,5 @@
 import { localizeAppText } from "../../i18n";
-import { translate as tr, useLanguage as useUiLanguage } from "../../i18n";
+import { enumLabel, translate as tr, useLanguage as useUiLanguage } from "../../i18n";
 import { useState, type FormEvent } from "react";
 import { FormField } from "../../components/FormField";
 import { InlineFormError } from "../../components/InlineFormError";
@@ -93,7 +93,7 @@ export function CreateFromSnapshotForm({
             {sourceUnavailable ? (
               <option value={sourceId}>{tr("createFromSnapshotForm.unavailableSourcePreset")}</option>
             ) : null}
-            {activeRows.map((preset) => <option key={preset.id} value={preset.id}>{preset.name} · {roleLabel(preset.layer.role)} · {preset.scope}</option>)}
+            {activeRows.map((preset) => <option key={preset.id} value={preset.id}>{preset.name} · {roleLabel(preset.layer.role)} · {enumLabel(preset.scope)}</option>)}
           </select>
         </FormField>
         {canCreateShared ? (

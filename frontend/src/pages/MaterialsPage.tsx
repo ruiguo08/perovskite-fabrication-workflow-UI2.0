@@ -1,3 +1,4 @@
+import { enumLabel, localizeAppText } from "../i18n";
 import { useMemo } from "react";
 import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
 import { useCallback, useState } from "react";
@@ -126,7 +127,7 @@ export function MaterialsPage() {
               onChange={(event) => setFilters({ ...filters, category: event.target.value })}
             >
               <option value="all">{tr("materialsPage.allCategories")}</option>
-              {categories.map((value) => <option key={value} value={value}>{CATEGORY_LABELS[value] ?? value}</option>)}
+              {categories.map((value) => <option key={value} value={value}>{localizeAppText(CATEGORY_LABELS[value] ?? value)}</option>)}
             </select>
           </FormField>
           <FormField label={tr("presetFilters.status")} htmlFor="material-filter-status">
@@ -137,7 +138,7 @@ export function MaterialsPage() {
               onChange={(event) => setFilters({ ...filters, status: event.target.value })}
             >
               <option value="all">{tr("presetFilters.allStatuses")}</option>
-              {statuses.map((value) => <option key={value} value={value}>{value}</option>)}
+              {statuses.map((value) => <option key={value} value={value}>{enumLabel(value, "catalog")}</option>)}
             </select>
           </FormField>
           <span className="record-count experiment-filters__count">{filteredRows.length} {tr("runSheetTable.of")}{rows.length} {tr("presetFilters.records")}</span>

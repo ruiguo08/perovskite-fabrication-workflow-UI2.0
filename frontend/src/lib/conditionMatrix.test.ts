@@ -1,8 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { buildConditionMatrix } from "./conditionMatrix";
 import { condition, detail } from "../test/analysisFixtures";
+import { setLanguage } from "../i18n";
 
 describe("buildConditionMatrix", () => {
+  it("localizes display labels and schema enums while preserving row identities and raw differences", () => {
+    const source = detail(1);
+    source.conditions[0].recipe_snapshot.device.architecture = "nip";
+    const english = buildConditionMatrix([source]);
+    const before = JSON.stringify(source);
+    setLanguage("zh");
+    const chinese = buildConditionMatrix([source]);
+    expect(chinese.rows.map(({ parameter, differs }) => ({ parameter, differs })))
+      .toEqual(english.rows.map(({ parameter, differs }) => ({ parameter, differs })));
+    expect(chinese.rows.find((row) => row.parameter === "Deposition › Spin step 1 › Speed"))
+      .toMatchObject({ label: "沉积 › 旋涂步骤 1 › 转速", values: ["1000 rpm", "2000 rpm"] });
+    expect(chinese.rows.find((row) => row.parameter === "Device › Architecture")?.values[0]).toBe("正式结构");
+    expect(JSON.stringify(source)).toBe(before);
+  });
+
   it("compares every control and target with stable experiment and condition identities", () => {
     const first = detail(1, "Same displayed code");
     const second = detail(2, "Same displayed code");

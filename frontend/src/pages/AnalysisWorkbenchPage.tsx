@@ -1,4 +1,4 @@
-import { localizeAppText } from "../i18n";
+import { enumLabel, localizeAppText, useLocalizedMemo } from "../i18n";
 import { useMemo } from "react";
 import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
 import { useEffect, useRef, useState } from "react";
@@ -12,7 +12,7 @@ import Typography from "@mui/material/Typography";
 import { PageHeader } from "../components/PageHeader";
 import { CampaignAnalysisPanel } from "../features/campaign-analysis/CampaignAnalysisPanel";
 import { apiFetch } from "../lib/api";
-import { buildConditionMatrix, type ConditionMatrix } from "../lib/conditionMatrix";
+import { buildConditionMatrix } from "../lib/conditionMatrix";
 import { formatRelativeTime } from "../lib/format";
 import type { Experiment, ExperimentDetail, FabricationBatchListItem, ResultListItem } from "../types/api";
 
@@ -29,7 +29,8 @@ export function AnalysisWorkbenchPage() {
   const [palette, setPalette] = useState("science-tol");
   const [overlay, setOverlay] = useState<{ url: string; token: number; labels: string } | null>(null);
   const [overlayState, setOverlayState] = useState<LoadState>("idle");
-  const [matrix, setMatrix] = useState<ConditionMatrix | null>(null);
+  const [matrixDetails, setMatrixDetails] = useState<ExperimentDetail[] | null>(null);
+  const matrix = useLocalizedMemo(() => matrixDetails ? buildConditionMatrix(matrixDetails) : null, [matrixDetails]);
   const [conditionState, setConditionState] = useState<LoadState>("idle");
   const [conditionError, setConditionError] = useState<string | null>(null);
   const conditionRequest = useRef(0);
@@ -68,7 +69,7 @@ export function AnalysisWorkbenchPage() {
   function toggle(id: number) {
     conditionRequest.current += 1;
     overlayRequest.current += 1;
-    setMatrix(null); setConditionState("idle"); setConditionError(null);
+    setMatrixDetails(null); setConditionState("idle"); setConditionError(null);
     setOverlay(null); setOverlayState("idle");
     setSelected((current) => current.includes(id) ? current.filter((value) => value !== id) : current.length < 12 ? [...current, id] : current);
   }
@@ -90,12 +91,12 @@ export function AnalysisWorkbenchPage() {
   async function loadConditions() {
     if (selected.length === 0) return;
     const token = ++conditionRequest.current;
-    setMatrix(null); setConditionState("loading"); setConditionError(null);
+    setMatrixDetails(null); setConditionState("loading"); setConditionError(null);
     const ids = [...new Set(selected.map((id) => resultById.get(id)?.experiment_id).filter((id): id is number => id !== undefined))];
     try {
       const details = await Promise.all(ids.map((id) => apiFetch<ExperimentDetail>(`/api/experiments/${id}`)));
       if (conditionRequest.current !== token) return;
-      setMatrix(buildConditionMatrix(details)); setConditionState("success");
+      setMatrixDetails(details); setConditionState("success");
     } catch (caught) {
       if (conditionRequest.current !== token) return;
       setConditionError(caught instanceof Error ? caught.message : "Unable to load condition snapshots.");
@@ -168,10 +169,10 @@ export function AnalysisWorkbenchPage() {
                     <table className="data-table" style={{ width: "100%", fontSize: 13, letterSpacing: "-0.12px" }}>
                       <caption className="visually-hidden">{tr("analysisWorkbenchPage.frozenPlannedConditionsForAllSelectedExperimentsIncludingControl")}</caption>
                       <thead><tr><th scope="col">{tr("conditionComparison.parameter")}</th>{matrix.columns.map((column) => <th scope="col" key={column.key} style={{ minWidth: 200, whiteSpace: "normal", overflowWrap: "anywhere" }}>
-                        {column.experiment}<br />{column.condition}<br />{column.role}
+                        {column.experiment}<br />{column.condition}<br />{enumLabel(column.role)}
                       </th>)}</tr></thead>
                       <tbody>{matrix.rows.map((row) => <tr key={row.parameter}>
-                        <th scope="row" style={{ minWidth: 180, whiteSpace: "normal" }}>{row.parameter}
+                        <th scope="row" style={{ minWidth: 180, whiteSpace: "normal" }}>{row.label}
                           {row.differs ? <span style={{ marginLeft: 6, fontSize: 10.5, fontWeight: 600, color: "#b66a00", letterSpacing: "-0.12px" }}>{tr("campaignAnalysisPanel.differs")}</span> : null}
                         </th>
                         {row.values.map((value, index) => <td key={matrix.columns[index].key} style={{ whiteSpace: "normal", overflowWrap: "anywhere",

@@ -5,6 +5,7 @@ import { batch, detail, experiment, result } from "../test/analysisFixtures";
 import { analysisFixture } from "../features/campaign-analysis/campaignView.test";
 import * as matrices from "../lib/conditionMatrix";
 import type { ExperimentDetail } from "../types/api";
+import { setLanguage } from "../i18n";
 
 const apiFetchMock = vi.hoisted(() => vi.fn());
 vi.mock("../lib/api", () => ({ apiFetch: apiFetchMock }));
@@ -48,6 +49,12 @@ describe("AnalysisWorkbenchPage", () => {
     const spin = within(table).getByText("Deposition › Spin step 1 › Speed").closest("tr")!;
     expect(within(spin).getAllByRole("cell").map((cell) => cell.textContent)).toEqual(["1000 rpm", "2000 rpm", "1000 rpm", "2000 rpm"]);
     expect(within(spin).getByText("◆ differs")).toBeInTheDocument();
+    const requests = apiFetchMock.mock.calls.length;
+    act(() => setLanguage("zh"));
+    expect(within(table).getByText("沉积 › 旋涂步骤 1 › 转速")).toBeInTheDocument();
+    expect(within(table).getByText("Plan-1C10 · Control对照")).toBeInTheDocument();
+    expect(apiFetchMock.mock.calls).toHaveLength(requests);
+    expect(within(table).getAllByText("1000 rpm").length).toBeGreaterThan(0);
   });
 
   it("discards a condition response after selection changes and retains the newer comparison", async () => {

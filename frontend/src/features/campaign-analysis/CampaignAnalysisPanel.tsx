@@ -345,7 +345,7 @@ export function CampaignAnalysisPanel({ campaignIds, experimentCampaignById, bat
                         <td style={{ whiteSpace: "normal", overflowWrap: "anywhere" }}>
                           {conditionLabel(directory.get(comparison.target_batch_condition_id), comparison.target_batch_condition_id)}
                         </td>
-                        <td>{comparison.direction}</td>
+                        <td>{enumLabel(comparison.direction)}</td>
                         <td>{METRIC_LABELS[comparison.metric] ?? comparison.metric}</td>
                         <td>{formatMetricValue(comparison.metric, comparison.control_mean)}</td>
                         <td>{formatMetricValue(comparison.metric, comparison.target_mean)}</td>

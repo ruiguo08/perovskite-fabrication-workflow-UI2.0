@@ -171,7 +171,7 @@ export function LayerProcessEditor({ layerType, process, materials, onChange }: 
       <label className="builder-field">
         <span>{tr("processEditor.method")}</span>
         <select className="text-input" value={process.method} onChange={(event) => onChange(defaultLayerProcess(event.target.value))}>
-          {allowedMethods.map((method) => <option key={method} value={method}>{METHOD_LABELS[method]}</option>)}
+          {allowedMethods.map((method) => <option key={method} value={method}>{localizeAppText(METHOD_LABELS[method])}</option>)}
         </select>
       </label>
 

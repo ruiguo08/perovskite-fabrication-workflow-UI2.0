@@ -1,5 +1,5 @@
 import { enumLabel, localizeAppText } from "../i18n";
-import { useMemo } from "react";
+import { useLocalizedMemo as useMemo } from "../i18n";
 import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
 import { useCallback, useState } from "react";
 import { apiFetch } from "../lib/api";
@@ -30,7 +30,7 @@ export function DeviceScanHistoryPanel({ assignments }: { assignments: ResultAss
     const labels = new Map<number, string>();
     for (const row of assignments) {
       if (row.fabrication_device_id !== null && row.fabrication_device_id !== undefined) {
-        labels.set(row.fabrication_device_id, row.device_mark ? `${row.device_mark} · #${row.fabrication_device_id}` : row.device_code || `Device ${row.fabrication_device_id}`);
+        labels.set(row.fabrication_device_id, row.device_mark ? `${row.device_mark} · #${row.fabrication_device_id}` : row.device_code || `${tr("deviceExclusionsPanel.device")} ${row.fabrication_device_id}`);
       }
     }
     return Array.from(labels, ([id, label]) => ({ id, label })).sort((a, b) => a.id - b.id);
@@ -46,7 +46,7 @@ export function DeviceScanHistoryPanel({ assignments }: { assignments: ResultAss
     <section className="panel" aria-labelledby="device-scans-title">
       <div className="panel__heading">
         <h2 className="panel__title" id="device-scans-title">{tr("deviceScanHistoryPanel.deviceScanHistory")}</h2>
-        <span className="record-count">{devices.length} {tr("deviceScanHistoryPanel.device")}{devices.length === 1 ? "" : "s"}</span>
+        <span className="record-count">{tr("summary.devices", { n: devices.length, s: devices.length === 1 ? "" : "s" })}</span>
       </div>
       <label className="form-field device-scan-picker">
         <span className="form-field__label">{tr("deviceExclusionsPanel.device")}</span>
@@ -196,7 +196,7 @@ function DeviceScanCard({ fabricationDeviceId }: { fabricationDeviceId: number }
                 <tr key={`${scan.result_file_id}-${scan.trace_id}`}>
                   <td>
                     <span className="status-badge">
-                      {scan.direction} {scan.valid ? "valid" : "invalid"}
+                      {enumLabel(scan.direction)} {tr(scan.valid ? "scan.valid" : "scan.invalid")}
                     </span>
                   </td>
                   <td>{formatDateTime(scan.measured_at ?? scan.uploaded_at)}</td>

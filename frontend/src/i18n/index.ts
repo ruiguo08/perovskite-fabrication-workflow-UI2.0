@@ -124,6 +124,9 @@ export function enumLabel(value: string | null | undefined, context: StatusConte
     solution: "溶液", process: "工艺", fabrication: "制备", characterization: "表征",
     info: "提示", warning: "警告", recorded: "已记录", not_yet: "未记录",
     single_junction: "单结", tandem: "叠层", normal_bandgap: "常规带隙", wide_bandgap: "宽带隙", narrow_bandgap: "窄带隙",
+    nip: "正式结构", pin: "反式结构", "n-i-p": "正式结构", "p-i-n": "反式结构",
+    diluted_dispersion: "稀释分散液", weighed_solids: "称量固体", spin_coating_vcd: "旋涂 + VCD",
+    perovskite: "钙钛矿", electrode: "电极", contact: "接触层", absorber: "吸收层", buffer: "缓冲层",
   };
   return labels[normalized] ?? value.replace(/_/g, " ");
 }

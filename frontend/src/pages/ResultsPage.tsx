@@ -64,7 +64,7 @@ export function ResultsPage() {
       <PageHeader
         title={tr("resultsPage.results")}
         description={tr("resultsPage.uploadedResultFilesAcrossAllCampaignsNewestFirst")}
-        meta={`${results.length} records`}
+        meta={tr("summary.records", { n: results.length })}
       />
       <section className="panel" aria-labelledby="result-list-title">
         <div className="panel__heading">

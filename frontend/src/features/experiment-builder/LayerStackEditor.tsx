@@ -165,7 +165,7 @@ export function LayerStackEditor({ draft, presets, materials, vcdValves, onChang
         <label className="builder-field" htmlFor="builder-add-preset"><span>{tr("layerStackEditor.layerPreset")}</span>
           <select id="builder-add-preset" className="text-input" value={presetId} onChange={(event) => setPresetId(event.target.value)}>
             <option value="">{tr("layerStackEditor.chooseAnActivePreset")}</option>
-            {activePresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name} · {preset.layer.layer_type} · {preset.scope}</option>)}
+            {activePresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name} · {preset.layer.layer_type} · {enumLabel(preset.scope)}</option>)}
           </select>
         </label>
         <button type="button" className="button button--secondary" disabled={!presetId} onClick={addSelectedPreset}>{tr("layerStackEditor.addCopiedPreset")}</button>

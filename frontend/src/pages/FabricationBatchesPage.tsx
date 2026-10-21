@@ -55,7 +55,7 @@ export function FabricationBatchesPage() {
       <PageHeader
         title={tr("experimentDetailPage.fabricationBatches")}
         description={tr("fabricationBatchesPage.fabricationBatchesAcrossAllCampaignsNewestFirst")}
-        meta={`${batches.length} records`}
+        meta={tr("summary.records", { n: batches.length })}
       />
       <section className="panel" aria-labelledby="batch-list-title">
         <div className="panel__heading">

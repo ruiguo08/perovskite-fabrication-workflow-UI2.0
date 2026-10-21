@@ -175,7 +175,7 @@ export function MaterialWorkspace({
                 hint={tr("materialWorkspace.supplierProductsAreManagedOnTheMaterialSDetail")}
               >
                 <p className="lib-muted">
-                  {existing.products.length} {tr("materialBrowseCard.supplierProduct")}{existing.products.length === 1 ? "" : "s"} {tr("materialWorkspace.recordedOpenTheDetailViewToAddOrEdit")}</p>
+                  {tr("summary.supplierProducts", { n: existing.products.length, s: existing.products.length === 1 ? "" : "s" })} {tr("materialWorkspace.recordedOpenTheDetailViewToAddOrEdit")}</p>
               </LibSection>
             ) : (
               <LibSection title={tr("materialDetailView.supplierProducts")} labelledBy="material-workspace-products">
@@ -189,7 +189,7 @@ export function MaterialWorkspace({
             <div className="lib-record">
               <LibTags>
                 <LibTag tone="info">{materialCategoryLabel(previewMaterial.category)}</LibTag>
-                <LibTag tone={previewMaterial.status === "pending" ? "warn" : undefined}>{previewMaterial.status}</LibTag>
+                <LibTag tone={previewMaterial.status === "pending" ? "warn" : undefined}>{enumLabel(previewMaterial.status, "catalog")}</LibTag>
               </LibTags>
               <div className="lib-record__head">
                 <div>

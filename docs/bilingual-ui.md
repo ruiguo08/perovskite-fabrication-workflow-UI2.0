@@ -67,6 +67,11 @@ behavior tests explicitly select English. Browser regression infrastructure also
 uses an explicit English preference by default; passing `language=None` exercises
 the production default.
 
+Condition-comparison rows retain their source parameter identities and compare
+raw values for differences. Display labels and schema-owned enum values update
+with the language; mounted comparisons reuse their loaded snapshots. Count
+sentences use complete templates so Chinese never receives English plural suffixes.
+
 Local visual checks use the same seeded demo data before and after the change.
 Chinese/English overview and result-page checks, preference retention after reload,
 an unsaved experiment-series form, and 320px layouts were checked. A table scroller

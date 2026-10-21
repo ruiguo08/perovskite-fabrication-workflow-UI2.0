@@ -1,4 +1,5 @@
 import { localizeAppText } from "../i18n";
+import { enumLabel } from "../i18n";
 import { useMemo } from "react";
 import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
@@ -262,7 +263,7 @@ function BaselineCard({
         <div className="material-card__title-line">
           <h3 id={titleId}>{baseline.name}</h3>
           <StatusBadge status={baseline.status} context="catalog" />
-          <span className="scope-chip">{baseline.scope}</span>
+          <span className="scope-chip">{enumLabel(baseline.scope)}</span>
         </div>
         <span className="version-mark">r{baseline.current_revision_number ?? "—"} · {formatDateTime(baseline.updated_at)}</span>
       </header>
