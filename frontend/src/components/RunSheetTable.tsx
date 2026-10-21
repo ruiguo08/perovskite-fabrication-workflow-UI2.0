@@ -203,7 +203,7 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onRecordAll
     <Box data-runsheet-table="true">
       <Stack direction="row" spacing={2} sx={{ alignItems: "center", flexWrap: "wrap", bgcolor: "#f5f5f7", borderRadius: "12px", px: 2, py: 1.5, mb: 2 }}>
         <Typography sx={{ fontSize: 13.5, fontWeight: 600, letterSpacing: "-0.224px", whiteSpace: "nowrap" }}>
-          {done} {tr("runSheetTable.of")}{rows.length} {tr("runSheetTable.recorded")}</Typography>
+          {tr("runSheetTable.recordingProgress", { done, total: rows.length })}</Typography>
         <LinearProgress variant="determinate" value={rows.length ? (done / rows.length) * 100 : 0} sx={{ flex: 1 }} />
         <Button variant="contained" data-runsheet-bulk="true" disabled={disabled || submitting || pending === 0}
           onClick={onRecordAllAsPlanned}

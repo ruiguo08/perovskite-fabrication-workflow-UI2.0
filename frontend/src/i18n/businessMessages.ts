@@ -508,9 +508,9 @@ export const businessMessages = {
     " of ",
     " / "
   ],
-  "runSheetTable.recorded": [
-    " recorded",
-    " 已记录"
+  "runSheetTable.recordingProgress": [
+    "{done} of {total} recorded",
+    "已记录 {done} / {total}"
   ],
   "runSheetTable.recordAllAsPlanned": [
     "Record all as planned",
