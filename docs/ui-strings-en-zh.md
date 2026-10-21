@@ -6,11 +6,11 @@
 > - **化学药品/材料名称不翻译**：NiOx、SAM、PEAI、EDADI、PCBM、C60、BCP、SnO2、Ag、SiO₂ 等；J–V、PCE、Voc、Jsc、FF 等缩写保持原文。
 > - 模板占位符用 `{name}`、`{n}`、`{time}` 等表示，翻译时保持占位符不变。
 > - **器件结构沿用实验室惯用名称**：n-i-p → 正式结构；p-i-n → 反式结构。这里的“正式”不是误译，不改为“正置”。
-> - 词汇以以下核心术语校对记录为准；标记“建议，待确认”的名称暂不在正文中批量替换。
+> - 核心术语已于 2026-10-21 经用户确认定稿，正文使用以下统一名称；后续新增词条沿用这些约定。
 
-## 核心术语校对记录（2026-10-21）
+## 核心术语定稿（2026-10-21）
 
-本轮校对范围为术语、状态和相关操作的中文表达；尚未接入应用语言切换，也未完成逐条文案与源码的覆盖核对。
+本轮核心术语已确认，相关中文词条已统一。此文档仍是后续双语实现的文案依据；尚未接入应用语言切换，也未完成逐条文案与源码的覆盖核对。
 
 ### 已确认的表达规则
 
@@ -20,16 +20,16 @@
 - HTL、ETL、PCE、Voc、Jsc、FF、ALD、VCD 等缩写保留原文。
 - 翻译仅影响显示文案；API 字段、枚举值、记录编号及用户填写的名称、备注保持原值。此规则是后续实现约定，并不表示当前应用已支持双语。
 
-### 核心名词与操作建议
+### 核心名词与操作定稿
 
-“沿用”表示本轮未建议修改初稿用词，不表示所有相关句子均已审核通过。
+以下名称为本轮确定的术语；相关长句仍需在接入实际页面时核对语境与布局。
 
 | English / 源码值 | 中文用词 | 校对说明 / 状态 |
 |---|---|---|
 | Experiment | 实验 | 沿用；与单次制备批次区分。 |
-| Campaign | 建议：实验系列；初稿：项目组 | 建议，待确认。`CampaignsPage` 将其描述为用稳定系列编号组织相关实验；不是人员组织。 |
+| Campaign | 实验系列 | 已确认；用稳定系列编号组织相关实验，不是人员组织。 |
 | Fabrication batch | 制备批次 | 沿用；一次实际制备的执行与记录单位。 |
-| Run sheet | 制备记录单；短标签可用“记录单” | 建议，待确认；涵盖计划参数、实际记录和偏差。 |
+| Run sheet | 制备记录单 | 已确认；涵盖计划参数、实际记录和偏差。 |
 | Baseline | 基线；首次说明可用“基线方案” | 沿用；指包含器件布局及各层配方、工艺的参考方案，不是统计基线。 |
 | Layer preset | 层预设 | 沿用；指可复用的单层配方与工艺。 |
 | Device layout | 器件布局 | 沿用；指基底尺寸、每片基底器件数、有效面积等。 |
@@ -38,15 +38,16 @@
 | Control / Target | 对照条件 / 目标条件 | 沿用；短标签可用“对照 / 目标”。这里的 Target 不是溅射靶材。 |
 | Standalone | 独立 | 沿用；按语境展开为“独立实验 / 独立条件”。 |
 | Characterization / Result | 表征 / 结果 | 沿用。 |
-| Assignment | 按语境用“条件关联”或“分配” | 建议，待确认。将测量基底与实验条件对应时用“关联”，不要误读为人员任务分配。 |
+| Assignment | 条件关联 | 已确认；将测量基底与实验条件对应。明确语境下的短标签可用“关联”。 |
 | Exclusion | 排除 | 沿用；从分析中排除，原始测量记录仍保留，不等于删除。 |
 | Deviation / Exception | 偏差 / 例外 | 沿用；实际执行偏离计划与申请例外许可是不同概念。 |
 | Snapshot / Provenance | 快照 / 溯源 | 沿用；必要时解释为“当时保存的完整方案 / 来源与版本信息”。 |
 | Revision / Version / Archive | 修订版 / 版本 / 归档 | 沿用；归档不等于删除。 |
 | Scope / Shared / Personal | 范围 / 共享 / 个人 | 沿用；共享范围与访问权限另行说明。 |
-| Release approved plan | 建议：发布已批准计划（供制备使用） | 建议，待确认。这里是流程中的发布，不代表公开实验内容。 |
-| Freeze fabrication batch | 建议：创建制备批次（固定计划快照） | 建议，待确认。短按钮可用“创建制备批次”，帮助说明须保留固定快照的含义；不是暂停批次。 |
-| Stock dispersion | 建议：原液（分散液）；初稿：母液 | 建议，待确认。需与实验室对分散液及储备溶液的称呼统一；药品名称原文不变。 |
+| Release approved plan | 发布已批准计划 | 已确认；供制备使用的流程状态，不代表公开实验内容。 |
+| Freeze fabrication batch | 创建制备批次 | 已确认；帮助文字说明“固定当前计划快照”，不是暂停批次。 |
+| Stock dispersion | 原液 | 已确认；帮助文字说明为用于稀释的原始分散液，药品名称原文不变。 |
+| Stock volume / Diluted dispersion | 原液体积 / 稀释分散液 | 与“原液”统一；体积单位保留 mL。 |
 | Schema | 数据结构；版本标签用“数据结构版本” | 此处为数据格式及其版本，不是软件架构。 |
 
 ### 状态必须按对象翻译
@@ -63,7 +64,16 @@
 | `planned` | 制备批次 / 设备预约 | 已计划 / 已预约 |
 | `ready` / `running` / `in_progress` | 执行状态 | 就绪 / 运行中 / 进行中 |
 
-后续词条按模块和语境设置稳定键，不能将相同英文单词强制绑定到同一个中文译文。正文中的 Campaign 旧译及待确认操作名称暂时保留；名称确认后再统一全文及应用文案。
+后续词条按模块和语境设置稳定键，不能将相同英文单词强制绑定到同一个中文译文。以上名称已统一到本文相关词条；应用中的文案将在双语接入时更新。
+
+### 下一步：双语接入
+
+1. 建立应用共用的中文 / English 切换和翻译资源，默认中文并记住用户选择；先接入登录、导航、公共按钮、状态及日期显示。切换语言时保留当前页面和未保存输入。
+2. 将下列清单拆为按模块组织、键与占位符可核对的资源；逐步接入实验系列、实验计划、制备记录单、材料库、结果及分析页面，并覆盖校验、错误、空状态与无障碍标签。
+3. 预约模块接入同一套语言机制；预约访问权限与 fabrication workflow 的访问权限分别控制。双语实现不自动授予任何业务权限。
+4. 在相同演示数据下核对中英文页面、动态状态和布局，并验证语言切换不会清空草稿、单位及药品名称保持原文。论文图表、PDF 和其他导出文件的语言范围单独列明，不能仅凭界面切换认定它们已支持双语。
+
+先完成本地检查，按仓库约定在准备合并时集中运行 Ubuntu 和 Windows CI；两项检查通过后再将对应内容同步至 internal 功能分支与 PR。
 
 ---
 
@@ -99,7 +109,7 @@
 | Baselines | 基线 |
 | Device layouts | 器件布局 |
 | Management（导航分组） | 管理 |
-| Campaigns | 项目组 |
+| Campaigns | 实验系列 |
 | Users | 用户 |
 | Becomes available in a later migration phase | 将在后续迁移阶段开放 |
 | {label} becomes available in a later migration phase. | {label}将在后续迁移阶段开放。 |
@@ -151,16 +161,16 @@
 | An administrator creates the first device layout (substrate size, devices per substrate) under Device layouts. | 管理员在"器件布局"中创建第一个器件布局（基底尺寸、每基底器件数）。 |
 | Ask an administrator to create the first device layout under Device layouts. | 请管理员在"器件布局"中创建第一个器件布局。 |
 | Open device layouts | 打开器件布局 |
-| No active campaign yet | 暂无进行中的项目组 |
-| Every experiment belongs to a campaign. Create the first active campaign under Campaigns. | 每个实验都归属于一个项目组。请在"项目组"中创建第一个进行中的项目组。 |
-| Ask an instructor to create the first active campaign under Campaigns. | 请导师在"项目组"中创建第一个进行中的项目组。 |
-| Open campaigns | 打开项目组 |
+| No active campaign yet | 暂无进行中的实验系列 |
+| Every experiment belongs to a campaign. Create the first active campaign under Campaigns. | 每个实验都归属于一个实验系列。请在"实验系列"中创建第一个进行中的实验系列。 |
+| Ask an instructor to create the first active campaign under Campaigns. | 请导师在"实验系列"中创建第一个进行中的实验系列。 |
+| Open campaigns | 打开实验系列 |
 | Loading overview data… | 正在加载总览数据… |
 | Unable to load overview data. | 无法加载总览数据。 |
 | Pipeline board | 流水线看板 |
 | Next actions | 待办事项 |
 | No work needs attention right now. | 当前没有需要处理的工作。 |
-| Assign {filename} | 分配 {filename} |
+| Assign {filename} | 关联 {filename} |
 | Continue {batch_code} | 继续 {batch_code} |
 | Start {batch_code} | 开始 {batch_code} |
 | Prepare {batch_code} | 准备 {batch_code} |
@@ -168,26 +178,26 @@
 | Approve {experiment_code} | 审批 {experiment_code} |
 | Continue {experiment_code} | 继续 {experiment_code} |
 | Release {experiment_code} | 发布 {experiment_code} |
-| Freeze a batch for {experiment_code} | 为 {experiment_code} 冻结批次 |
+| Freeze a batch for {experiment_code} | 为 {experiment_code} 创建制备批次 |
 | Start fabrication for {experiment_code} | 开始 {experiment_code} 的制备 |
 | Complete {experiment_code} | 完成 {experiment_code} |
-| Assign substrate conditions to use this result in statistics and uniformity. | 分配基底条件，以便在统计和均匀性分析中使用该结果。 |
-| Record fabrication steps and complete the run sheet. | 记录制备步骤并完成记录单。 |
-| The run sheet is ready for fabrication. | 记录单已就绪，可开始制备。 |
-| Finish the run sheet and mark the batch ready. | 完成记录单并将批次标记为就绪。 |
-| Add the measurement CSV, then assign each substrate to its condition. | 添加测量 CSV，然后将每片基底分配到对应条件。 |
+| Assign substrate conditions to use this result in statistics and uniformity. | 将基底与实验条件关联，以便在统计和均匀性分析中使用该结果。 |
+| Record fabrication steps and complete the run sheet. | 记录制备步骤并完成制备记录单。 |
+| The run sheet is ready for fabrication. | 制备记录单已就绪，可开始制备。 |
+| Finish the run sheet and mark the batch ready. | 完成制备记录单并将批次标记为就绪。 |
+| Add the measurement CSV, then assign each substrate to its condition. | 添加测量 CSV，然后将每片基底与对应条件关联。 |
 | Review the submitted plan before fabrication. | 制备前审查已提交的计划。 |
 | Finish and submit the draft plan. | 完成并提交计划草稿。 |
-| Release the approved plan before freezing a fabrication batch. | 冻结制备批次前，先发布已批准的计划。 |
+| Release the approved plan before freezing a fabrication batch. | 创建制备批次前，先发布已批准计划。 |
 | At least one active batch is required to start fabrication. | 开始制备至少需要一个活跃的批次。 |
 | The plan has a fabrication batch and can enter the in-progress stage. | 该计划已有制备批次，可进入进行中阶段。 |
 | All fabrication batches are terminal; finish the plan lifecycle. | 所有制备批次均已结束；请完成该计划的生命周期。 |
 | Waiting for instructor approval before the plan can be released. | 等待导师审批后方可发布计划。 |
 | Experiments（统计卡） | 实验 |
-| Active campaigns（统计卡） | 进行中的项目组 |
+| Active campaigns（统计卡） | 进行中的实验系列 |
 | Materials（统计卡） | 材料 |
 | {n} experiments, view all experiments | {n} 个实验，查看全部实验 |
-| View campaigns | 查看项目组 |
+| View campaigns | 查看实验系列 |
 | {n} materials, view all materials | {n} 种材料，查看全部材料 |
 | Plan status | 计划状态 |
 | No experiments yet. | 暂无实验。 |
@@ -217,8 +227,8 @@
 | Start an experiment | 开始实验 |
 | Before you begin | 开始之前 |
 | Prepare the experiment context | 准备实验环境 |
-| An active campaign and a device layout are required. Ask an instructor or administrator to prepare them if they are missing. | 需要一个进行中的项目组和一个器件布局。如缺失，请导师或管理员准备。 |
-| View campaigns / View device layouts | 查看项目组 / 查看器件布局 |
+| An active campaign and a device layout are required. Ask an instructor or administrator to prepare them if they are missing. | 需要一个进行中的实验系列和一个器件布局。如缺失，请导师或管理员准备。 |
+| View campaigns / View device layouts | 查看实验系列 / 查看器件布局 |
 | Process map | 流程图 |
 | The full path at a glance | 全流程一览 |
 | Enlarge diagram | 放大流程图 |
@@ -227,19 +237,19 @@
 | Follow these steps | 按以下步骤操作 |
 | Plan · student / Review · instructor, then student / Fabricate · student / Characterize · student / Analyze · result page（阶段标签） | 规划 · 学生 / 审查 · 导师，然后学生 / 制备 · 学生 / 表征 · 学生 / 分析 · 结果页 |
 | Create and submit a plan | 创建并提交计划 |
-| Choose the campaign and device layout, define a control and target conditions, then review and save the complete recipe. Open the draft experiment and select Submit for approval. | 选择项目组和器件布局，定义对照与目标条件，然后检查并保存完整配方。打开草稿实验并选择"提交审批"。 |
+| Choose the campaign and device layout, define a control and target conditions, then review and save the complete recipe. Open the draft experiment and select Submit for approval. | 选择实验系列和器件布局，定义对照与目标条件，然后检查并保存完整配方。打开草稿实验并选择"提交审批"。 |
 | Create experiment → | 创建实验 → |
 | Approve and release the plan | 批准并发布计划 |
 | An instructor or administrator reviews the conditions and selects Approve plan. The student then opens the approved experiment and selects Release approved plan. | 导师或管理员审查条件并选择"批准计划"。随后学生打开已批准的实验并选择"发布已批准计划"。 |
 | Find the experiment → | 查找实验 → |
-| Freeze a batch and record the work | 冻结批次并记录工作 |
-| On the experiment page, select Freeze fabrication batch before Start fabrication. In the batch run sheet, mark it ready, start execution, record actual preparations and processes, and complete the batch. Return to the experiment to complete fabrication when the work is finished. | 在实验页面，先选择"冻结制备批次"再"开始制备"。在批次记录单中将其标记为就绪、开始执行、记录实际的溶液准备与工艺过程，并完成批次。工作完成后返回实验页面完成制备。 |
+| Freeze a batch and record the work | 创建制备批次并记录工作 |
+| On the experiment page, select Freeze fabrication batch before Start fabrication. In the batch run sheet, mark it ready, start execution, record actual preparations and processes, and complete the batch. Return to the experiment to complete fabrication when the work is finished. | 在实验页面，先选择"创建制备批次"再"开始制备"。在批次制备记录单中将其标记为就绪、开始执行、记录实际的溶液准备与工艺过程，并完成批次。工作完成后返回实验页面完成制备。 |
 | Open fabrication batches → | 打开制备批次 → |
 | Upload the J-V CSV | 上传 J-V CSV |
 | Open the experiment's Characterization results section and select Upload results. Choose the batch that produced the devices, upload its CSV, and continue to the result. The batch must be in progress or completed. | 打开实验的"表征结果"部分并选择"上传结果"。选择产出这些器件的批次，上传其 CSV 并继续查看结果。批次须处于进行中或已完成状态。 |
 | Choose an experiment → | 选择实验 → |
 | Inspect curves, then compare groups | 查看曲线，再比较各组 |
-| J-V curves are available immediately after upload. Assign every substrate to its condition group and save assignments before group statistics and uniformity. Device exclusions are optional; review both all-device and filtered figures, with forward and reverse scans kept separate. | 上传后即可查看 J-V 曲线。在分组统计和均匀性分析前，将每片基底分配到对应条件组并保存分配。器件排除为可选；请同时查看全器件与筛选后的图表，正向与反向扫描分开呈现。 |
+| J-V curves are available immediately after upload. Assign every substrate to its condition group and save assignments before group statistics and uniformity. Device exclusions are optional; review both all-device and filtered figures, with forward and reverse scans kept separate. | 上传后即可查看 J-V 曲线。在分组统计和均匀性分析前，将每片基底与对应条件组关联并保存关联。器件排除为可选；请同时查看全器件与筛选后的图表，正向与反向扫描分开呈现。 |
 | Open results → | 打开结果 → |
 
 ## 5. 实验列表
@@ -249,19 +259,19 @@
 | Loading experiments… | 正在加载实验… |
 | Unable to load experiments. | 无法加载实验。 |
 | Experiments | 实验 |
-| Plans and records across all campaigns. | 跨所有项目组的计划与记录。 |
+| Plans and records across all campaigns. | 跨所有实验系列的计划与记录。 |
 | Plan new experiment | 规划新实验 |
 | Experiment filters | 实验筛选 |
-| Campaign | 项目组 |
-| All Campaigns | 全部项目组 |
+| Campaign | 实验系列 |
+| All Campaigns | 全部实验系列 |
 | Plan status | 计划状态 |
 | All statuses | 全部状态 |
 | Search experiments | 搜索实验 |
-| Code, Campaign, or material | 编号、项目组或材料 |
+| Code, Campaign, or material | 编号、实验系列或材料 |
 | {n} records | {n} 条记录 |
 | Experiment records | 实验记录 |
 | No experiments match these filters. | 没有符合筛选条件的实验。 |
-| Experiment / Campaign / Plan type / Best PCE / Plan / Record / Device stack / Updated（表头） | 实验 / 项目组 / 计划类型 / 最佳 PCE / 计划 / 记录 / 器件堆叠 / 更新时间 |
+| Experiment / Campaign / Plan type / Best PCE / Plan / Record / Device stack / Updated（表头） | 实验 / 实验系列 / 计划类型 / 最佳 PCE / 计划 / 记录 / 器件堆叠 / 更新时间 |
 
 ## 6. 实验详情
 
@@ -276,14 +286,14 @@
 | Plan status changed to {status}. | 计划状态已变更为{status}。 |
 | Unable to update the plan status. | 无法更新计划状态。 |
 | Plan content changed after you loaded it. The latest version is shown below — review it again before approving. | 计划内容在您加载后已被修改。下方显示最新版本——请在批准前重新审查。 |
-| No fabrication batches yet. Freeze at least one batch below before starting or completing fabrication — characterization CSV uploads require a batch. | 尚无制备批次。开始或完成制备前，请先在下方冻结至少一个批次——表征 CSV 上传需要批次。 |
-| Fabrication batch frozen from the approved condition snapshots. | 已从已批准的条件快照冻结制备批次。 |
+| No fabrication batches yet. Freeze at least one batch below before starting or completing fabrication — characterization CSV uploads require a batch. | 尚无制备批次。开始或完成制备前，请先在下方创建至少一个制备批次——表征 CSV 上传需要批次。 |
+| Fabrication batch frozen from the approved condition snapshots. | 已根据已批准的条件快照创建制备批次，并固定计划快照。 |
 | Unable to create the fabrication batch. | 无法创建制备批次。 |
 | Invalid experiment / The experiment identifier is not valid. | 无效实验 / 实验标识符无效。 |
 | Loading experiment… | 正在加载实验… |
 | Unable to load experiment / The experiment could not be loaded. | 无法加载实验 / 实验加载失败。 |
 | {plan_type} plan in {campaign_id}. | {campaign_id} 中的{plan_type}计划。 |
-| Unclassified / unassigned Campaign | 未分类 / 未分配项目组 |
+| Unclassified / unassigned Campaign | 未分类 / 未关联实验系列 |
 | Updated {time} | 更新于 {time} |
 | Export JSON / Export PDF / Back to records | 导出 JSON / 导出 PDF / 返回记录 |
 | Plan summary | 计划摘要 |
@@ -291,10 +301,10 @@
 | Conditions | 条件 |
 | Fabrication batches | 制备批次 |
 | Batch notes | 批次备注 |
-| Freeze fabrication batch | 冻结制备批次 |
+| Freeze fabrication batch | 创建制备批次 |
 | No fabrication batches yet. | 尚无制备批次。 |
-| Freeze a batch from the approved condition snapshots above — starting fabrication and CSV result uploads both require at least one batch. | 从上方已批准的条件快照冻结批次——开始制备和 CSV 结果上传都至少需要一个批次。 |
-| Release the plan before freezing execution records. | 冻结执行记录前请先发布计划。 |
+| Freeze a batch from the approved condition snapshots above — starting fabrication and CSV result uploads both require at least one batch. | 从上方已批准的条件快照创建制备批次——开始制备和 CSV 结果上传都至少需要一个批次。 |
+| Release the plan before freezing execution records. | 创建制备批次并固定计划快照前，请先发布计划。 |
 | No notes | 无备注 |
 | Provenance | 溯源 |
 | Characterization results | 表征结果 |
@@ -365,8 +375,8 @@
 | Starting point | 起点 |
 | Expanded snapshot | 展开快照 |
 | Three ways to begin: expand a baseline (the shortcut — its complete recipe is copied into this editable plan), or plan from scratch and fill in every layer, material, and process yourself. Either way the experiment stores its own complete snapshot; a baseline reference is provenance only. | 三种开始方式：展开基线（捷径——其完整配方将复制到本可编辑计划中），或从零规划，自行填写每层、每种材料和工艺。无论哪种方式，实验都会保存自己的完整快照；基线引用仅作溯源。 |
-| Campaign | 项目组 |
-| Choose an active Campaign… | 请选择一个进行中的项目组… |
+| Campaign | 实验系列 |
+| Choose an active Campaign… | 请选择一个进行中的实验系列… |
 | Baseline reference (optional shortcut) | 基线引用（可选捷径） |
 | Changing this selection replaces the current editable recipe with a fresh deep copy. Leave empty to plan from scratch. | 更改此选项会用所选基线的独立副本替换当前可编辑配方。留空则从零规划。 |
 | No baselines available yet — plan from scratch below | 暂无可用基线——请在下方从零规划 |
@@ -453,7 +463,7 @@
 | Remove formulation | 移除配方 |
 | Formulation type | 配方类型 |
 | Weighed solids / Diluted dispersion | 称量固体 / 稀释分散液 |
-| Stock dispersion / Stock volume (mL) | 母液 / 母液体积 (mL) |
+| Stock dispersion / Stock volume (mL) | 原液 / 原液体积 (mL) |
 | Solid ingredients | 固体成分 |
 | Add solid | 添加固体 |
 | Chemical {n} / Weight (mg) | 化学品 {n} / 质量 (mg) |
@@ -482,7 +492,7 @@
 | Review complete plan | 检查完整计划 |
 | Ready to save / {n} items need attention | 可以保存 / {n} 项待处理 |
 | Complete these values before saving | 保存前请完成以下内容 |
-| Campaign / Starting point / Baseline version / Setup mode | 项目组 / 起点 / 基线版本 / 设置方式 |
+| Campaign / Starting point / Baseline version / Setup mode | 实验系列 / 起点 / 基线版本 / 设置方式 |
 | Not selected / Blank plan / None | 未选择 / 空白计划 / 无 |
 | Substrate / Ordered functional layers / Perovskite process / Condition plan | 基底 / 有序功能层 / 钙钛矿工艺 / 条件计划 |
 | No supplier / No catalog number | 无供应商 / 无货号 |
@@ -501,7 +511,7 @@
 | {name} does not support {method}. | {name} 不支持{method}。 |
 | {name} requires a solution formulation. | {name} 需要溶液配方。 |
 | {name} does not use a solution formulation with {method}. | {name} 在{method}下不使用溶液配方。 |
-| {name} requires a stock dispersion name and volume. | {name} 需要母液名称和体积。 |
+| {name} requires a stock dispersion name and volume. | {name} 需要原液名称和体积。 |
 | {name} requires at least one solid ingredient. | {name} 至少需要一种固体成分。 |
 | {name} has an incomplete solid ingredient. | {name} 有未填完整的固体成分。 |
 | {name} requires at least one solvent. | {name} 至少需要一种溶剂。 |
@@ -522,7 +532,7 @@
 | Record one or two complete annealing stages. | 记录一到两个完整的退火阶段。 |
 | Every annealing stage must be complete. | 每个退火阶段都必须完整。 |
 | The VCD sequence must include every evacuation and gas-backfill stage exactly once. | VCD 顺序必须恰好包含每个抽真空和气体回填阶段一次。 |
-| Select an active Campaign. | 请选择一个进行中的项目组。 |
+| Select an active Campaign. | 请选择一个进行中的实验系列。 |
 | Select a substrate material from the reusable directory. | 请从可复用目录中选择基底材料。 |
 | Select a substrate supplier product. | 请选择基底供应商产品。 |
 | Select a substrate catalog number. | 请选择基底货号。 |
@@ -559,18 +569,18 @@
 | Unable to load fabrication batches / The fabrication batches could not be loaded. | 无法加载制备批次 / 制备批次加载失败。 |
 | Unable to refresh fabrication batches: {err} The displayed results may not match the selected filter. | 无法刷新制备批次：{err} 显示的结果可能与所选筛选不符。 |
 | Fabrication batches | 制备批次 |
-| Fabrication batches across all campaigns, newest first. | 跨所有项目组的制备批次，最新在前。 |
+| Fabrication batches across all campaigns, newest first. | 跨所有实验系列的制备批次，最新在前。 |
 | Batch records | 批次记录 |
 | Batch status | 批次状态 |
 | All statuses | 全部状态 |
 | draft / ready / in progress / completed / cancelled | 草稿 / 就绪 / 进行中 / 已完成 / 已取消 |
-| No fabrication batches yet. / Fabrication batches appear here once a plan is released and a batch is frozen. | 尚无制备批次。/ 计划发布并冻结批次后，制备批次将显示在此处。 |
+| No fabrication batches yet. / Fabrication batches appear here once a plan is released and a batch is frozen. | 尚无制备批次。/ 计划发布并创建制备批次后，制备批次将显示在此处。 |
 | Best PCE {x} % · Jsc {y} mA/cm² | 最佳 PCE {x} % · Jsc {y} mA/cm² |
 | No measured results yet. | 暂无测量结果。 |
 | No batch notes. | 无批次备注。 |
 | Created {time} | 创建于 {time} |
 
-## 9. 批次详情（记录单）
+## 9. 批次详情（制备记录单）
 
 | English | 中文 |
 |---|---|
@@ -582,43 +592,43 @@
 | Unable to update the batch status. | 无法更新批次状态。 |
 | Invalid batch / The fabrication batch identifier is not valid. | 无效批次 / 制备批次标识符无效。 |
 | Batch not found / The batch does not belong to the requested experiment. | 未找到批次 / 该批次不属于所请求的实验。 |
-| Loading run sheet… | 正在加载记录单… |
-| Unable to load run sheet / The run sheet could not be loaded. | 无法加载记录单 / 记录单加载失败。 |
-| Unable to refresh run sheet / Unable to refresh the run sheet. The displayed data may be outdated; verify the current batch state before continuing. | 无法刷新记录单 / 无法刷新记录单。显示的数据可能已过期；继续前请核实当前批次状态。 |
+| Loading run sheet… | 正在加载制备记录单… |
+| Unable to load run sheet / The run sheet could not be loaded. | 无法加载制备记录单 / 制备记录单加载失败。 |
+| Unable to refresh run sheet / Unable to refresh the run sheet. The displayed data may be outdated; verify the current batch state before continuing. | 无法刷新制备记录单 / 无法刷新制备记录单。显示的数据可能已过期；继续前请核实当前批次状态。 |
 | Solution preparation saved. / Process execution saved. | 溶液准备已保存。/ 工艺执行已保存。 |
 | Unable to save the preparation. / Unable to save the execution. | 无法保存准备记录。/ 无法保存执行记录。 |
-| Recorded {n} run-sheet items as planned. | 已将 {n} 条记录单项按计划记录。 |
-| Unable to record the run sheet as planned. | 无法按计划记录记录单。 |
+| Recorded {n} run-sheet items as planned. | 已将制备记录单中的 {n} 个条目按计划记录。 |
+| Unable to record the run sheet as planned. | 无法按计划记录制备记录单。 |
 | Split saved. / Preparations merged. / Executions merged. | 拆分已保存。/ 准备已合并。/ 执行已合并。 |
 | Unable to split the preparation. / Unable to split the execution. / Unable to merge the preparations. / Unable to merge the executions. | 无法拆分准备。/ 无法拆分执行。/ 无法合并准备。/ 无法合并执行。 |
 | Deviation recorded. | 偏差已记录。 |
 | Unable to record the deviation. | 无法记录偏差。 |
-| Fabrication batch {n} · frozen condition snapshot | 制备批次 {n} · 冻结条件快照 |
+| Fabrication batch {n} · frozen condition snapshot | 制备批次 {n} · 已固定的条件快照 |
 | Created {time} · Updated {time} | 创建于 {time} · 更新于 {time} |
 | Export JSON / Export PDF / Back to plan | 导出 JSON / 导出 PDF / 返回计划 |
 | Batch status | 批次状态 |
 | Recorded {x}/{y} preparations · {a}/{b} executions | 已记录 {x}/{y} 项准备 · {a}/{b} 项执行 |
 | Record all as planned ({n}) | 全部按计划记录（{n}） |
 | Record all as planned | 全部按计划记录 |
-| Record all {n} unrecorded run-sheet items as matching the plan? Each item copies its planned parameters as the actual record; items you already adjusted are untouched. | 将 {n} 条未记录的记录单项全部按与计划一致记录？每项将复制其计划参数作为实际记录；您已调整的项目不受影响。 |
-| Cancel batch {code}? Cancellation is final and the run sheet cannot be reopened. | 取消批次 {code}？取消为最终操作，记录单无法重新打开。 |
+| Record all {n} unrecorded run-sheet items as matching the plan? Each item copies its planned parameters as the actual record; items you already adjusted are untouched. | 将制备记录单中 {n} 个尚未记录的条目全部按计划填写？每项将复制其计划参数作为实际记录；您已调整的项目不受影响。 |
+| Cancel batch {code}? Cancellation is final and the run sheet cannot be reopened. | 取消批次 {code}？取消为最终操作，制备记录单无法重新打开。 |
 | Merge preparation | 合并准备 |
 | Merge {source} into {target}? The source preparation will be merged and deleted. | 将 {source} 合并到 {target}？源准备将被合并并删除。 |
 | Merge execution | 合并执行 |
 | Merge {source} into {target}? The source execution will be merged and deleted. | 将 {source} 合并到 {target}？源执行将被合并并删除。 |
 | condition {name} needs a valid actual substrate count | 条件 {name} 需要有效的实际基底数量 |
 | condition {name} needs a deviation reason for its shortfall | 条件 {name} 需要为其数量不足填写偏差原因 |
-| Run sheet sections / Jump to | 记录单分区 / 跳转至 |
+| Run sheet sections / Jump to | 制备记录单分区 / 跳转至 |
 | Preparations ({x}/{y}) / Executions ({x}/{y}) / Deviations ({n}) / Conditions / Substrates | 准备（{x}/{y}）/ 执行（{x}/{y}）/ 偏差（{n}）/ 条件 / 基底 |
-| Frozen conditions | 冻结条件 |
+| Frozen conditions | 已固定的条件 |
 | Code / Name / Role / Layout / Substrates / Devices（表头） | 编号 / 名称 / 角色 / 布局 / 基底 / 器件 |
 | Substrates & devices | 基底与器件 |
 | {n} substrates | {n} 片基底 |
 | Mark / Substrate / Status / Devices（表头） | 标记 / 基底 / 状态 / 器件 |
 | {n} devices | {n} 个器件 |
-| Run sheet | 记录单 |
+| Run sheet | 制备记录单 |
 | {x} preparations · {y} executions | {x} 项准备 · {y} 项执行 |
-| Nothing to record on this run sheet yet. | 此记录单暂无可记录内容。 |
+| Nothing to record on this run sheet yet. | 此制备记录单暂无可记录内容。 |
 | Advanced: split, merge, and full recording forms | 高级：拆分、合并与完整记录表单 |
 | Deviations | 偏差 |
 | No deviations recorded. | 未记录偏差。 |
@@ -630,7 +640,7 @@
 | Enter how many substrates were actually made. | 请输入实际产出的基底数量。 |
 | Deviation reason (required) | 偏差原因（必填） |
 | Step / Detail / Status — click to cycle（表头） | 步骤 / 详情 / 状态——点击切换 |
-| Run sheet checklist | 记录单清单 |
+| Run sheet checklist | 制备记录单清单 |
 | Solution preparations / Process executions | 溶液准备 / 工艺执行 |
 | not recorded | 未记录 |
 | Deviation | 偏差 |
@@ -675,7 +685,7 @@
 
 | English | 中文 |
 |---|---|
-| Method / Formulation type / Stock dispersion / Stock volume / Chemical / Weight / Solvent / Volume | 方法 / 配方类型 / 母液 / 母液体积 / 化学品 / 质量 / 溶剂 / 体积 |
+| Method / Formulation type / Stock dispersion / Stock volume / Chemical / Weight / Solvent / Volume | 方法 / 配方类型 / 原液 / 原液体积 / 化学品 / 质量 / 溶剂 / 体积 |
 | Speed / Duration / Acceleration / Temperature / Valve / Pressure / Gas / Flow / Target pressure / Hold time | 转速 / 时长 / 加速度 / 温度 / 阀门 / 压强 / 气体 / 流量 / 目标压强 / 保持时间 |
 | Sputter mode / Power / Gas 1 / Gas 1 flow / Gas 2 / Gas 2 flow / Thickness / Rate / Substrate temperature / Cycles | 溅射模式 / 功率 / 气体 1 / 气体 1 流量 / 气体 2 / 气体 2 流量 / 厚度 / 速率 / 基底温度 / 循环数 |
 | Solid ingredients / Solvents / Spin-coating steps / Annealing steps / Evacuation stages / Gas backfill stages / VCD execution order | 固体成分 / 溶剂 / 旋涂步骤 / 退火步骤 / 抽真空阶段 / 气体回填阶段 / VCD 执行顺序 |
@@ -689,7 +699,7 @@
 | English | 中文 |
 |---|---|
 | Upload characterization result | 上传表征结果 |
-| Read devices from a JV CSV and continue to the assignment step. | 从 J-V CSV 读取器件并继续分配步骤。 |
+| Read devices from a JV CSV and continue to the assignment step. | 从 J-V CSV 读取器件并继续关联步骤。 |
 | Back to plan | 返回计划 |
 | Expected groups | 预期分组 |
 | No eligible fabrication batches. / Start a fabrication batch and mark it in progress before uploading results. | 没有符合条件的制备批次。/ 上传结果前请先开始一个制备批次并标记为进行中。 |
@@ -703,7 +713,7 @@
 | Choose a CSV result file before submitting. | 提交前请选择 CSV 结果文件。 |
 | Result file must not exceed 10 MB. Choose a smaller file. | 结果文件不得超过 10 MB。请选择更小的文件。 |
 | Choose the fabrication batch that produced these devices. | 请选择产出这些器件的制备批次。 |
-| Result uploaded. Assigning devices to conditions… | 结果已上传。正在将器件分配到条件… |
+| Result uploaded. Assigning devices to conditions… | 结果已上传。正在将器件与条件关联… |
 | Unable to upload the result file. | 无法上传结果文件。 |
 
 ## 11. 结果列表
@@ -714,12 +724,12 @@
 | Unable to load results / The results could not be loaded. | 无法加载结果 / 结果加载失败。 |
 | Unable to refresh results: {err} The displayed rows may not match the selected filter. | 无法刷新结果：{err} 显示的行可能与所选筛选不符。 |
 | Results | 结果 |
-| Uploaded result files across all campaigns, newest first. | 跨所有项目组的上传结果文件，最新在前。 |
+| Uploaded result files across all campaigns, newest first. | 跨所有实验系列的上传结果文件，最新在前。 |
 | Result records | 结果记录 |
 | Experiment / Batch（筛选标签） | 实验 / 批次 |
 | Experiment id / Fabrication batch id（占位符） | 实验 ID / 制备批次 ID |
 | No characterization results. / Uploaded result files appear here once an in-progress batch is characterized. | 暂无表征结果。/ 进行中的批次完成表征后，上传的结果文件将显示在此处。 |
-| Assigned / Unassigned | 已分配 / 未分配 |
+| Assigned / Unassigned | 已关联 / 未关联 |
 | {n} bytes / Schema v{n} | {n} bytes / 数据结构版本 v{n} |
 
 ## 12. 结果详情 / 分析
@@ -734,9 +744,9 @@
 | Experiment / Batch（头部按钮） | 实验 / 批次 |
 | Characterization analysis unavailable / The characterization analysis for this result is not available in a readable form. Re-upload the result file or contact an instructor. | 表征分析不可用 / 该结果的表征分析无法以可读形式提供。请重新上传结果文件或联系导师。 |
 | Unsaved analysis preview | 未保存的分析预览 |
-| {n} assignment change{s} · {n} exclusion change{s} · Statistics and filtered figures preview your exclusion selection. | {n} 处分配变更 · {n} 处排除变更 · 统计与筛选图表正在预览您的排除选择。 |
-| Assignment changes take effect after saving. | 分配变更将在保存后生效。 |
-| Apply assignment changes | 应用分配变更 |
+| {n} assignment change{s} · {n} exclusion change{s} · Statistics and filtered figures preview your exclusion selection. | {n} 处关联变更 · {n} 处排除变更 · 统计与筛选图表正在预览您的排除选择。 |
+| Assignment changes take effect after saving. | 关联变更将在保存后生效。 |
+| Apply assignment changes | 应用关联变更 |
 | Save manual exclusions | 保存手动排除 |
 | Discard changes | 放弃变更 |
 | Current analysis filter | 当前分析筛选 |
@@ -745,30 +755,30 @@
 | Measurement quality warnings | 测量质量警告 |
 | Substrates / Devices / Valid traces / Best forward PCE (%) / Best reverse PCE (%) | 基底 / 器件 / 有效曲线 / 最佳正向 PCE (%) / 最佳反向 PCE (%) |
 | Result sections | 结果分区 |
-| Assignments / Statistics / J–V curves / Uniformity / Data & provenance | 分配 / 统计 / J–V 曲线 / 均匀性 / 数据与溯源 |
+| Assignments / Statistics / J–V curves / Uniformity / Data & provenance | 关联 / 统计 / J–V 曲线 / 均匀性 / 数据与溯源 |
 | Integrity & provenance | 完整性与溯源 |
 | Experiment / Size / SHA-256 / Analysis schema / Uploaded by | 实验 / 大小 / SHA-256 / 分析数据结构 / 上传者 |
 | Not available | 不可用 |
-| Substrate condition assignment | 基底条件分配 |
+| Substrate condition assignment | 基底条件关联 |
 | {n} groups | {n} 组 |
-| Edit assignments | 编辑分配 |
+| Edit assignments | 编辑关联 |
 | Select exactly one experiment condition for each substrate name read from the measurement file. Names do not set conditions automatically. If a name is not a physical laser mark, condition statistics and figures remain available, while physical device linkage stays unresolved. | 为测量文件中读取的每个基底名称恰好选择一个实验条件。名称不会自动设定条件。若名称不是物理激光标记，条件统计与图表仍可用，但物理器件关联保持未解析。 |
-| All substrates must be assigned before statistics are calculated. | 统计计算前必须分配所有基底。 |
-| Assign {substrate_id} to | 将 {substrate_id} 分配到 |
+| All substrates must be assigned before statistics are calculated. | 统计计算前必须关联所有基底。 |
+| Assign {substrate_id} to | 将 {substrate_id} 与以下条件关联 |
 | Choose a condition… | 请选择条件… |
 | {name} ({kind}) | {name}（{kind}） |
-| Inconsistent condition assignment: the device rows for this substrate disagree. Review the saved assignments. | 条件分配不一致：该基底的器件行互相矛盾。请检查已保存的分配。 |
+| Inconsistent condition assignment: the device rows for this substrate disagree. Review the saved assignments. | 条件关联不一致：该基底的器件行互相矛盾。请检查已保存的关联。 |
 | Correction reason | 更正原因 |
-| Assignment correction reason | 分配更正原因 |
-| Saving… / Save assignments | 保存中… / 保存分配 |
-| Assignments saved for {n} substrates. | 已为 {n} 片基底保存分配。 |
-| Enter a correction reason before changing saved assignments. | 修改已保存的分配前请填写更正原因。 |
-| Assignments saved. Analysis updated. / Manual exclusions saved. | 分配已保存，分析已更新。/ 手动排除已保存。 |
-| Unable to save assignments. | 无法保存分配。 |
+| Assignment correction reason | 关联更正原因 |
+| Saving… / Save assignments | 保存中… / 保存关联 |
+| Assignments saved for {n} substrates. | 已为 {n} 片基底保存关联。 |
+| Enter a correction reason before changing saved assignments. | 修改已保存的关联前请填写更正原因。 |
+| Assignments saved. Analysis updated. / Manual exclusions saved. | 关联已保存，分析已更新。/ 手动排除已保存。 |
+| Unable to save assignments. | 无法保存关联。 |
 | Device exclusions · {n} selected | 器件排除 · 已选 {n} 项 |
-| Device scan history · {n} assignments | 器件扫描历史 · {n} 条分配 |
-| Saved assignment provenance · {n} rows | 已保存分配溯源 · {n} 行 |
-| No saved assignment provenance rows. | 暂无已保存的分配溯源记录。 |
+| Device scan history · {n} assignments | 器件扫描历史 · {n} 条关联 |
+| Saved assignment provenance · {n} rows | 已保存关联溯源 · {n} 行 |
+| No saved assignment provenance rows. | 暂无已保存的关联溯源记录。 |
 | Analysis device / Analysis substrate / Instrument label / Fabrication device / Substrate / Condition / Batch condition（表头） | 分析器件 / 分析基底 / 仪器标签 / 制备器件 / 基底 / 条件 / 批次条件 |
 | Parsed devices · {n} devices | 解析器件 · {n} 个器件 |
 | Parsed devices | 解析器件 |
@@ -776,7 +786,7 @@
 | {direction} valid / {direction} invalid | {direction} 有效 / {direction} 无效 |
 | No valid trace | 无有效曲线 |
 | Forward / Reverse | 正向 / 反向 |
-| Unassigned | 未分配 |
+| Unassigned | 未关联 |
 | Publication substrate uniformity | 出版级基底均匀性 |
 | Metric / Scan direction / Color palette | 指标 / 扫描方向 / 配色方案 |
 | Color bar minimum / Color bar maximum / Problem threshold | 色条最小值 / 色条最大值 / 问题阈值 |
@@ -856,7 +866,7 @@
 | English | 中文 |
 |---|---|
 | Analysis workbench | 分析工作台 |
-| Overlay J-V curves, compare frozen planned conditions, and review campaign-level measurements across characterization results. | 叠加 J-V 曲线、对比冻结的计划条件，并跨表征结果查看项目组级测量。 |
+| Overlay J-V curves, compare frozen planned conditions, and review campaign-level measurements across characterization results. | 叠加 J-V 曲线、对比已固定的计划条件，并跨表征结果查看实验系列级测量。 |
 | Unable to load the workbench. | 无法加载工作台。 |
 | Loading the workbench… | 正在加载工作台… |
 | No characterization results exist yet — upload a result file first. | 尚无表征结果——请先上传结果文件。 |
@@ -872,12 +882,12 @@
 | Rendering overlay for {labels}… | 正在为 {labels} 渲染叠加图… |
 | Unable to render the overlay for {labels}. Results need valid forward J-V traces. Review the selected files or try rendering again. | 无法为 {labels} 渲染叠加图。结果需要有效的正向 J-V 曲线。请检查所选文件或重试。 |
 | Select results and render the overlay — one best forward curve per result file. | 选择结果并渲染叠加图——每个结果文件取一条最佳正向曲线。 |
-| Loading frozen conditions for the selected experiments… | 正在加载所选实验的冻结条件… |
+| Loading frozen conditions for the selected experiments… | 正在加载所选实验已固定的条件… |
 | Unable to compare the selected experiments: {err} | 无法对比所选实验：{err} |
 | Condition comparison | 条件对比 |
 | Values show the saved plan for every control and target condition. | 数值显示每个对照与目标条件的已保存计划。 |
-| No frozen conditions are available for these experiments. | 这些实验没有可用的冻结条件。 |
-| Frozen planned conditions for all selected experiments, including control and target conditions | 所有所选实验的冻结计划条件，含对照与目标条件 |
+| No frozen conditions are available for these experiments. | 这些实验没有可用的已固定的条件。 |
+| Frozen planned conditions for all selected experiments, including control and target conditions | 所有所选实验已固定的计划条件，含对照与目标条件 |
 | ◆ differs | ◆ 有差异 |
 | Cross-result J-V overlay: {labels} | 跨结果 J-V 叠加图：{labels} |
 
@@ -887,7 +897,7 @@
 |---|---|
 | Setup / Junction / Bandgap / Tandem type / Product | 设置 / 结型 / 带隙 / 叠层类型 / 产品 |
 | Width / Length / Substrate width / Substrate length | 宽度 / 长度 / 基底宽度 / 基底长度 |
-| Layer type / Formulation / Stock dispersion / Stock volume / Weight / Volume | 层类型 / 配方 / 母液 / 母液体积 / 质量 / 体积 |
+| Layer type / Formulation / Stock dispersion / Stock volume / Weight / Volume | 层类型 / 配方 / 原液 / 原液体积 / 质量 / 体积 |
 | Speed / Duration / Acceleration / Temperature / Pressure / Flow / Target pressure / Hold duration | 转速 / 时长 / 加速度 / 温度 / 压强 / 流量 / 目标压强 / 保持时长 |
 | VCD sequence / Sputter mode / Power / Gas 1 / Gas 2 / Gas 1 flow / Gas 2 flow / Thickness / Rate / Substrate temperature | VCD 顺序 / 溅射模式 / 功率 / 气体 1 / 气体 2 / 气体 1 流量 / 气体 2 流量 / 厚度 / 速率 / 基底温度 |
 | Devices per substrate / Device active area / Total active area / Planned substrates / Expected devices | 每基底器件数 / 器件有效面积 / 总有效面积 / 计划基底数 / 预期器件数 |
@@ -896,33 +906,33 @@
 | VCD stage {n} / Gas backfill {n} / Spin step {n} | VCD 阶段 {n} / 气体回填 {n} / 旋涂步骤 {n} |
 | Device / Deposition / Layout / Planned substrates / Expected devices（路径根） | 器件 / 沉积 / 布局 / 计划基底数 / 预期器件数 |
 
-### 项目组分析面板（CampaignAnalysisPanel）
+### 实验系列分析面板（CampaignAnalysisPanel）
 
 | English | 中文 |
 |---|---|
-| Campaign comparison | 项目组对比 |
-| Read-only comparison across the campaign: directional device statistics, recorded actual process variants against the frozen plan, and same-batch control/target differences. | 当前项目组内的只读对比：分方向器件统计、相对冻结计划的实际工艺变体，以及同批次对照/目标差异。 |
-| Campaign / Batch / Representative | 项目组 / 批次 / 代表值 |
+| Campaign comparison | 实验系列对比 |
+| Read-only comparison across the campaign: directional device statistics, recorded actual process variants against the frozen plan, and same-batch control/target differences. | 当前实验系列内的只读对比：分方向器件统计、相对已固定的计划的实际工艺变体，以及同批次对照/目标差异。 |
+| Campaign / Batch / Representative | 实验系列 / 批次 / 代表值 |
 | All batches | 全部批次 |
 | latest upload / mean across uploads | 最新上传 / 各上传均值 |
-| Loading campaign analysis… | 正在加载项目组分析… |
-| Unable to load the campaign analysis: {err} | 无法加载项目组分析：{err} |
-| Campaign comparison needs an experiment in a campaign — none is visible yet. | 项目组对比需要项目组内的实验——目前尚无可见实验。 |
+| Loading campaign analysis… | 正在加载实验系列分析… |
+| Unable to load the campaign analysis: {err} | 无法加载实验系列分析：{err} |
+| Campaign comparison needs an experiment in a campaign — none is visible yet. | 实验系列对比需要实验系列内的实验——目前尚无可见实验。 |
 | {n} experiment(s) in scope · rules {v} · representative {r} · digest {d} | 范围内 {n} 个实验 · 规则 {v} · 代表值 {r} · 摘要 {d} |
 | Directional summaries | 分方向汇总 |
 | Forward and reverse scans are reported separately. Device statistics are descriptive; the substrate mean is the equally weighted per-substrate view. | 正向与反向扫描分开报告。器件统计为描述性统计；基底均值是等权重的逐基底视图。 |
 | No measured devices are visible in this scope yet. | 该范围内尚无可见的已测量器件。 |
 | Directional summaries per condition variant, forward and reverse separate | 按条件变体的分方向汇总，正反向分开 |
-| Campaign summary table | 项目组汇总表 |
+| Campaign summary table | 实验系列汇总表 |
 | Condition / Variant / Direction / Devices / Substrates / Measurements / PCE median / PCE best / Voc / Jsc / FF / Substrate-mean PCE（表头） | 条件 / 变体 / 方向 / 器件 / 基底 / 测量 / PCE 中位数 / PCE 最佳 / Voc / Jsc / FF / 基底均值 PCE |
 | {value} ({n} substrate units) | {value}（{n} 个基底单元） |
 | forward / reverse（单元格值） | 正向 / 反向 |
-| Actual process vs frozen plan | 实际工艺 vs 冻结计划 |
-| Each variant shows the effective value behind the statistics (the recorded actual value, the frozen-plan fallback marked 'planned', or '—' for a step the execution never performed) beside the frozen plan's reference value. '◆ deviates from plan' marks rows where the effective value differs from the plan. | 每个变体在冻结计划参考值旁显示统计背后的有效值（记录的实际值、标记为"计划"的冻结计划回退值，或执行中从未进行的步骤显示"—"）。"◆ 偏离计划"标记有效值与计划不同的行。 |
+| Actual process vs frozen plan | 实际工艺 vs 已固定的计划 |
+| Each variant shows the effective value behind the statistics (the recorded actual value, the frozen-plan fallback marked 'planned', or '—' for a step the execution never performed) beside the frozen plan's reference value. '◆ deviates from plan' marks rows where the effective value differs from the plan. | 每个变体在已固定的计划参考值旁显示统计背后的有效值（记录的实际值、标记为"计划"的已固定的计划回退值，或执行中从未进行的步骤显示"—"）。"◆ 偏离计划"标记有效值与计划不同的行。 |
 | No fabrication batches exist for this scope yet. | 该范围内尚无制备批次。 |
-| Recorded actual process parameters beside the frozen plan reference per condition variant | 按条件变体，记录的实际工艺参数与冻结计划参考值并列 |
+| Recorded actual process parameters beside the frozen plan reference per condition variant | 按条件变体，记录的实际工艺参数与已固定的计划参考值并列 |
 | Actual process comparison table | 实际工艺对比表 |
-| Parameter / Actual / effective / Planned (frozen) | 参数 / 实际 / 有效 / 计划（冻结） |
+| Parameter / Actual / effective / Planned (frozen) | 参数 / 实际 / 有效 / 计划（已固定） |
 | Variant {n} · {source} | 变体 {n} · {source} |
 | ◆ deviates from plan | ◆ 偏离计划 |
 | actual / planned / not executed | 实际 / 计划 / 未执行 |
@@ -944,7 +954,7 @@
 | Condition {id} | 条件 {id} |
 | Variant {n} · {source} (planned fallback) | 变体 {n} · {source}（计划回退） |
 
-### 项目组分析参数标签（campaignView）
+### 实验系列分析参数标签（campaignView）
 
 | English | 中文 |
 |---|---|
@@ -954,39 +964,39 @@
 | VCD stage 1 valve / pressure / duration（及 stage 2/3 同构） | VCD 阶段 1 阀门 / 压强 / 时长（及阶段 2/3 同构） |
 | Anneal 1 temperature / Anneal 1 duration | 退火 1 温度 / 退火 1 时长 |
 
-## 14. 项目组
+## 14. 实验系列
 
 | English | 中文 |
 |---|---|
-| Loading Campaigns… | 正在加载项目组… |
-| Unable to load Campaigns. | 无法加载项目组。 |
-| Campaigns | 项目组 |
+| Loading Campaigns… | 正在加载实验系列… |
+| Unable to load Campaigns. | 无法加载实验系列。 |
+| Campaigns | 实验系列 |
 | Organize related experiments under stable series identifiers. | 在稳定的系列标识下组织相关实验。 |
 | Active series available for new experiment plans. | 可用于新实验计划的进行中系列。 |
-| Create Campaign | 创建项目组 |
-| Campaign code | 项目组编号 |
+| Create Campaign | 创建实验系列 |
+| Campaign code | 实验系列编号 |
 | Display name | 显示名称 |
 | Purpose | 目的 |
-| Creating… / Create Campaign | 创建中… / 创建项目组 |
-| Campaign created. / Campaign status updated. | 项目组已创建。/ 项目组状态已更新。 |
-| Unable to create Campaign. / Unable to update Campaign. | 无法创建项目组。/ 无法更新项目组。 |
-| Campaign directory | 项目组目录 |
-| Campaign / Purpose / Status / Updated / Manage（表头） | 项目组 / 目的 / 状态 / 更新时间 / 管理 |
+| Creating… / Create Campaign | 创建中… / 创建实验系列 |
+| Campaign created. / Campaign status updated. | 实验系列已创建。/ 实验系列状态已更新。 |
+| Unable to create Campaign. / Unable to update Campaign. | 无法创建实验系列。/ 无法更新实验系列。 |
+| Campaign directory | 实验系列目录 |
+| Campaign / Purpose / Status / Updated / Manage（表头） | 实验系列 / 目的 / 状态 / 更新时间 / 管理 |
 | active / closed / archived | 进行中 / 已关闭 / 已归档 |
 | Status for {name} | {name} 的状态 |
-| No Campaigns are available. | 暂无可用项目组。 |
-| Unable to load the campaign workspace | 无法加载项目组工作区 |
-| Loading campaign workspace… | 正在加载项目组工作区… |
-| Campaign not found / No campaign with code "{code}". | 未找到项目组 / 没有编号为"{code}"的项目组。 |
+| No Campaigns are available. | 暂无可用实验系列。 |
+| Unable to load the campaign workspace | 无法加载实验系列工作区 |
+| Loading campaign workspace… | 正在加载实验系列工作区… |
+| Campaign not found / No campaign with code "{code}". | 未找到实验系列 / 没有编号为"{code}"的实验系列。 |
 | {code} · {status} · {n} records in the pipeline | {code} · {status} · 流水线中 {n} 条记录 |
-| All campaigns | 全部项目组 |
-| Nothing in the pipeline for this campaign yet. / Experiments appear here once a plan is created under this campaign. | 该项目组的流水线暂无任何记录。/ 在该项目组下创建计划后，实验将显示在此处。 |
+| All campaigns | 全部实验系列 |
+| Nothing in the pipeline for this campaign yet. / Experiments appear here once a plan is created under this campaign. | 该实验系列的流水线暂无任何记录。/ 在该实验系列下创建计划后，实验将显示在此处。 |
 | PLANNING / FABRICATION / CHARACTERIZATION（阶段标签） | 规划中 / 制备中 / 表征中 |
-| Campaign records | 项目组记录 |
+| Campaign records | 实验系列记录 |
 | Record details | 记录详情 |
-| Campaign › {Stage} › {code} | 项目组 › {阶段} › {code} |
+| Campaign › {Stage} › {code} | 实验系列 › {阶段} › {code} |
 | Plan {status} · updated {time} | 计划{status} · 更新于 {time} |
-| Open experiment / Open run sheet / Open result | 打开实验 / 打开记录单 / 打开结果 |
+| Open experiment / Open run sheet / Open result | 打开实验 / 打开制备记录单 / 打开结果 |
 | Select a record from the left rail | 从左侧栏选择一条记录 |
 | The pane shows its pipeline stage, status, and a link to the full page. | 该面板显示其流水线阶段、状态以及指向完整页面的链接。 |
 
@@ -1141,7 +1151,7 @@
 | Layer preset deactivated. | 层预设已停用。 |
 | Unable to deactivate the layer preset. | 无法停用层预设。 |
 | Edit {name} | 编辑 {name} |
-| Current revision r{n} — saving creates revision r{n+1}. Frozen experiment snapshots keep their own values. | 当前修订版 r{n}——保存将创建修订版 r{n+1}。冻结的实验快照保留自己的值。 |
+| Current revision r{n} — saving creates revision r{n+1}. Frozen experiment snapshots keep their own values. | 当前修订版 r{n}——保存将创建修订版 r{n+1}。已固定的实验快照保留自己的值。 |
 | Presets are optional single-layer templates — experiments can also be planned from scratch without one. | 预设是可选的单层模板——实验也可以不借助预设从零规划。 |
 | Creation mode | 创建方式 |
 | From scratch / Copy existing preset | 从零创建 / 复制已有预设 |
@@ -1185,7 +1195,7 @@
 | {n} spin stage{s} · {n} evacuation stage{s} · {n} gas-backfill stage{s} · {n} annealing stage{s} | {n} 个旋涂阶段 · {n} 个抽真空阶段 · {n} 个气体回填阶段 · {n} 个退火阶段 |
 | Sputtering · {mode} · {w} W / Evaporation · {t} nm / ALD · {n} cycles | 溅射 · {mode} · {w} W / 蒸发 · {t} nm / ALD · {n} 循环 |
 | Diluted dispersion / Weighed solids / Not recorded / None recorded / Unnamed | 稀释分散液 / 称量固体 / 未记录 / 无记录 / 未命名 |
-| Formulation / Stock dispersion / Stock volume / Solid {n} / Solvent {n} / Solids / Solvents / Spin stages / Annealing / Process values / VCD program / Layer type / Role / Method / Revision / Scope | 配方 / 母液 / 母液体积 / 固体 {n} / 溶剂 {n} / 固体 / 溶剂 / 旋涂阶段 / 退火 / 工艺值 / VCD 程序 / 层类型 / 角色 / 方法 / 修订版 / 范围 |
+| Formulation / Stock dispersion / Stock volume / Solid {n} / Solvent {n} / Solids / Solvents / Spin stages / Annealing / Process values / VCD program / Layer type / Role / Method / Revision / Scope | 配方 / 原液 / 原液体积 / 固体 {n} / 溶剂 {n} / 固体 / 溶剂 / 旋涂阶段 / 退火 / 工艺值 / VCD 程序 / 层类型 / 角色 / 方法 / 修订版 / 范围 |
 | Perovskite spin stages / Perovskite evacuation stages / Perovskite gas-backfill stages / Perovskite program order / Perovskite annealing stages / Perovskite deposition process / Solution solids / Solution solvents / Solution formulation / Layer spin stages / Layer annealing stages / Layer process / Layer name / Layer values / Preset name / Other values | 钙钛矿旋涂阶段 / 钙钛矿抽真空阶段 / 钙钛矿气体回填阶段 / 钙钛矿程序顺序 / 钙钛矿退火阶段 / 钙钛矿沉积工艺 / 溶液固体 / 溶液溶剂 / 溶液配方 / 层旋涂阶段 / 层退火阶段 / 层工艺 / 层名称 / 层值 / 预设名称 / 其他值 |
 | the Perovskite deposition process editor, Spin stages | "钙钛矿沉积工艺"编辑器的"旋涂阶段" |
 | the Perovskite deposition process editor, Vacuum and gas-backfill program | "钙钛矿沉积工艺"编辑器的"真空与气体回填程序" |
@@ -1220,7 +1230,7 @@
 | English | 中文 |
 |---|---|
 | Layer name / Layer type / Role / Source key | 层名称 / 层类型 / 角色 / 源键 |
-| Formulation type / Stock dispersion / Stock volume | 配方类型 / 母液 / 母液体积 |
+| Formulation type / Stock dispersion / Stock volume | 配方类型 / 原液 / 原液体积 |
 | Solid {n} · Chemical / Solid {n} · Weight | 固体 {n} · 化学品 / 固体 {n} · 质量 |
 | Solvent {n} · Name / Solvent {n} · Volume | 溶剂 {n} · 名称 / 溶剂 {n} · 体积 |
 | Process method | 工艺方法 |
@@ -1393,8 +1403,8 @@
 | discarded | 已废弃 |
 | error | 错误 |
 | critical | 严重 |
-| assigned | 已分配 |
-| unassigned | 未分配 |
+| assigned | 已关联 |
+| unassigned | 未关联 |
 | awaiting measurements | 等待测量 |
 | manual review | 人工复核 |
 
