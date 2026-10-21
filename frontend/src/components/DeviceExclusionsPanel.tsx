@@ -146,14 +146,14 @@ export function DeviceExclusionsPanel({
         <table className="data-table">
           <thead>
             <tr>
-              <th>Exclude</th>
+              <th>{tr("common.exclude")}</th>
               <th>{tr("deviceExclusionsPanel.device")}</th>
               <th>{tr("deviceExclusionsPanel.substrate")}</th>
               <th>{tr("deviceExclusionsPanel.group")}</th>
               <th>Voc (V), F / R</th>
               <th>PCE (%), F / R</th>
               <th>FF (%), F / R</th>
-              <th>Reason</th>
+              <th>{tr("common.reason")}</th>
             </tr>
           </thead>
           <tbody>

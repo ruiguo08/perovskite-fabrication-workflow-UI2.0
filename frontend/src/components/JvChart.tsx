@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
+import { translate as tr, useLanguage as useUiLanguage, localizeAppText } from "../i18n";
 import { useState } from "react";
 import type { AnalysisDevice, ResultAssignmentGroup } from "../types/api";
 import { formatNumber, scaleMetric } from "../lib/format";
@@ -54,7 +54,7 @@ export function JvChart({ resultId, devices, groups, figureRevision }: {
     </div>
     <label>{tr("jvChart.colorPalette")}<select className="text-input" value={palette}
       onChange={(event) => setPalette(event.target.value)}>
-      {JV_PALETTES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+      {JV_PALETTES.map(([value, label]) => <option key={value} value={value}>{localizeAppText(label)}</option>)}
     </select></label>
     <DeviceMultiSelect devices={devices} selected={selected} onChange={applySelection} />
     {selected.size > MAX_PLOTTED_DEVICES && <p className="run-sheet-muted" role="status">

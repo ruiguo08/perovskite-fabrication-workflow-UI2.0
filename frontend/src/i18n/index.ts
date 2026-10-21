@@ -123,6 +123,7 @@ export function enumLabel(value: string | null | undefined, context: StatusConte
     ald: "ALD", general: "一般", fabrication_shortfall: "制备不足", measurement_shortfall: "测量不足",
     solution: "溶液", process: "工艺", fabrication: "制备", characterization: "表征",
     info: "提示", warning: "警告", recorded: "已记录", not_yet: "未记录",
+    single_junction: "单结", tandem: "叠层", normal_bandgap: "常规带隙", wide_bandgap: "宽带隙", narrow_bandgap: "窄带隙",
   };
   return labels[normalized] ?? value.replace(/_/g, " ");
 }

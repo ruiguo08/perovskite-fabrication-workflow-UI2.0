@@ -79,7 +79,7 @@ export function WorkflowGuidePage() {
               <span className="workflow-guide__phase">{tr("workflowGuidePage.fabricateStudent")}</span>
               <h3>{tr("workflowGuidePage.freezeABatchAndRecordTheWork")}</h3>
               <p>{tr("workflowGuidePage.onTheExperimentPageSelect")}<strong>{tr("experimentDetailPage.freezeFabricationBatch")}</strong> {tr("workflowGuidePage.before")}<strong>{tr("experimentDetailPage.startFabrication")}</strong>{tr("workflowGuidePage.inTheBatchRunSheetMarkItReadyStart")}</p>
-              <Link className="workflow-guide__action" to="/fabrication-batches">Open fabrication batches <span aria-hidden="true">→</span></Link>
+              <Link className="workflow-guide__action" to="/fabrication-batches">{tr("common.openBatches")} <span aria-hidden="true">→</span></Link>
             </div>
           </li>
           <li className="workflow-guide__step">
@@ -97,7 +97,7 @@ export function WorkflowGuidePage() {
               <span className="workflow-guide__phase">{tr("workflowGuidePage.analyzeResultPage")}</span>
               <h3>{tr("workflowGuidePage.inspectCurvesThenCompareGroups")}</h3>
               <p>{tr("workflowGuidePage.jVCurvesAreAvailableImmediatelyAfterUploadAssign")}</p>
-              <Link className="workflow-guide__action" to="/results">Open results <span aria-hidden="true">→</span></Link>
+              <Link className="workflow-guide__action" to="/results">{tr("common.openResults")} <span aria-hidden="true">→</span></Link>
             </div>
           </li>
         </ol>
