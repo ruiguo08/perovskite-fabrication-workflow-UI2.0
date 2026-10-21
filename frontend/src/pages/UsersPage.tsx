@@ -1,4 +1,7 @@
-import { useCallback, useMemo, useState, type FormEvent } from "react";
+import { enumLabel, localizeAppText } from "../i18n";
+import { useMemo } from "react";
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
+import { useCallback, useState, type FormEvent } from "react";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { FormField } from "../components/FormField";
@@ -18,6 +21,7 @@ function sortAccounts(accounts: UserAccount[]): UserAccount[] {
 }
 
 export function UsersPage() {
+  useUiLanguage();
   const { show } = useToast();
   const loadUsers = useCallback(() => apiFetch<UserAccount[]>("/api/users"), []);
   const resource = useApiResource(loadUsers);
@@ -64,53 +68,53 @@ export function UsersPage() {
   }
 
   if (resource.status === "loading" && resource.data === null) {
-    return <div className="page-loading" role="status">Loading accounts…</div>;
+    return <div className="page-loading" role="status">{tr("usersPage.loadingAccounts")}</div>;
   }
   if (resource.status === "error" && resource.data === null) {
-    return <ErrorState message={resource.error ?? "Unable to load accounts."} action={
-      <button type="button" className="button button--secondary" onClick={() => void resource.reload()}>Retry</button>
+    return <ErrorState message={resource.error ?? tr("usersPage.unableToLoadAccounts")} action={
+      <button type="button" className="button button--secondary" onClick={() => void resource.reload()}>{tr("versionHistory.retry")}</button>
     } />;
   }
 
   return (
     <>
       <PageHeader
-        title="User administration"
-        description="Create local accounts, control role-based access, and reset passwords."
+        title={tr("usersPage.userAdministration")}
+        description={tr("usersPage.createLocalAccountsControlRoleBasedAccessAndReset")}
       />
       <section className="panel panel--accent" aria-labelledby="create-account-title">
-        <h2 className="panel__title" id="create-account-title">Create account</h2>
+        <h2 className="panel__title" id="create-account-title">{tr("usersPage.createAccount")}</h2>
         <form className="account-create-grid" onSubmit={(event) => void createAccount(event)}>
-          <FormField label="Username" htmlFor="new-username" required>
+          <FormField label={tr("usersPage.username")} htmlFor="new-username" required>
             <input id="new-username" className="text-input mono" required maxLength={64} autoComplete="off" value={username} onChange={(event) => setUsername(event.target.value)} />
           </FormField>
-          <FormField label="Display name" htmlFor="new-display-name" required>
+          <FormField label={tr("campaignsPage.displayName")} htmlFor="new-display-name" required>
             <input id="new-display-name" className="text-input" required maxLength={120} value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
           </FormField>
-          <FormField label="Temporary password" htmlFor="new-password" required hint="Use at least 12 characters.">
+          <FormField label={tr("usersPage.temporaryPassword")} htmlFor="new-password" required hint={tr("usersPage.useAtLeastCharacters")}>
             <input id="new-password" className="text-input" type="password" required minLength={12} maxLength={128} autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
           </FormField>
-          <FormField label="Role" htmlFor="new-role" required>
+          <FormField label={tr("reviewPanel.role")} htmlFor="new-role" required>
             <select id="new-role" className="text-input" value={role} onChange={(event) => setRole(event.target.value as Role)}>
-              {ROLES.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}
+              {ROLES.map((value) => <option key={value} value={value}>{enumLabel(titleCase(value))}</option>)}
             </select>
           </FormField>
           <div className="form-grid__action">
-            <button className="button button--primary" type="submit" disabled={submitting}>{submitting ? "Creating…" : "Create account"}</button>
+            <button className="button button--primary" type="submit" disabled={submitting}>{submitting ? tr("blankPresetForm.creating") : tr("usersPage.createAccount")}</button>
           </div>
         </form>
-        <InlineFormError message={error} />
+        <InlineFormError message={localizeAppText(error ?? "")} />
       </section>
 
       <section className="panel" aria-labelledby="account-directory-title">
         <div className="panel__heading">
-          <h2 className="panel__title" id="account-directory-title">Accounts</h2>
-          <span className="record-count">{rows.length} records</span>
+          <h2 className="panel__title" id="account-directory-title">{tr("usersPage.accounts")}</h2>
+          <span className="record-count">{rows.length} {tr("presetFilters.records")}</span>
         </div>
-        {rows.length === 0 ? <EmptyState title="No accounts are available." /> : (
+        {rows.length === 0 ? <EmptyState title={tr("usersPage.noAccountsAreAvailable")} /> : (
           <div className="table-scroll">
-            <table className="data-table account-table" aria-label="User accounts">
-              <thead><tr><th>User</th><th>State</th><th>Access</th><th>Password reset</th><th>Activity</th></tr></thead>
+            <table className="data-table account-table" aria-label={tr("usersPage.userAccounts")}>
+              <thead><tr><th>{tr("usersPage.user")}</th><th>{tr("usersPage.state")}</th><th>{tr("usersPage.access")}</th><th>{tr("usersPage.passwordReset")}</th><th>{tr("usersPage.activity")}</th></tr></thead>
               <tbody>
                 {rows.map((account) => <AccountRow key={account.id} account={account} onChange={replaceUser} />)}
               </tbody>
@@ -123,6 +127,7 @@ export function UsersPage() {
 }
 
 function AccountRow({ account, onChange }: { account: UserAccount; onChange: (account: UserAccount) => void }) {
+  useUiLanguage();
   const { show } = useToast();
   const [role, setRole] = useState<Role>(account.role);
   const [isActive, setIsActive] = useState(account.is_active);
@@ -169,31 +174,30 @@ function AccountRow({ account, onChange }: { account: UserAccount; onChange: (ac
   return (
     <tr>
       <td><div className="record-title"><strong>{account.display_name}</strong><code>{account.username}</code></div></td>
-      <td><StatusBadge status={account.is_active ? "active" : "inactive"} /><span className="account-state-text">{account.is_active ? "Active" : "Inactive"}</span></td>
+      <td><StatusBadge status={account.is_active ? "active" : "inactive"} context="account" /><span className="account-state-text">{enumLabel(account.is_active ? "Active" : "Inactive", "account")}</span></td>
       <td>
         <div className="account-access-controls">
           <label>
-            <span className="visually-hidden">Role for {account.username}</span>
-            <select className="text-input text-input--compact" aria-label={`Role for ${account.username}`} value={role} onChange={(event) => setRole(event.target.value as Role)}>
-              {ROLES.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}
+            <span className="visually-hidden">{tr("usersPage.roleFor")}{account.username}</span>
+            <select className="text-input text-input--compact" aria-label={tr("usersPage.roleForUsername", { "username": account.username })} value={role} onChange={(event) => setRole(event.target.value as Role)}>
+              {ROLES.map((value) => <option key={value} value={value}>{enumLabel(titleCase(value))}</option>)}
             </select>
           </label>
           <label className="checkbox-control">
-            <input type="checkbox" aria-label={`Active account for ${account.username}`} checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
-            Active
-          </label>
-          <button className="button button--secondary button--small" type="button" disabled={submitting} onClick={() => void saveAccess()}>Save access for {account.username}</button>
+            <input type="checkbox" aria-label={tr("usersPage.activeAccountForUsername", { "username": account.username })} checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
+            {enumLabel("Active", "account")}</label>
+          <button className="button button--secondary button--small" type="button" disabled={submitting} onClick={() => void saveAccess()}>{tr("usersPage.saveAccessFor")}{account.username}</button>
         </div>
-        <InlineFormError message={accessError} />
+        <InlineFormError message={localizeAppText(accessError ?? "")} />
       </td>
       <td>
         <form className="password-reset-form" onSubmit={(event) => void resetPassword(event)}>
           <label>
-            <span className="visually-hidden">New password for {account.username}</span>
+            <span className="visually-hidden">{tr("usersPage.newPasswordFor")}{account.username}</span>
             <input
               className="text-input"
               type="password"
-              aria-label={`New password for ${account.username}`}
+              aria-label={tr("usersPage.newPasswordForUsername", { "username": account.username })}
               minLength={12}
               maxLength={128}
               autoComplete="new-password"
@@ -202,22 +206,22 @@ function AccountRow({ account, onChange }: { account: UserAccount; onChange: (ac
               onChange={(event) => setPassword(event.target.value)}
             />
           </label>
-          <button className="button button--secondary button--small" type="submit" disabled={submitting}>Reset password for {account.username}</button>
+          <button className="button button--secondary button--small" type="submit" disabled={submitting}>{tr("usersPage.resetPasswordFor")}{account.username}</button>
         </form>
-        <InlineFormError message={passwordError} />
+        <InlineFormError message={localizeAppText(passwordError ?? "")} />
       </td>
       <td className="account-activity">
         <span className="account-activity__row">
-          <span className="account-activity__label">Last login</span>
+          <span className="account-activity__label">{tr("usersPage.lastLogin")}</span>
           <time dateTime={account.last_login_at ?? undefined}>{formatDateTime(account.last_login_at)}</time>
         </span>
         <span className="account-activity__row">
-          <span className="account-activity__label">Password changed</span>
+          <span className="account-activity__label">{tr("usersPage.passwordChanged")}</span>
           <time dateTime={account.password_changed_at}>{formatDateTime(account.password_changed_at)}</time>
         </span>
         {account.locked_until ? (
           <span className="account-activity__row">
-            <span className="account-activity__label">Locked until</span>
+            <span className="account-activity__label">{tr("usersPage.lockedUntil")}</span>
             <time dateTime={account.locked_until}>{formatDateTime(account.locked_until)}</time>
           </span>
         ) : null}

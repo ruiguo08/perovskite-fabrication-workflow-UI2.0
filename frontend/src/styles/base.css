@@ -107,12 +107,59 @@
 
 .topbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
   justify-content: flex-end;
   padding: 10px 24px;
   background: var(--surface);
   border-bottom: 1px solid var(--hairline);
+}
+
+.language-switcher {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--fill-quiet);
+}
+
+.language-switcher button {
+  border: 0;
+  border-radius: 5px;
+  padding: 6px 9px;
+  color: var(--steel);
+  background: transparent;
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.language-switcher button[aria-pressed="true"] {
+  color: var(--accent);
+  background: var(--surface);
+  font-weight: 600;
+  box-shadow: var(--shadow-1);
+}
+
+.language-switcher button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.login-card > .language-switcher {
+  display: flex;
+  width: fit-content;
+  margin-inline-start: auto;
+  margin-block-end: 16px;
+}
+
+.topbar__user {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .topbar__role {
@@ -420,6 +467,8 @@ td.numeric-cell {
 }
 
 .table-scroll {
+  /* Keep absolutely positioned accessible labels inside the table scroller. */
+  position: relative;
   overflow-x: auto;
 }
 

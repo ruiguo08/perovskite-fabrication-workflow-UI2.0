@@ -1,3 +1,5 @@
+import { localizeAppText } from "../../i18n";
+import { translate as tr, useLanguage as useUiLanguage } from "../../i18n";
 import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { apiFetch } from "../../lib/api";
 import { formatDateTime } from "../../lib/format";
@@ -10,16 +12,16 @@ import {
 } from "./presetDiff";
 
 const DIFF_GROUPS: { key: PresetDiffGroupKey; title: string }[] = [
-  { key: "identity", title: "Identity" },
-  { key: "solution", title: "Solution formulation" },
-  { key: "layerProcess", title: "Layer process" },
-  { key: "depositionProcess", title: "Perovskite deposition process" },
+  { key: "identity", get title() { return tr("presetDiffViewer.identity"); } },
+  { key: "solution", get title() { return tr("solutionEditor.solutionFormulation"); } },
+  { key: "layerProcess", get title() { return tr("processEditor.layerProcess"); } },
+  { key: "depositionProcess", get title() { return tr("processEditor.perovskiteDepositionProcess"); } },
 ];
 
 const KIND_MARKS: Record<PresetDiffEntry["kind"], { mark: string; label: string }> = {
-  added: { mark: "+", label: "added" },
-  removed: { mark: "−", label: "removed" },
-  changed: { mark: "≠", label: "changed" },
+  added: { mark: "+", get label() { return tr("presetDiffViewer.added"); } },
+  removed: { mark: "−", get label() { return tr("presetDiffViewer.removed"); } },
+  changed: { mark: "≠", get label() { return tr("presetDiffViewer.changed"); } },
 };
 
 /**
@@ -33,6 +35,7 @@ const KIND_MARKS: Record<PresetDiffEntry["kind"], { mark: string; label: string 
  * request for an older version can never overwrite a newer result.
  */
 export function PresetDiffViewer({ preset }: { preset: LayerPreset }) {
+  useUiLanguage();
   const [versions, setVersions] = useState<LayerPresetVersion[] | null>(null);
   const [loadedForVersionId, setLoadedForVersionId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -111,26 +114,26 @@ export function PresetDiffViewer({ preset }: { preset: LayerPreset }) {
 
   return (
     <details className="preset-diff" onToggle={handleToggle}>
-      <summary>Compare revisions</summary>
+      <summary>{tr("presetDiffViewer.compareRevisions")}</summary>
       <div className="preset-diff__body">
-        {loading ? <p role="status">Loading revisions…</p> : null}
+        {loading ? <p role="status">{tr("presetDiffViewer.loadingRevisions")}</p> : null}
         {error ? (
           <div className="inline-form-error" role="alert">
-            {error}{" "}
-            <button className="button button--secondary button--small" type="button" onClick={() => void load()}>Retry</button>
+            {localizeAppText(error ?? "")}{" "}
+            <button className="button button--secondary button--small" type="button" onClick={() => void load()}>{tr("versionHistory.retry")}</button>
           </div>
         ) : null}
         {ordered.length === 1 ? (
-          <p className="builder-help">Only one revision exists for this preset, so there is nothing to compare yet. The comparison becomes available after the next saved revision.</p>
+          <p className="builder-help">{tr("presetDiffViewer.onlyOneRevisionExistsForThisPresetSoThere")}</p>
         ) : null}
         {ordered.length >= 2 ? (
           <>
             <div className="preset-diff__pickers">
               <label className="builder-field">
-                <span>Older revision</span>
+                <span>{tr("presetDiffViewer.olderRevision")}</span>
                 <select
                   className="text-input"
-                  aria-label={`Older revision to compare for ${preset.name}`}
+                  aria-label={tr("presetDiffViewer.olderRevisionToCompareForName", { "name": preset.name })}
                   value={leftId ?? ""}
                   onChange={(event) => {
                     userAdjusted.current = true;
@@ -143,10 +146,10 @@ export function PresetDiffViewer({ preset }: { preset: LayerPreset }) {
                 </select>
               </label>
               <label className="builder-field">
-                <span>Newer revision</span>
+                <span>{tr("presetDiffViewer.newerRevision")}</span>
                 <select
                   className="text-input"
-                  aria-label={`Newer revision to compare for ${preset.name}`}
+                  aria-label={tr("presetDiffViewer.newerRevisionToCompareForName", { "name": preset.name })}
                   value={rightId ?? ""}
                   onChange={(event) => {
                     userAdjusted.current = true;
@@ -161,13 +164,12 @@ export function PresetDiffViewer({ preset }: { preset: LayerPreset }) {
             </div>
             {left && right ? (
               <p className="builder-help preset-diff__meta">
-                Comparing r{left.revision_number} ({formatDateTime(left.created_at)}, actor {left.created_by_id ?? "system"}) with r{right.revision_number} ({formatDateTime(right.created_at)}, actor {right.created_by_id ?? "system"}).
+                {tr("presetDiffViewer.comparingR")}{left.revision_number} ({formatDateTime(left.created_at)}{tr("presetDiffViewer.actor")}{left.created_by_id ?? tr("versionHistory.system")}{tr("presetDiffViewer.withR")}{right.revision_number} ({formatDateTime(right.created_at)}{tr("presetDiffViewer.actor")}{right.created_by_id ?? tr("versionHistory.system")}).
               </p>
             ) : null}
             {result?.identical ? (
               <p className="builder-help" role="status">
-                Revisions r{left?.revision_number} and r{right?.revision_number} have identical content.
-              </p>
+                {tr("presetDiffViewer.revisionsR")}{left?.revision_number} {tr("presetDiffViewer.andR")}{right?.revision_number} {tr("presetDiffViewer.haveIdenticalContent")}</p>
             ) : null}
             {result && !result.identical
               ? DIFF_GROUPS.map((group) => {
@@ -195,11 +197,12 @@ export function PresetDiffViewer({ preset }: { preset: LayerPreset }) {
 }
 
 function DiffRow({ entry }: { entry: PresetDiffEntry }) {
+  useUiLanguage();
   const kind = KIND_MARKS[entry.kind];
   return (
     <li className={`preset-diff__row preset-diff__row--${entry.kind}`}>
-      <span className="preset-diff__mark" aria-label={kind.label}>{kind.mark}</span>
-      <span className="preset-diff__label">{entry.label} <code>{entry.path}</code></span>
+      <span className="preset-diff__mark" aria-label={localizeAppText(kind.label ?? "")}>{kind.mark}</span>
+      <span className="preset-diff__label">{localizeAppText(entry.label ?? "")} <code>{entry.path}</code></span>
       <span className="preset-diff__values">
         {entry.kind === "changed" ? (
           <>

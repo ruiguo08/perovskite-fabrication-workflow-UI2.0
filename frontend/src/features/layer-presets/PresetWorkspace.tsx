@@ -1,3 +1,4 @@
+import { translate as tr, useLanguage as useUiLanguage } from "../../i18n";
 import { useState } from "react";
 import type { LayerPreset, Material } from "../../types/api";
 import { BlankPresetForm } from "./BlankPresetForm";
@@ -31,16 +32,16 @@ export function PresetWorkspace({
   onSaved: (preset: LayerPreset) => void;
   onCancel: () => void;
 }) {
+  useUiLanguage();
   const [createMode, setCreateMode] = useState<"scratch" | "copy">("scratch");
 
   if (mode.kind === "revise") {
     const preset = mode.preset;
     return (
       <section className="lib-editor" aria-labelledby="preset-workspace-title">
-        <h2 className="lib-editor__title" id="preset-workspace-title">Edit {preset.name}</h2>
+        <h2 className="lib-editor__title" id="preset-workspace-title">{tr("presetWorkspace.edit")}{preset.name}</h2>
         <p className="lib-editor__subtitle">
-          Current revision r{preset.current_revision_number} — saving creates revision r{preset.current_revision_number + 1}. Frozen experiment snapshots keep their own values.
-        </p>
+          {tr("presetWorkspace.currentRevisionR")}{preset.current_revision_number} {tr("presetWorkspace.savingCreatesRevisionR")}{preset.current_revision_number + 1}{tr("presetWorkspace.frozenExperimentSnapshotsKeepTheirOwnValues")}</p>
         <PresetReviseForm
           preset={preset}
           materials={materials}
@@ -54,29 +55,26 @@ export function PresetWorkspace({
 
   return (
     <section className="lib-editor" aria-labelledby="preset-workspace-title">
-      <h2 className="lib-editor__title" id="preset-workspace-title">New preset</h2>
+      <h2 className="lib-editor__title" id="preset-workspace-title">{tr("presetWorkspace.newPreset")}</h2>
       <p className="lib-editor__subtitle">
-        Presets are optional single-layer templates — experiments can also be planned from scratch without one.
-      </p>
-      <div className="lib-modes" role="group" aria-label="Creation mode">
+        {tr("presetWorkspace.presetsAreOptionalSingleLayerTemplatesExperimentsCanAlso")}</p>
+      <div className="lib-modes" role="group" aria-label={tr("presetWorkspace.creationMode")}>
         <button
           type="button"
           className="button button--secondary"
           aria-pressed={createMode === "scratch"}
           onClick={() => setCreateMode("scratch")}
         >
-          From scratch
-        </button>
+          {tr("presetWorkspace.fromScratch")}</button>
         <button
           type="button"
           className="button button--secondary"
           aria-pressed={createMode === "copy"}
           disabled={activeRows.length === 0}
-          title={activeRows.length === 0 ? "No saved presets to copy yet" : undefined}
+          title={activeRows.length === 0 ? tr("presetWorkspace.noSavedPresetsToCopyYet") : undefined}
           onClick={() => setCreateMode("copy")}
         >
-          Copy existing preset
-        </button>
+          {tr("presetWorkspace.copyExistingPreset")}</button>
       </div>
       {createMode === "scratch" ? (
         <BlankPresetForm

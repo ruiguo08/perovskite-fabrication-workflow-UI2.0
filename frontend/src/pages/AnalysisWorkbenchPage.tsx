@@ -1,4 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { localizeAppText } from "../i18n";
+import { useMemo } from "react";
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
+import { useEffect, useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
@@ -17,6 +20,7 @@ const PALETTES = ["science-tol", "nature-classic", "lancet-clinical", "nejm"];
 type LoadState = "idle" | "loading" | "success" | "error";
 
 export function AnalysisWorkbenchPage() {
+  useUiLanguage();
   const [results, setResults] = useState<ResultListItem[] | null>(null);
   const [experiments, setExperiments] = useState<Experiment[] | null>(null);
   const [batches, setBatches] = useState<FabricationBatchListItem[] | null>(null);
@@ -101,17 +105,16 @@ export function AnalysisWorkbenchPage() {
 
   return (
     <>
-      <PageHeader title="Analysis workbench" description="Overlay J-V curves, compare frozen planned conditions, and review campaign-level measurements across characterization results." />
-      {error ? <Typography role="alert" sx={{ color: "#b3261e", fontSize: 14, letterSpacing: "-0.224px" }}>{error}</Typography>
-        : results === null || experiments === null || batches === null ? <div className="page-loading" role="status">Loading the workbench…</div>
-        : results.length === 0 ? <Typography sx={{ color: "rgba(0,0,0,.48)", fontSize: 14, letterSpacing: "-0.224px" }}>No characterization results exist yet — upload a result file first.</Typography>
+      <PageHeader title={tr("analysisWorkbenchPage.analysisWorkbench")} description={tr("analysisWorkbenchPage.overlayJVCurvesCompareFrozenPlannedConditionsAnd")} />
+      {error ? <Typography role="alert" sx={{ color: "#b3261e", fontSize: 14, letterSpacing: "-0.224px" }}>{localizeAppText(error ?? "")}</Typography>
+        : results === null || experiments === null || batches === null ? <div className="page-loading" role="status">{tr("analysisWorkbenchPage.loadingTheWorkbench")}</div>
+        : results.length === 0 ? <Typography sx={{ color: "rgba(0,0,0,.48)", fontSize: 14, letterSpacing: "-0.224px" }}>{tr("analysisWorkbenchPage.noCharacterizationResultsExistYetUploadAResultFile")}</Typography>
         : (
           <Box sx={{ display: "grid", gridTemplateColumns: "340px minmax(0, 1fr)", gap: 2.5, alignItems: "start", minWidth: 0,
             "@media (max-width: 720px)": { gridTemplateColumns: "minmax(0, 1fr)" } }}>
             <Box sx={{ bgcolor: "#f5f5f7", borderRadius: "12px", p: 1.5, minWidth: 0 }}>
               <Typography sx={{ fontSize: 11.5, fontWeight: 600, letterSpacing: "-0.12px", color: "rgba(0,0,0,.48)", px: 1, pb: 1 }}>
-                RESULTS · {selected.length} SELECTED (MAX 12)
-              </Typography>
+                {tr("analysisWorkbenchPage.results")}{selected.length} {tr("analysisWorkbenchPage.selectedMAX")}</Typography>
               {results.map((result) => {
                 const experiment = experimentById.get(result.experiment_id);
                 const batch = batchById.get(result.fabrication_batch_id);
@@ -126,8 +129,8 @@ export function AnalysisWorkbenchPage() {
                     <Box sx={{ minWidth: 0, overflowWrap: "anywhere" }}>
                       <Typography sx={{ fontSize: 13, fontWeight: 500, letterSpacing: "-0.12px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{result.filename}</Typography>
                       <Typography sx={{ fontSize: 12, color: "rgba(0,0,0,.48)", letterSpacing: "-0.12px" }}>
-                        {result.experiment_code ?? "Unnamed experiment"} · {result.batch_code} · {formatRelativeTime(result.created_at)}
-                        {bestPce !== null && bestPce !== undefined ? ` · ${bestPce.toFixed(2)}% best PCE in ${scope}` : ""}
+                        {result.experiment_code ?? tr("analysisWorkbenchPage.unnamedExperiment")} · {result.batch_code} · {formatRelativeTime(result.created_at)}
+                        {bestPce !== null && bestPce !== undefined ? tr("analysisWorkbenchPage.valueBestPCEInCode", { "value": bestPce.toFixed(2), "code": scope }) : ""}
                       </Typography>
                     </Box>
                   </Box>
@@ -137,40 +140,39 @@ export function AnalysisWorkbenchPage() {
 
             <Stack spacing={2} sx={{ minWidth: 0 }}>
               <Box sx={{ display: "flex", gap: 1.5, alignItems: "center", flexWrap: "wrap", minWidth: 0 }}>
-                <TextField select size="small" label="Palette" value={palette} sx={{ width: 200, maxWidth: "100%" }}
+                <TextField select size="small" label={tr("analysisWorkbenchPage.palette")} value={palette} sx={{ width: 200, maxWidth: "100%" }}
                   onChange={(event) => { overlayRequest.current += 1; setPalette(event.target.value); setOverlay(null); setOverlayState("idle"); }}>
                   {PALETTES.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
                 </TextField>
-                <Button variant="contained" data-workbench-render="true" disabled={selected.length === 0} onClick={renderOverlay}>Render overlay</Button>
-                <Button color="inherit" disabled={selected.length === 0 || conditionState === "loading"} onClick={() => void loadConditions()}>Compare conditions</Button>
+                <Button variant="contained" data-workbench-render="true" disabled={selected.length === 0} onClick={renderOverlay}>{tr("analysisWorkbenchPage.renderOverlay")}</Button>
+                <Button color="inherit" disabled={selected.length === 0 || conditionState === "loading"} onClick={() => void loadConditions()}>{tr("analysisWorkbenchPage.compareConditions")}</Button>
               </Box>
 
               <Box sx={{ bgcolor: "#f5f5f7", borderRadius: "12px", p: 1.5, minHeight: 280, minWidth: 0, overflowWrap: "anywhere" }}>
-                {overlayState === "loading" ? <Typography role="status" sx={{ fontSize: 13, letterSpacing: "-0.12px" }}>Rendering overlay for {overlay?.labels}…</Typography> : null}
+                {overlayState === "loading" ? <Typography role="status" sx={{ fontSize: 13, letterSpacing: "-0.12px" }}>{tr("analysisWorkbenchPage.renderingOverlayFor")}{overlay?.labels}…</Typography> : null}
                 {overlayState === "error" ? <Typography role="alert" sx={{ fontSize: 13, letterSpacing: "-0.12px", color: "#b3261e" }}>
-                  Unable to render the overlay for {overlay?.labels}. Results need valid forward J-V traces. Review the selected files or try rendering again.
-                </Typography> : overlay ? <Box component="img" key={overlay.url} src={overlay.url} alt={`Cross-result J-V overlay: ${overlay.labels}`}
+                  {tr("analysisWorkbenchPage.unableToRenderTheOverlayFor")}{overlay?.labels}{tr("analysisWorkbenchPage.resultsNeedValidForwardJVTracesReviewThe")}</Typography> : overlay ? <Box component="img" key={overlay.url} src={overlay.url} alt={tr("analysisWorkbenchPage.crossResultJVOverlayLabels", { "labels": overlay.labels })}
                   onLoad={() => { if (overlayRequest.current === overlay.token) setOverlayState("success"); }}
                   onError={() => { if (overlayRequest.current === overlay.token) setOverlayState("error"); }}
                   sx={{ display: "block", maxWidth: "100%", height: "auto", borderRadius: "8px", bgcolor: "#fff" }} />
-                  : <Typography sx={{ fontSize: 13.5, letterSpacing: "-0.12px", color: "rgba(0,0,0,.48)" }}>Select results and render the overlay — one best forward curve per result file.</Typography>}
+                  : <Typography sx={{ fontSize: 13.5, letterSpacing: "-0.12px", color: "rgba(0,0,0,.48)" }}>{tr("analysisWorkbenchPage.selectResultsAndRenderTheOverlayOneBestForward")}</Typography>}
               </Box>
 
-              {conditionState === "loading" ? <Typography role="status" sx={{ fontSize: 13, letterSpacing: "-0.12px" }}>Loading frozen conditions for the selected experiments…</Typography> : null}
-              {conditionError ? <Typography role="alert" sx={{ fontSize: 13, letterSpacing: "-0.12px", color: "#b3261e" }}>Unable to compare the selected experiments: {conditionError}</Typography> : null}
+              {conditionState === "loading" ? <Typography role="status" sx={{ fontSize: 13, letterSpacing: "-0.12px" }}>{tr("analysisWorkbenchPage.loadingFrozenConditionsForTheSelectedExperiments")}</Typography> : null}
+              {conditionError ? <Typography role="alert" sx={{ fontSize: 13, letterSpacing: "-0.12px", color: "#b3261e" }}>{tr("analysisWorkbenchPage.unableToCompareTheSelectedExperiments")}{conditionError}</Typography> : null}
               {matrix ? <Box sx={{ bgcolor: "#f5f5f7", borderRadius: "12px", p: 2, minWidth: 0 }}>
-                <Typography component="h2" sx={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.224px", mb: 1.5 }}>Condition comparison</Typography>
-                <Typography sx={{ fontSize: 13, letterSpacing: "-0.12px", color: "rgba(0,0,0,.48)", mb: 1.5 }}>Values show the saved plan for every control and target condition.</Typography>
-                {matrix.columns.length === 0 ? <Typography sx={{ fontSize: 13, letterSpacing: "-0.12px" }}>No frozen conditions are available for these experiments.</Typography>
-                  : <Box role="region" aria-label="Condition comparison table" tabIndex={0} sx={{ overflowX: "auto", maxWidth: "100%" }}>
+                <Typography component="h2" sx={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.224px", mb: 1.5 }}>{tr("conditionComparison.conditionComparison")}</Typography>
+                <Typography sx={{ fontSize: 13, letterSpacing: "-0.12px", color: "rgba(0,0,0,.48)", mb: 1.5 }}>{tr("analysisWorkbenchPage.valuesShowTheSavedPlanForEveryControlAnd")}</Typography>
+                {matrix.columns.length === 0 ? <Typography sx={{ fontSize: 13, letterSpacing: "-0.12px" }}>{tr("analysisWorkbenchPage.noFrozenConditionsAreAvailableForTheseExperiments")}</Typography>
+                  : <Box role="region" aria-label={tr("analysisWorkbenchPage.conditionComparisonTable")} tabIndex={0} sx={{ overflowX: "auto", maxWidth: "100%" }}>
                     <table className="data-table" style={{ width: "100%", fontSize: 13, letterSpacing: "-0.12px" }}>
-                      <caption className="visually-hidden">Frozen planned conditions for all selected experiments, including control and target conditions</caption>
-                      <thead><tr><th scope="col">Parameter</th>{matrix.columns.map((column) => <th scope="col" key={column.key} style={{ minWidth: 200, whiteSpace: "normal", overflowWrap: "anywhere" }}>
+                      <caption className="visually-hidden">{tr("analysisWorkbenchPage.frozenPlannedConditionsForAllSelectedExperimentsIncludingControl")}</caption>
+                      <thead><tr><th scope="col">{tr("conditionComparison.parameter")}</th>{matrix.columns.map((column) => <th scope="col" key={column.key} style={{ minWidth: 200, whiteSpace: "normal", overflowWrap: "anywhere" }}>
                         {column.experiment}<br />{column.condition}<br />{column.role}
                       </th>)}</tr></thead>
                       <tbody>{matrix.rows.map((row) => <tr key={row.parameter}>
                         <th scope="row" style={{ minWidth: 180, whiteSpace: "normal" }}>{row.parameter}
-                          {row.differs ? <span style={{ marginLeft: 6, fontSize: 10.5, fontWeight: 600, color: "#b66a00", letterSpacing: "-0.12px" }}>◆ differs</span> : null}
+                          {row.differs ? <span style={{ marginLeft: 6, fontSize: 10.5, fontWeight: 600, color: "#b66a00", letterSpacing: "-0.12px" }}>{tr("campaignAnalysisPanel.differs")}</span> : null}
                         </th>
                         {row.values.map((value, index) => <td key={matrix.columns[index].key} style={{ whiteSpace: "normal", overflowWrap: "anywhere",
                           background: row.differs ? "rgba(182,106,0,.07)" : "transparent" }}>{value ?? "—"}</td>)}

@@ -1,18 +1,23 @@
 /** Formatting helpers shared across the application. */
+import { getLanguage, localeFor, translate } from "../i18n";
 
-const DATE_TIME_FORMAT = new Intl.DateTimeFormat("en-US", {
-  year: "numeric",
-  month: "short",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-});
+function dateTimeFormat() {
+  return new Intl.DateTimeFormat(localeFor(getLanguage()), {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
-const DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
-  year: "numeric",
-  month: "short",
-  day: "2-digit",
-});
+function dateFormat() {
+  return new Intl.DateTimeFormat(localeFor(getLanguage()), {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  });
+}
 
 export function formatDateTime(value: string | null | undefined): string {
   if (!value) {
@@ -22,7 +27,7 @@ export function formatDateTime(value: string | null | undefined): string {
   if (Number.isNaN(date.getTime())) {
     return value;
   }
-  return DATE_TIME_FORMAT.format(date);
+  return dateTimeFormat().format(date);
 }
 
 /**
@@ -41,21 +46,21 @@ export function formatRelativeTime(value: string | null | undefined): string {
   }
   const seconds = Math.round((Date.now() - date.getTime()) / 1000);
   if (seconds < 45) {
-    return "just now";
+    return translate("time.now");
   }
   const minutes = Math.round(seconds / 60);
   if (minutes < 60) {
-    return `${minutes} min ago`;
+    return translate("time.minutes", { n: minutes });
   }
   const hours = Math.round(minutes / 60);
   if (hours < 24) {
-    return `${hours} h ago`;
+    return translate("time.hours", { n: hours });
   }
   const days = Math.round(hours / 24);
   if (days < 7) {
-    return `${days} d ago`;
+    return translate("time.days", { n: days });
   }
-  return DATE_FORMAT.format(date);
+  return dateFormat().format(date);
 }
 
 export function titleCase(value: string): string {

@@ -1,3 +1,4 @@
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
 import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 import { EmptyState } from "../components/EmptyState";
@@ -21,6 +22,7 @@ function buildQuery(experimentId: string, batchId: string): string {
 }
 
 export function ResultsPage() {
+  useUiLanguage();
   const [experimentId, setExperimentId] = useState("");
   const [batchId, setBatchId] = useState("");
   const loadResults = useCallback(
@@ -30,19 +32,18 @@ export function ResultsPage() {
   const resource = useApiResource(loadResults, { resetOnLoaderChange: true });
 
   if (resource.status === "loading" && resource.data === null) {
-    return <div className="page-loading" role="status">Loading results…</div>;
+    return <div className="page-loading" role="status">{tr("resultsPage.loadingResults")}</div>;
   }
   if (resource.status === "error") {
     const retry = (
       <button type="button" className="button button--secondary" onClick={() => void resource.reload()}>
-        Retry
-      </button>
+        {tr("versionHistory.retry")}</button>
     );
     if (resource.data === null) {
       return (
         <ErrorState
-          title="Unable to load results"
-          message={resource.error ?? "The results could not be loaded."}
+          title={tr("resultsPage.unableToLoadResults")}
+          message={resource.error ?? tr("resultsPage.theResultsCouldNotBeLoaded")}
           action={retry}
         />
       );
@@ -50,9 +51,8 @@ export function ResultsPage() {
     return (
       <div className="inline-form-error" role="alert">
         <p>
-          Unable to refresh results: {resource.error ?? "the request failed."}{" "}
-          The displayed rows may not match the selected filter.
-        </p>
+          {tr("resultsPage.unableToRefreshResults")}{resource.error ?? tr("fabricationBatchesPage.theRequestFailed")}{" "}
+          {tr("resultsPage.theDisplayedRowsMayNotMatchTheSelectedFilter")}</p>
         {retry}
       </div>
     );
@@ -62,32 +62,32 @@ export function ResultsPage() {
   return (
     <>
       <PageHeader
-        title="Results"
-        description="Uploaded result files across all campaigns, newest first."
+        title={tr("resultsPage.results")}
+        description={tr("resultsPage.uploadedResultFilesAcrossAllCampaignsNewestFirst")}
         meta={`${results.length} records`}
       />
       <section className="panel" aria-labelledby="result-list-title">
         <div className="panel__heading">
-          <h2 className="panel__title" id="result-list-title">Result records</h2>
+          <h2 className="panel__title" id="result-list-title">{tr("resultsPage.resultRecords")}</h2>
           <div className="filter-grid">
             <label className="form-field">
-              <span className="form-field__label">Experiment</span>
+              <span className="form-field__label">{tr("experimentsPage.experiment")}</span>
               <input
                 className="text-input"
-                aria-label="Experiment"
+                aria-label={tr("experimentsPage.experiment")}
                 inputMode="numeric"
-                placeholder="Experiment id"
+                placeholder={tr("resultsPage.experimentId")}
                 value={experimentId}
                 onChange={(event) => setExperimentId(event.target.value)}
               />
             </label>
             <label className="form-field">
-              <span className="form-field__label">Batch</span>
+              <span className="form-field__label">{tr("campaignAnalysisPanel.batch")}</span>
               <input
                 className="text-input"
-                aria-label="Batch"
+                aria-label={tr("campaignAnalysisPanel.batch")}
                 inputMode="numeric"
-                placeholder="Fabrication batch id"
+                placeholder={tr("resultsPage.fabricationBatchId")}
                 value={batchId}
                 onChange={(event) => setBatchId(event.target.value)}
               />
@@ -96,8 +96,8 @@ export function ResultsPage() {
         </div>
         {results.length === 0 ? (
           <EmptyState
-            title="No characterization results."
-            description="Uploaded result files appear here once an in-progress batch is characterized."
+            title={tr("resultsPage.noCharacterizationResults")}
+            description={tr("resultsPage.uploadedResultFilesAppearHereOnceAnInProgress")}
           />
         ) : (
           <div className="result-list">
@@ -110,19 +110,19 @@ export function ResultsPage() {
                   <span className="run-sheet-muted">{formatRelativeTime(result.created_at)}</span>
                 </div>
                 <span className="record-title">
-                  {result.experiment_code ?? `Experiment ${result.experiment_id}`}
+                  {result.experiment_code ?? tr("campaignWorkspacePage.experimentId", { "id": result.experiment_id })}
                 </span>
                 <span className="run-sheet-muted">{result.batch_code}</span>
                 <span className="run-sheet-muted">
-                  {result.group_assignment ? "Assigned" : "Unassigned"}
+                  {result.group_assignment ? tr("resultsPage.assigned") : tr("deviceExclusionsPanel.unassigned")}
                 </span>
-                <Link className="record-link" to={`/results/${result.id}`}>View direction-specific statistics</Link>
+                <Link className="record-link" to={`/results/${result.id}`}>{tr("experimentDetailPage.viewDirectionSpecificStatistics")}</Link>
                 <details className="provenance-disclosure">
-                  <summary>Provenance</summary>
+                  <summary>{tr("reviewPanel.provenance")}</summary>
                   <div className="provenance-disclosure__body">
                     <span className="run-sheet-muted">{result.size_bytes} bytes</span>
                     <code title={result.sha256}>{result.sha256.slice(0, 16)}…</code>
-                    <span className="run-sheet-muted">Schema v{result.analysis_schema_version}</span>
+                    <span className="run-sheet-muted">{tr("resultDetailPage.schemaV")}{result.analysis_schema_version}</span>
                   </div>
                 </details>
               </article>

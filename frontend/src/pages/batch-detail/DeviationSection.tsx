@@ -1,4 +1,6 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { localizeAppText } from "../../i18n";
+import { translate as tr, useLanguage as useUiLanguage, useLocalizedMemo } from "../../i18n";
+import { useState, type FormEvent } from "react";
 import { InlineFormError } from "../../components/InlineFormError";
 import type { BatchRunSheet } from "../../types/api";
 import { parseJsonField } from "./helpers";
@@ -10,6 +12,7 @@ interface DeviationSectionProps {
 }
 
 export function DeviationSection({ sheet, onSubmit, disabled }: DeviationSectionProps) {
+  useUiLanguage();
   const [category, setCategory] = useState("process");
   const [severity, setSeverity] = useState("warning");
   const [deviationType, setDeviationType] = useState("general");
@@ -20,22 +23,22 @@ export function DeviationSection({ sheet, onSubmit, disabled }: DeviationSection
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const targets = useMemo(() => {
-    const options = [{ value: "", label: "Whole batch" }];
+  const targets = useLocalizedMemo(() => {
+    const options = [{ value: "", label: tr("deviationSection.wholeBatch") }];
     for (const { preparation } of sheet.preparations) {
-      options.push({ value: `solution_preparation_id:${preparation.id}`, label: `Preparation ${preparation.preparation_code}` });
+      options.push({ value: `solution_preparation_id:${preparation.id}`, label: tr("deviationSection.preparationCode", { "code": preparation.preparation_code }) });
     }
     for (const { execution } of sheet.executions) {
-      options.push({ value: `process_execution_id:${execution.id}`, label: `Execution ${execution.execution_code}` });
+      options.push({ value: `process_execution_id:${execution.id}`, label: tr("deviationSection.executionCode", { "code": execution.execution_code }) });
     }
     for (const substrate of sheet.substrates) {
-      options.push({ value: `substrate_id:${substrate.id}`, label: `Substrate ${substrate.substrate_code}` });
+      options.push({ value: `substrate_id:${substrate.id}`, label: tr("deviationSection.substrateCode", { "code": substrate.substrate_code }) });
     }
     for (const device of sheet.devices) {
-      options.push({ value: `device_id:${device.id}`, label: `Device ${device.device_code}` });
+      options.push({ value: `device_id:${device.id}`, label: tr("deviationSection.deviceCode", { "code": device.device_code }) });
     }
     for (const condition of sheet.conditions) {
-      options.push({ value: `condition_id:${condition.id}`, label: `Condition ${condition.condition_code}` });
+      options.push({ value: `condition_id:${condition.id}`, label: tr("deviationSection.conditionCode", { "code": condition.condition_code }) });
     }
     return options;
   }, [sheet]);
@@ -75,7 +78,7 @@ export function DeviationSection({ sheet, onSubmit, disabled }: DeviationSection
   return (
     <form className="run-sheet-form deviation-form" onSubmit={(event) => void submit(event)}>
       <label className="form-field">
-        <span className="form-field__label">Category</span>
+        <span className="form-field__label">{tr("runSheetTable.category")}</span>
         <select className="text-input" data-deviation-category="true" value={category} onChange={(event) => setCategory(event.target.value)}>
           {["process", "material", "equipment", "substrate", "device", "operator", "other"].map((option) => (
             <option key={option} value={option}>{option}</option>
@@ -83,7 +86,7 @@ export function DeviationSection({ sheet, onSubmit, disabled }: DeviationSection
         </select>
       </label>
       <label className="form-field">
-        <span className="form-field__label">Severity</span>
+        <span className="form-field__label">{tr("runSheetTable.severity")}</span>
         <select className="text-input" data-deviation-severity="true" value={severity} onChange={(event) => setSeverity(event.target.value)}>
           {["info", "warning", "error", "critical"].map((option) => (
             <option key={option} value={option}>{option}</option>
@@ -91,37 +94,36 @@ export function DeviationSection({ sheet, onSubmit, disabled }: DeviationSection
         </select>
       </label>
       <label className="form-field">
-        <span className="form-field__label">Type</span>
+        <span className="form-field__label">{tr("deviationSection.type")}</span>
         <select className="text-input" data-deviation-type-select="true" value={deviationType} onChange={(event) => setDeviationType(event.target.value)}>
-          <option value="general">general</option>
-          <option value="fabrication_shortfall">fabrication_shortfall</option>
-          <option value="measurement_shortfall">measurement_shortfall</option>
+          <option value="general">{tr("deviationSection.general")}</option>
+          <option value="fabrication_shortfall">{tr("deviationSection.fabricationShortfall")}</option>
+          <option value="measurement_shortfall">{tr("deviationSection.measurementShortfall")}</option>
         </select>
       </label>
       <label className="form-field">
-        <span className="form-field__label">Target</span>
+        <span className="form-field__label">{tr("campaignAnalysisPanel.target")}</span>
         <select className="text-input" data-deviation-target="true" value={target} onChange={(event) => setTarget(event.target.value)}>
           {targets.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
+            <option key={option.value} value={option.value}>{localizeAppText(option.label ?? "")}</option>
           ))}
         </select>
       </label>
       <label className="form-field">
-        <span className="form-field__label">Description</span>
+        <span className="form-field__label">{tr("deviationSection.description")}</span>
         <textarea className="text-input" data-deviation-description="true" required maxLength={5000} value={description} onChange={(event) => setDescription(event.target.value)} />
       </label>
       <label className="form-field">
-        <span className="form-field__label">Planned value (JSON)</span>
+        <span className="form-field__label">{tr("deviationSection.plannedValueJSON")}</span>
         <textarea className="text-input" data-deviation-planned="true" value={planned} onChange={(event) => setPlanned(event.target.value)} />
       </label>
       <label className="form-field">
-        <span className="form-field__label">Actual value (JSON)</span>
+        <span className="form-field__label">{tr("deviationSection.actualValueJSON")}</span>
         <textarea className="text-input" data-deviation-actual="true" value={actual} onChange={(event) => setActual(event.target.value)} />
       </label>
       <button className="button button--primary" type="submit" data-deviation-submit="true" disabled={submitting || disabled}>
-        Record deviation
-      </button>
-      <InlineFormError message={error} />
+        {tr("runSheetTable.recordDeviation")}</button>
+      <InlineFormError message={localizeAppText(error ?? "")} />
     </form>
   );
 }

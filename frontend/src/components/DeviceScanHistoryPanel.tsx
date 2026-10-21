@@ -1,4 +1,7 @@
-import { useCallback, useMemo, useState } from "react";
+import { enumLabel, localizeAppText } from "../i18n";
+import { useMemo } from "react";
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
+import { useCallback, useState } from "react";
 import { apiFetch } from "../lib/api";
 import { formatDateTime, formatNumber, scaleMetric } from "../lib/format";
 import { useToast } from "./Toast";
@@ -22,6 +25,7 @@ const METRIC_COLUMNS: { name: "voc" | "jsc" | "ff" | "pce"; label: string }[] = 
  * cleared.
  */
 export function DeviceScanHistoryPanel({ assignments }: { assignments: ResultAssignment[] }) {
+  useUiLanguage();
   const devices = useMemo(() => {
     const labels = new Map<number, string>();
     for (const row of assignments) {
@@ -41,11 +45,11 @@ export function DeviceScanHistoryPanel({ assignments }: { assignments: ResultAss
   return (
     <section className="panel" aria-labelledby="device-scans-title">
       <div className="panel__heading">
-        <h2 className="panel__title" id="device-scans-title">Device scan history</h2>
-        <span className="record-count">{devices.length} device{devices.length === 1 ? "" : "s"}</span>
+        <h2 className="panel__title" id="device-scans-title">{tr("deviceScanHistoryPanel.deviceScanHistory")}</h2>
+        <span className="record-count">{devices.length} {tr("deviceScanHistoryPanel.device")}{devices.length === 1 ? "" : "s"}</span>
       </div>
       <label className="form-field device-scan-picker">
-        <span className="form-field__label">Device</span>
+        <span className="form-field__label">{tr("deviceExclusionsPanel.device")}</span>
         <select className="text-input" value={activeId} onChange={(event) => setSelectedId(Number(event.target.value))}>
           {devices.map((device) => <option key={device.id} value={device.id}>{device.label}</option>)}
         </select>
@@ -56,6 +60,7 @@ export function DeviceScanHistoryPanel({ assignments }: { assignments: ResultAss
 }
 
 function DeviceScanCard({ fabricationDeviceId }: { fabricationDeviceId: number }) {
+  useUiLanguage();
   const loadScans = useCallback(
     () => apiFetch<DeviceJvScans>(`/api/fabrication-devices/${fabricationDeviceId}/jv-scans`),
     [fabricationDeviceId],
@@ -79,15 +84,14 @@ function DeviceScanCard({ fabricationDeviceId }: { fabricationDeviceId: number }
   if (resource.status === "error") {
     return (
       <div className="run-sheet-muted" role="alert">
-        Unable to load scan history for device {fabricationDeviceId}: {resource.error}
+        {tr("deviceScanHistoryPanel.unableToLoadScanHistoryForDevice")}{fabricationDeviceId}: {resource.error}
       </div>
     );
   }
   if (!data) {
     return (
       <div className="run-sheet-muted" aria-busy="true">
-        Loading scan history…
-      </div>
+        {tr("deviceScanHistoryPanel.loadingScanHistory")}</div>
     );
   }
 
@@ -114,16 +118,15 @@ function DeviceScanCard({ fabricationDeviceId }: { fabricationDeviceId: number }
         if (!representative) {
           return (
             <p key={direction} className="run-sheet-muted">
-              No valid {direction} scan on record.
-            </p>
+              {tr("deviceScanHistoryPanel.noValid")}{enumLabel(direction)} {tr("deviceScanHistoryPanel.scanOnRecord")}</p>
           );
         }
         return (
           <div key={direction} className="device-representative" data-representative={direction}>
             <h4>
-              {direction === "forward" ? "Forward" : "Reverse"} best{" "}
+              {direction === "forward" ? tr("deviceScanHistoryPanel.forward") : tr("deviceScanHistoryPanel.reverse")} {tr("deviceScanHistoryPanel.best")}{" "}
               <span className="status-badge">
-                {representative.from_user_selection ? "user choice" : "best PCE"}
+                {representative.from_user_selection ? tr("deviceScanHistoryPanel.userChoice") : tr("deviceScanHistoryPanel.bestPCE")}
               </span>
               {representative.from_user_selection ? (
                 <button
@@ -131,8 +134,7 @@ function DeviceScanCard({ fabricationDeviceId }: { fabricationDeviceId: number }
                   className="button button--secondary button--small"
                   onClick={() => clearRepresentative(direction)}
                 >
-                  Clear choice
-                </button>
+                  {tr("deviceScanHistoryPanel.clearChoice")}</button>
               ) : null}
             </h4>
             <div className="table-scroll">
@@ -140,7 +142,7 @@ function DeviceScanCard({ fabricationDeviceId }: { fabricationDeviceId: number }
                 <thead>
                   <tr>
                     {METRIC_COLUMNS.map((column) => (
-                      <th key={column.name} scope="col">{column.label}</th>
+                      <th key={column.name} scope="col">{localizeAppText(column.label ?? "")}</th>
                     ))}
                   </tr>
                 </thead>
@@ -159,25 +161,25 @@ function DeviceScanCard({ fabricationDeviceId }: { fabricationDeviceId: number }
               </table>
             </div>
             <p className="run-sheet-muted">
-              From {representative.result_file_id} · {representative.trace_id}
-              {representative.measured_at ? ` · measured ${formatDateTime(representative.measured_at)}` : ""}
+              {tr("deviceScanHistoryPanel.from")}{representative.result_file_id} · {representative.trace_id}
+              {representative.measured_at ? tr("deviceScanHistoryPanel.measuredTime", { "time": formatDateTime(representative.measured_at) }) : ""}
               {representative.metric_source ? ` · ${representative.metric_source}` : ""}
             </p>
           </div>
         );
       })}
       <details className="device-scan-details">
-        <summary>All scans ({data.scans.length})</summary>
+        <summary>{tr("deviceScanHistoryPanel.allScans")}{data.scans.length})</summary>
       <div className="table-scroll">
         <table className="data-table">
           <thead>
             <tr>
-              <th scope="col">Direction</th>
-              <th scope="col">Measured</th>
+              <th scope="col">{tr("deviceScanHistoryPanel.direction")}</th>
+              <th scope="col">{tr("deviceScanHistoryPanel.measured")}</th>
               <th scope="col">PCE (%)</th>
-              <th scope="col">Source</th>
-              <th scope="col">File</th>
-              <th scope="col">Representative</th>
+              <th scope="col">{tr("conditionCard.source")}</th>
+              <th scope="col">{tr("deviceScanHistoryPanel.file")}</th>
+              <th scope="col">{tr("deviceScanHistoryPanel.representative")}</th>
             </tr>
           </thead>
           <tbody>
@@ -199,11 +201,11 @@ function DeviceScanCard({ fabricationDeviceId }: { fabricationDeviceId: number }
                   </td>
                   <td>{formatDateTime(scan.measured_at ?? scan.uploaded_at)}</td>
                   <td>{formatNumber(scaleMetric("pce", scan.metrics?.pce), 2)}</td>
-                  <td>{scan.metric_source ?? (scan.error ? `error: ${scan.error}` : "—")}</td>
+                  <td>{scan.metric_source ?? (scan.error ? tr("deviceScanHistoryPanel.errorMsg", { "msg": scan.error }) : "—")}</td>
                   <td>{scan.filename}</td>
                   <td>
                     {isRepresentative ? (
-                      <strong>current</strong>
+                      <strong>{tr("deviceScanHistoryPanel.current")}</strong>
                     ) : scan.valid && scan.metrics ? (
                       <button
                         type="button"
@@ -212,8 +214,7 @@ function DeviceScanCard({ fabricationDeviceId }: { fabricationDeviceId: number }
                           setRepresentative(scan.direction, scan.result_file_id, scan.trace_id)
                         }
                       >
-                        Set as representative
-                      </button>
+                        {tr("deviceScanHistoryPanel.setAsRepresentative")}</button>
                     ) : (
                       "—"
                     )}

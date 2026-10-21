@@ -1,4 +1,7 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { localizeAppText } from "../i18n";
+import { useMemo } from "react";
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useSession } from "../auth/session";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { EmptyState } from "../components/EmptyState";
@@ -29,6 +32,7 @@ function BaselineReviseEditor({
   onRevised: (baseline: Baseline) => void;
   onError: (message: string | null) => void;
 }) {
+  useUiLanguage();
   const { show } = useToast();
   // Revising an active baseline always carries a complete deposition process
   // (canRevise gates on active status, which the backend requires to be complete).
@@ -40,7 +44,7 @@ function BaselineReviseEditor({
       }
     : null;
   if (initialValues === null) {
-    return <p className="run-sheet-muted">This baseline has no complete deposition process and cannot be revised.</p>;
+    return <p className="run-sheet-muted">{tr("baselinesPage.thisBaselineHasNoCompleteDepositionProcessAndCannot")}</p>;
   }
   return (
     <BaselineAuthoring
@@ -68,6 +72,7 @@ function BaselineReviseEditor({
 }
 
 export function BaselinesPage() {
+  useUiLanguage();
   const { user } = useSession();
   const { show } = useToast();
   const isManager = user?.role === "instructor" || user?.role === "administrator";
@@ -109,33 +114,32 @@ export function BaselinesPage() {
   }
 
   if (resource.status === "loading" && resource.data === null) {
-    return <div className="page-loading" role="status">Loading baselines…</div>;
+    return <div className="page-loading" role="status">{tr("baselinesPage.loadingBaselines")}</div>;
   }
   if (resource.status === "error" && resource.data === null) {
-    return <ErrorState message={resource.error ?? "Unable to load baselines."} action={
-      <button type="button" className="button button--secondary" onClick={() => void resource.reload()}>Retry</button>
+    return <ErrorState message={resource.error ?? tr("baselinesPage.unableToLoadBaselines")} action={
+      <button type="button" className="button button--secondary" onClick={() => void resource.reload()}>{tr("versionHistory.retry")}</button>
     } />;
   }
 
   return (
     <>
       <PageHeader
-        title="Baselines"
-        description="Complete Control reference recipes used as experiment starting points. Personal baselines belong to their owner; Shared baselines are lab-wide."
+        title={tr("baselinesPage.baselines")}
+        description={tr("baselinesPage.completeControlReferenceRecipesUsedAsExperimentStartingPoints")}
       />
       <section className="panel panel--accent" aria-labelledby="create-baseline-title">
-        <h2 className="panel__title" id="create-baseline-title">Create baseline</h2>
+        <h2 className="panel__title" id="create-baseline-title">{tr("baselinesPage.createBaseline")}</h2>
         <p className="builder-help">
-          Assemble a new baseline from reusable materials, device layouts, and layer presets.
-          {isManager
-            ? " Instructor and administrator creation is Shared (a lab-wide starting point)."
-            : " Student creation is Personal and visible only to you until an instructor promotes it to Shared."}
+          {tr("baselinesPage.assembleANewBaselineFromReusableMaterialsDeviceLayouts")}{isManager
+            ? tr("baselinesPage.instructorAndAdministratorCreationIsSharedALabWide")
+            : tr("baselinesPage.studentCreationIsPersonalAndVisibleOnlyToYou")}
         </p>
         <BaselineAuthoring scope={fixedScope} onSubmit={createBaseline} />
       </section>
 
       <BaselineGroup
-        title="Shared baselines"
+        title={tr("baselinesPage.sharedBaselines")}
         rows={sharedRows}
         user={user}
         isManager={isManager}
@@ -143,7 +147,7 @@ export function BaselinesPage() {
         onChange={replaceBaseline}
       />
       <BaselineGroup
-        title="Personal baselines"
+        title={tr("baselinesPage.personalBaselines")}
         rows={personalRows}
         user={user}
         isManager={isManager}
@@ -169,15 +173,16 @@ function BaselineGroup({
   isAdministrator: boolean;
   onChange: (baseline: Baseline) => void;
 }) {
+  useUiLanguage();
   const groupId = `baseline-group-${title.replaceAll(" ", "-").toLowerCase()}`;
   return (
     <section className="catalog-group" aria-labelledby={groupId}>
       <div className="catalog-group__heading">
         <h2 id={groupId}>{title}</h2>
-        <span className="record-count">{rows.length} records</span>
+        <span className="record-count">{rows.length} {tr("presetFilters.records")}</span>
       </div>
       <div className="baseline-list">
-        {rows.length === 0 ? <EmptyState title={`No ${title.toLowerCase()} are available.`} /> : rows.map((baseline) => (
+        {rows.length === 0 ? <EmptyState title={tr("baselinesPage.noNounAreAvailable", { "noun": title.toLowerCase() })} /> : rows.map((baseline) => (
           <BaselineCard
             key={baseline.id}
             baseline={baseline}
@@ -205,6 +210,7 @@ function BaselineCard({
   isAdministrator: boolean;
   onChange: (baseline: Baseline) => void;
 }) {
+  useUiLanguage();
   const { show } = useToast();
   const canRevise = baseline.scope === "personal"
     ? baseline.owner_user_id === user?.id
@@ -255,19 +261,19 @@ function BaselineCard({
       <header className="preset-card__header">
         <div className="material-card__title-line">
           <h3 id={titleId}>{baseline.name}</h3>
-          <StatusBadge status={baseline.status} />
+          <StatusBadge status={baseline.status} context="catalog" />
           <span className="scope-chip">{baseline.scope}</span>
         </div>
         <span className="version-mark">r{baseline.current_revision_number ?? "—"} · {formatDateTime(baseline.updated_at)}</span>
       </header>
       <p className="catalog-provenance">
         {baseline.scope === "personal"
-          ? `Owned by ${owner}`
+          ? tr("baselinesPage.ownedByOwner", { "owner": owner })
           : baseline.owner_user_id
-            ? `Shared · originating owner ${owner}`
-            : "Shared · created directly by staff"}
+            ? tr("baselinesPage.sharedOriginatingOwnerOwner", { "owner": owner })
+            : tr("baselinesPage.sharedCreatedDirectlyByStaff")}
         {baseline.promoted_at && baseline.promoted_by_display_name
-          ? ` · Promoted by ${baseline.promoted_by_display_name} on ${formatDateTime(baseline.promoted_at)}${baseline.promotion_note ? ` · ${baseline.promotion_note}` : ""}`
+          ? tr("baselinesPage.promotedByNameOnTimeNote", { "name": baseline.promoted_by_display_name, "time": formatDateTime(baseline.promoted_at), "note": baseline.promotion_note ? ` · ${baseline.promotion_note}` : "" })
           : null}
       </p>
       <RecipeSnapshotSummary deviceRecipe={baseline.device_recipe} depositionProcess={baseline.deposition_process} />
@@ -275,20 +281,20 @@ function BaselineCard({
 
       {canPromote && baseline.status === "active" ? (
         <details className="inline-editor">
-          <summary>Promote to shared</summary>
+          <summary>{tr("presetBrowseCard.promoteToShared")}</summary>
           <form className="inline-editor__body" onSubmit={(event) => void promote(event)}>
-            <FormField label={`Promotion note for ${baseline.name} (optional)`} htmlFor={`promote-note-${baseline.id}`}>
+            <FormField label={tr("baselinesPage.promotionNoteForNameOptional", { "name": baseline.name })} htmlFor={`promote-note-${baseline.id}`}>
               <input id={`promote-note-${baseline.id}`} className="text-input" value={promoteNote} onChange={(event) => setPromoteNote(event.target.value)} />
             </FormField>
-            <InlineFormError message={error} />
-            <button className="button button--secondary" type="submit" disabled={submitting}>Promote {baseline.name} to shared</button>
+            <InlineFormError message={localizeAppText(error ?? "")} />
+            <button className="button button--secondary" type="submit" disabled={submitting}>{tr("baselinesPage.promote")}{baseline.name} {tr("baselinesPage.toShared")}</button>
           </form>
         </details>
       ) : null}
 
       {canRevise && baseline.status === "active" ? (
         <details className="inline-editor">
-          <summary>Revise baseline</summary>
+          <summary>{tr("baselinesPage.reviseBaseline")}</summary>
           <div className="inline-editor__body">
             <BaselineReviseEditor
               key={baseline.id}
@@ -304,15 +310,15 @@ function BaselineCard({
         endpoint={`/api/baselines/${baseline.id}/versions`}
         renderSnapshot={(version) => <pre className="snapshot-json">{JSON.stringify({ device_recipe: version.device_recipe, deposition_process: version.deposition_process }, null, 2)}</pre>}
       />
-      <InlineFormError message={error} />
+      <InlineFormError message={localizeAppText(error ?? "")} />
       {isAdministrator && baseline.status === "active" ? (
-        <button className="button button--danger button--small catalog-danger-action" type="button" onClick={() => setConfirming(true)}>Archive {baseline.name}</button>
+        <button className="button button--danger button--small catalog-danger-action" type="button" onClick={() => setConfirming(true)}>{tr("baselinesPage.archive")}{baseline.name}</button>
       ) : null}
       <ConfirmDialog
         open={confirming}
-        title="Archive baseline"
-        message="Existing experiments and versions retain their complete snapshots. This baseline will no longer be available to students for new plans."
-        confirmLabel="Archive baseline"
+        title={tr("baselinesPage.archiveBaseline")}
+        message={tr("baselinesPage.existingExperimentsAndVersionsRetainTheirCompleteSnapshotsThis")}
+        confirmLabel={tr("baselinesPage.archiveBaseline")}
         destructive
         onConfirm={() => void archive()}
         onCancel={() => setConfirming(false)}

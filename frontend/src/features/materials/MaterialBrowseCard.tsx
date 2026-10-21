@@ -1,3 +1,4 @@
+import { translate as tr, useLanguage as useUiLanguage } from "../../i18n";
 import { formatRelativeTime } from "../../lib/format";
 import type { Material } from "../../types/api";
 import { LibFacts, LibRecord, LibTag, LibTags } from "../library/LibraryPrimitives";
@@ -16,6 +17,7 @@ export interface MaterialBrowseCardProps {
  * actions. Only recorded values are shown.
  */
 export function MaterialBrowseCard({ material, canManage, onOpenDetails, onEdit }: MaterialBrowseCardProps) {
+  useUiLanguage();
   const titleId = `material-card-title-${material.id}`;
   const specs = materialSummaryFacts(material);
   return (
@@ -28,7 +30,7 @@ export function MaterialBrowseCard({ material, canManage, onOpenDetails, onEdit 
         <div>
           <h3 className="lib-record__title" id={titleId}>{material.name}</h3>
           <p className="lib-record__subtitle">
-            {material.formula.trim() ? material.formula.trim() : "No formula recorded"}
+            {material.formula.trim() ? material.formula.trim() : tr("materialBrowseCard.noFormulaRecorded")}
             {material.cas_number.trim() ? ` · CAS ${material.cas_number.trim()}` : ""}
           </p>
         </div>
@@ -36,11 +38,11 @@ export function MaterialBrowseCard({ material, canManage, onOpenDetails, onEdit 
       {specs.length > 0 ? (
         <LibFacts facts={specs} singleColumn={specs.length === 1} />
       ) : (
-        <p className="lib-muted">No specifications recorded.</p>
+        <p className="lib-muted">{tr("materialBrowseCard.noSpecificationsRecorded")}</p>
       )}
       <div className="lib-card-foot">
         <span className="lib-muted">
-          {material.products.length} supplier product{material.products.length === 1 ? "" : "s"} · updated {formatRelativeTime(material.updated_at)}
+          {material.products.length} {tr("materialBrowseCard.supplierProduct")}{material.products.length === 1 ? "" : "s"} {tr("presetBrowseCard.updated")}{formatRelativeTime(material.updated_at)}
         </span>
         <div className="lib-actions">
           <button
@@ -48,12 +50,10 @@ export function MaterialBrowseCard({ material, canManage, onOpenDetails, onEdit 
             className="button button--secondary button--small"
             onClick={() => onOpenDetails(material.id)}
           >
-            View details
-          </button>
+            {tr("presetBrowseCard.viewDetails")}</button>
           {canManage ? (
             <button type="button" className="button button--secondary button--small" onClick={() => onEdit(material.id)}>
-              Edit
-            </button>
+              {tr("presetBrowseCard.edit")}</button>
           ) : null}
         </div>
       </div>

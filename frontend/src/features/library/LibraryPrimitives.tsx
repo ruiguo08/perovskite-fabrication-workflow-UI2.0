@@ -1,3 +1,4 @@
+import { localizeAppText, useLanguage as useBoundaryLanguage } from "../../i18n";
 import type { ReactNode } from "react";
 
 /**
@@ -8,6 +9,7 @@ import type { ReactNode } from "react";
  */
 
 export function LibTags({ children }: { children: ReactNode }) {
+  useBoundaryLanguage();
   return <div className="lib-tags">{children}</div>;
 }
 
@@ -18,6 +20,7 @@ export function LibTag({
   tone?: "ok" | "warn" | "info" | "scope";
   children: ReactNode;
 }) {
+  useBoundaryLanguage();
   return (
     <span className={`lib-tag${tone ? ` lib-tag--${tone}` : ""}`}>{children}</span>
   );
@@ -30,6 +33,7 @@ export function LibFacts({
   facts: { label: string; value: ReactNode }[];
   singleColumn?: boolean;
 }) {
+  useBoundaryLanguage();
   if (facts.length === 0) {
     return null;
   }
@@ -37,7 +41,7 @@ export function LibFacts({
     <dl className={`lib-facts${singleColumn ? " lib-facts--single" : ""}`}>
       {facts.map((fact) => (
         <div key={fact.label}>
-          <dt>{fact.label}</dt>
+          <dt>{localizeAppText(fact.label ?? "")}</dt>
           <dd>{fact.value}</dd>
         </div>
       ))}
@@ -52,6 +56,7 @@ export function LibCardNote({
   tone?: "warn" | "info";
   children: ReactNode;
 }) {
+  useBoundaryLanguage();
   return (
     <p className={`lib-card-note${tone === "info" ? " lib-card-note--info" : ""}`} role={tone === "warn" ? "note" : undefined}>
       {children}
@@ -66,6 +71,7 @@ export function LibRecord({
   labelledBy: string;
   children: ReactNode;
 }) {
+  useBoundaryLanguage();
   return (
     <article className="lib-record" aria-labelledby={labelledBy}>
       {children}
@@ -84,6 +90,7 @@ export function LibSection({
   labelledBy?: string;
   children: ReactNode;
 }) {
+  useBoundaryLanguage();
   return (
     <section className="lib-section" aria-labelledby={labelledBy}>
       <h3 id={labelledBy}>{title}</h3>
@@ -94,6 +101,7 @@ export function LibSection({
 }
 
 export function LibSteps({ steps }: { steps: { title: string; detail: ReactNode }[] }) {
+  useBoundaryLanguage();
   if (steps.length === 0) {
     return null;
   }

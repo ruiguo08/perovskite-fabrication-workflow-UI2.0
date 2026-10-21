@@ -2,6 +2,9 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useSession } from "../auth/session";
 import { FormField } from "../components/FormField";
+import { LanguageSwitcher } from "../components/LanguageSwitcher";
+import { useLanguage, localizeKnownError } from "../i18n";
+import { ApiError } from "../lib/api";
 
 const FORBIDDEN_PATHS = ["/api", "/healthz", "/login", "/app/login"];
 const EXPORT_PATTERN = /\/export\.(json|pdf)$/;
@@ -62,6 +65,7 @@ function sanitizeNext(next: string | null): string {
 }
 
 export function LoginPage() {
+  const { t } = useLanguage();
   const { login, status } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
@@ -101,7 +105,9 @@ export function LoginPage() {
       navigate(computeDestination(), { replace: true });
     } catch (submittedError) {
       setError(
-        submittedError instanceof Error
+        submittedError instanceof ApiError && submittedError.status === 401
+          ? "Invalid username or password."
+          : submittedError instanceof Error
           ? submittedError.message
           : "Sign in failed. Please try again.",
       );
@@ -112,22 +118,23 @@ export function LoginPage() {
   }
 
   if (status === "loading") {
-    return <div className="app-loading" role="status">Loading…</div>;
+    return <div className="app-loading" role="status">{t("common.loading")}</div>;
   }
 
   return (
     <div className="login-page">
       <form className="login-card" onSubmit={handleSubmit} noValidate>
-        <h1 className="login-card__title">Sign in</h1>
+        <LanguageSwitcher />
+        <h1 className="login-card__title">{t("auth.signIn")}</h1>
         <p className="login-card__subtitle">
-          Perovskite solar-cell fabrication workflow
+          {t("app.loginSubtitle")}
         </p>
         {error ? (
           <p className="login-card__error" role="alert">
-            {error}
+            {error === "Invalid username or password." ? t("auth.invalidCredentials") : localizeKnownError(error)}
           </p>
         ) : null}
-        <FormField label="Username" htmlFor="login-username" required>
+        <FormField label={t("auth.username")} htmlFor="login-username" required>
           <input
             id="login-username"
             className="text-input"
@@ -141,7 +148,7 @@ export function LoginPage() {
             onChange={(event) => setUsername(event.target.value)}
           />
         </FormField>
-        <FormField label="Password" htmlFor="login-password" required>
+        <FormField label={t("auth.password")} htmlFor="login-password" required>
           <input
             id="login-password"
             className="text-input"
@@ -158,7 +165,7 @@ export function LoginPage() {
           className="button button--primary button--block"
           disabled={submitting}
         >
-          {submitting ? "Signing in…" : "Sign in"}
+          {submitting ? t("auth.signingIn") : t("auth.signIn")}
         </button>
       </form>
     </div>

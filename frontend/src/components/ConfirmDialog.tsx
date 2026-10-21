@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef } from "react";
 import { trapModalFocus } from "../lib/modalFocus";
+import { useLanguage, localizeAppText } from "../i18n";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -20,12 +21,13 @@ export function ConfirmDialog({
   open,
   title,
   message,
-  confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
+  confirmLabel,
+  cancelLabel,
   destructive = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const { t } = useLanguage();
   const cancelRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -77,10 +79,10 @@ export function ConfirmDialog({
         }}
       >
         <h2 className="dialog__title" id={titleId}>
-          {title}
+          {localizeAppText(title)}
         </h2>
         <p className="dialog__message" id={messageId}>
-          {message}
+          {localizeAppText(message)}
         </p>
         <div className="dialog__actions">
           <button
@@ -89,14 +91,14 @@ export function ConfirmDialog({
             ref={cancelRef}
             onClick={onCancel}
           >
-            {cancelLabel}
+            {cancelLabel ?? t("common.cancel")}
           </button>
           <button
             type="button"
             className={`button ${destructive ? "button--danger" : "button--primary"}`}
             onClick={onConfirm}
           >
-            {confirmLabel}
+            {confirmLabel ?? t("common.confirm")}
           </button>
         </div>
       </div>

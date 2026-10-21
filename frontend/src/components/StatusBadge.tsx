@@ -1,3 +1,5 @@
+import { useLanguage, enumLabel } from "../i18n";
+
 export type StatusTone =
   | "neutral"
   | "active"
@@ -37,14 +39,17 @@ export function toneForStatus(status: string): StatusTone {
 interface StatusBadgeProps {
   status: string;
   tone?: StatusTone;
+  context?: "workflow" | "account" | "catalog" | "booking";
 }
 
 /** Compact status chip. Tone is pure presentation; never the only signal. */
-export function StatusBadge({ status, tone }: StatusBadgeProps) {
+export function StatusBadge({ status, tone, context = "workflow" }: StatusBadgeProps) {
+  useLanguage();
   const resolvedTone = tone ?? toneForStatus(status);
+  const label = enumLabel(status, context);
   return (
     <span className={`status-badge status-badge--${resolvedTone}`}>
-      {status.replace(/_/g, " ")}
+      {label}
     </span>
   );
 }

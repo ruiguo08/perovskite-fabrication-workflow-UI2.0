@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useLanguage } from "../i18n";
 
 export interface Column<T> {
   /** Stable key; also used as the `headers` value for the column. */
@@ -27,10 +28,11 @@ export function DataTable<T>({
   ariaLabel,
   loading = false,
 }: DataTableProps<T>) {
+  const { t } = useLanguage();
   if (loading && rows.length === 0) {
     return (
-      <div className="table-skeleton" role="status" aria-label={ariaLabel ? `${ariaLabel} — loading` : "Loading records"}>
-        <span className="visually-hidden">Loading records…</span>
+      <div className="table-skeleton" role="status" aria-label={ariaLabel ? t("common.loadingTable", { label: ariaLabel }) : t("common.loadingRecordsLabel")}>
+        <span className="visually-hidden">{t("common.loadingRecords")}</span>
         {[0, 1, 2].map((row) => (
           <div className="table-skeleton__row" key={row} aria-hidden="true">
             {columns.map((column) => (
@@ -42,7 +44,7 @@ export function DataTable<T>({
     );
   }
   if (rows.length === 0) {
-    return <>{empty ?? <p className="table-empty">No records.</p>}</>;
+    return <>{empty ?? <p className="table-empty">{t("common.empty")}</p>}</>;
   }
   return (
     <div className="table-scroll">

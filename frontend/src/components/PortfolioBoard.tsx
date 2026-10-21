@@ -1,9 +1,12 @@
-import { useMemo } from "react";
+import { enumLabel, localizeAppText } from "../i18n";
+import { translate as tr, useLanguage as useUiLanguage, useLocalizedMemo } from "../i18n";
+
 import { Link } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { formatRelativeTime } from "../lib/format";
 import type { FabricationBatchListItem, ResultListItem } from "../types/api";
+import type { MessageKey } from "../i18n/messages";
 
 interface BoardExperiment {
   id: number;
@@ -47,7 +50,7 @@ function ageInfo(timestamp: string | null | undefined, verb: string) {
   }
   return {
     ageHours: Math.max(0, (Date.now() - parsed) / 3_600_000),
-    ageLabel: `${verb} ${formatRelativeTime(timestamp)}`,
+    ageLabel: `${tr(`time.${verb}` as MessageKey)} ${formatRelativeTime(timestamp)}`,
   };
 }
 
@@ -58,6 +61,7 @@ function batchPce(batch: FabricationBatchListItem | undefined): number | null {
 }
 
 function Dot({ status }: { status: string }) {
+  useUiLanguage();
   return <Box component="span" aria-hidden sx={{
     width: 7, height: 7, borderRadius: "50%", flex: "none",
     bgcolor: STATUS_COLOR[status] ?? "#8a97a0", display: "inline-block",
@@ -75,7 +79,8 @@ interface PortfolioBoardProps {
  * PCE values belong to the batch's valid forward scans, not to a result file.
  */
 export function PortfolioBoard({ experiments, batches, results }: PortfolioBoardProps) {
-  const columns = useMemo(() => {
+  useUiLanguage();
+  const columns = useLocalizedMemo(() => {
     const experimentById = new Map(experiments.map((row) => [row.id, row]));
     const batchById = new Map(batches.map((row) => [row.id, row]));
     const measuredBatchIds = new Set(results.map((row) => row.fabrication_batch_id));
@@ -92,7 +97,7 @@ export function PortfolioBoard({ experiments, batches, results }: PortfolioBoard
       .map((row) => ({
         id: `experiment-${row.id}`,
         code: row.experiment_code ?? `Experiment ${row.id}`,
-        title: "Experiment plan",
+        title: tr("portfolioBoard.experimentPlan"),
         status: planStatus(row),
         ...ageInfo(row.updated_at, "updated"),
         to: `/experiments/${row.id}`,
@@ -103,9 +108,9 @@ export function PortfolioBoard({ experiments, batches, results }: PortfolioBoard
       .map((row) => ({
         id: `experiment-${row.id}`,
         code: row.experiment_code ?? `Experiment ${row.id}`,
-        title: planStatus(row) === "approved" ? "Awaiting release"
+        title: planStatus(row) === "approved" ? tr("portfolioBoard.awaitingRelease")
           : batches.some((batch) => batch.experiment_id === row.id && batch.status !== "cancelled")
-            ? "Batch created" : "Awaiting batch",
+            ? tr("portfolioBoard.batchCreated") : tr("portfolioBoard.awaitingBatch"),
         status: planStatus(row),
         ...ageInfo(row.updated_at, "updated"),
         to: `/experiments/${row.id}`,
@@ -148,10 +153,10 @@ export function PortfolioBoard({ experiments, batches, results }: PortfolioBoard
       };
     });
     return [
-      { label: "Planning", cards: planning },
-      { label: "Approved", cards: approved },
-      { label: "Fabrication", cards: fabrication },
-      { label: "Characterization", cards: [...awaitingMeasurements, ...measured] },
+      { key: "planning", label: tr("portfolioBoard.planning"), cards: planning },
+      { key: "approved", label: tr("portfolioBoard.approved"), cards: approved },
+      { key: "fabrication", label: tr("portfolioBoard.fabrication"), cards: fabrication },
+      { key: "characterization", label: tr("portfolioBoard.characterization"), cards: [...awaitingMeasurements, ...measured] },
     ];
   }, [experiments, batches, results]);
   const total = columns.reduce((sum, column) => sum + column.cards.length, 0);
@@ -162,17 +167,16 @@ export function PortfolioBoard({ experiments, batches, results }: PortfolioBoard
         display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 1.5,
       }}>
         {columns.map((column) => (
-          <Box component="section" aria-label={column.label} key={column.label}
-            data-portfolio-column={column.label.toLowerCase()}
+          <Box component="section" aria-label={localizeAppText(column.label ?? "")} key={column.key}
+            data-portfolio-column={column.key}
             sx={{ bgcolor: "#f5f5f7", borderRadius: "12px", p: 1.5, minWidth: 0 }}>
             <Typography component="h3" sx={{ fontSize: 11.5, fontWeight: 600, letterSpacing: "-0.12px",
               color: "rgba(0,0,0,.48)", textTransform: "uppercase", px: 1, pb: 1 }}>
-              {column.label} · {column.cards.length}
+              {localizeAppText(column.label ?? "")} · {column.cards.length}
             </Typography>
             {column.cards.length === 0 ? (
               <Typography sx={{ fontSize: 12.5, letterSpacing: "-0.12px", color: "rgba(0,0,0,.48)", px: 1 }}>
-                No records
-              </Typography>
+                {tr("portfolioBoard.noRecords")}</Typography>
             ) : column.cards.map((card) => {
               const aging = card.ageHours !== null && card.ageHours > AGING_STALE_HOURS &&
                 !["completed", "assigned"].includes(card.status);
@@ -194,7 +198,7 @@ export function PortfolioBoard({ experiments, batches, results }: PortfolioBoard
                   <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1 }}>
                     <Typography component="span" sx={{ fontSize: 12, fontWeight: 500, letterSpacing: "-0.12px",
                       display: "inline-flex", alignItems: "center", gap: 0.75 }}>
-                      <Dot status={card.status} />{card.status.replace(/_/g, " ")}
+                      <Dot status={card.status} />{enumLabel(card.status)}
                     </Typography>
                     <Typography component="span" sx={{ fontSize: 11.5, letterSpacing: "-0.12px",
                       color: "rgba(0,0,0,.48)", fontVariantNumeric: "tabular-nums" }}>
@@ -202,12 +206,10 @@ export function PortfolioBoard({ experiments, batches, results }: PortfolioBoard
                     </Typography>
                   </Box>
                   {aging ? <Typography sx={{ fontSize: 11.5, letterSpacing: "-0.12px", color: "#b66a00", mt: 0.5 }}>
-                    Over 24 h
-                  </Typography> : null}
+                    {tr("portfolioBoard.overH")}</Typography> : null}
                   {card.batchBestPce !== null ? <Typography sx={{ fontSize: 12.5, fontWeight: 600,
                     letterSpacing: "-0.12px", mt: 0.5, fontVariantNumeric: "tabular-nums" }}>
-                    {card.batchBestPce.toFixed(2)}% batch best forward PCE
-                  </Typography> : null}
+                    {card.batchBestPce.toFixed(2)}{tr("portfolioBoard.batchBestForwardPCE")}</Typography> : null}
                 </Box>
               );
             })}
@@ -215,8 +217,7 @@ export function PortfolioBoard({ experiments, batches, results }: PortfolioBoard
         ))}
       </Box>
       <Typography sx={{ fontSize: 12.5, letterSpacing: "-0.12px", color: "rgba(0,0,0,.48)", px: 0.5, pt: 1 }}>
-        {total} records in the pipeline · amber text marks pending records older than 24 h
-      </Typography>
+        {total} {tr("portfolioBoard.recordsInThePipelineAmberTextMarksPendingRecords")}</Typography>
     </Box>
   );
 }

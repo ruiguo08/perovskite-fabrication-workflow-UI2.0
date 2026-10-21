@@ -1,3 +1,5 @@
+import { enumLabel } from "../i18n";
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
 import { useCallback, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useSession } from "../auth/session";
@@ -17,6 +19,7 @@ import type { Campaign } from "../types/api";
 const CAMPAIGN_STATUSES = ["active", "closed", "archived"];
 
 export function CampaignsPage() {
+  useUiLanguage();
   const { user } = useSession();
   const { show } = useToast();
   const canManage = user?.role === "instructor" || user?.role === "administrator";
@@ -76,7 +79,7 @@ export function CampaignsPage() {
   const columns: Column<Campaign>[] = [
     {
       key: "campaign",
-      header: "Campaign",
+      header: tr("campaignAnalysisPanel.campaign"),
       render: (row) => (
         <div className="record-title">
           <Link className="record-link" to={`/campaigns/${row.code}`}>
@@ -86,33 +89,33 @@ export function CampaignsPage() {
         </div>
       ),
     },
-    { key: "description", header: "Purpose" },
+    { key: "description", header: tr("campaignsPage.purpose") },
     {
       key: "status",
-      header: "Status",
+      header: tr("presetFilters.status"),
       render: (row) => <StatusBadge status={row.status} />,
     },
     {
       key: "updated_at",
-      header: "Updated",
+      header: tr("presetDetailView.updated"),
       render: (row) => formatRelativeTime(row.updated_at),
     },
   ];
   if (canManage) {
     columns.push({
       key: "actions",
-      header: "Manage",
+      header: tr("campaignsPage.manage"),
       render: (row) => (
         <label className="compact-control">
-          <span className="visually-hidden">Status for {row.display_name}</span>
+          <span className="visually-hidden">{tr("campaignsPage.statusFor")}{row.display_name}</span>
           <select
             className="text-input text-input--compact"
-            aria-label={`Status for ${row.display_name}`}
+            aria-label={tr("campaignsPage.statusForName", { "name": row.display_name })}
             value={row.status}
             onChange={(event) => void updateStatus(row, event.target.value)}
           >
             {CAMPAIGN_STATUSES.map((status) => (
-              <option key={status} value={status}>{status}</option>
+              <option key={status} value={status}>{enumLabel(status)}</option>
             ))}
           </select>
         </label>
@@ -121,38 +124,38 @@ export function CampaignsPage() {
   }
 
   if (resource.status === "loading" && resource.data === null) {
-    return <div className="page-loading" role="status">Loading Campaigns…</div>;
+    return <div className="page-loading" role="status">{tr("campaignsPage.loadingCampaigns")}</div>;
   }
   if (resource.status === "error" && resource.data === null) {
-    return <ErrorState message={resource.error ?? "Unable to load Campaigns."} action={
-      <button type="button" className="button button--secondary" onClick={() => void resource.reload()}>Retry</button>
+    return <ErrorState message={resource.error ?? tr("campaignsPage.unableToLoadCampaigns")} action={
+      <button type="button" className="button button--secondary" onClick={() => void resource.reload()}>{tr("versionHistory.retry")}</button>
     } />;
   }
 
   return (
     <>
       <PageHeader
-        title="Campaigns"
+        title={tr("campaignsPage.campaigns")}
         description={canManage
-          ? "Organize related experiments under stable series identifiers."
-          : "Active series available for new experiment plans."}
+          ? tr("campaignsPage.organizeRelatedExperimentsUnderStableSeriesIdentifiers")
+          : tr("campaignsPage.activeSeriesAvailableForNewExperimentPlans")}
       />
       {canManage ? (
         <section className="panel panel--accent" aria-labelledby="create-campaign-title">
-          <h2 className="panel__title" id="create-campaign-title">Create Campaign</h2>
+          <h2 className="panel__title" id="create-campaign-title">{tr("campaignsPage.createCampaign")}</h2>
           <form className="form-grid form-grid--campaign" onSubmit={(event) => void createCampaign(event)}>
-            <FormField label="Campaign code" htmlFor="campaign-code" required>
+            <FormField label={tr("campaignsPage.campaignCode")} htmlFor="campaign-code" required>
               <input id="campaign-code" className="text-input mono" required maxLength={160} value={code} onChange={(event) => setCode(event.target.value)} />
             </FormField>
-            <FormField label="Display name" htmlFor="campaign-name" required>
+            <FormField label={tr("campaignsPage.displayName")} htmlFor="campaign-name" required>
               <input id="campaign-name" className="text-input" required maxLength={120} value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
             </FormField>
-            <FormField label="Purpose" htmlFor="campaign-description">
+            <FormField label={tr("campaignsPage.purpose")} htmlFor="campaign-description">
               <input id="campaign-description" className="text-input" maxLength={2000} value={description} onChange={(event) => setDescription(event.target.value)} />
             </FormField>
             <div className="form-grid__action">
               <button className="button button--primary" type="submit" disabled={submitting}>
-                {submitting ? "Creating…" : "Create Campaign"}
+                {submitting ? tr("blankPresetForm.creating") : tr("campaignsPage.createCampaign")}
               </button>
             </div>
           </form>
@@ -161,17 +164,17 @@ export function CampaignsPage() {
       ) : null}
       <section className="panel" aria-labelledby="campaign-directory-title">
         <div className="panel__heading">
-          <h2 className="panel__title" id="campaign-directory-title">Campaign directory</h2>
-          <span className="record-count">{rows.length} records</span>
+          <h2 className="panel__title" id="campaign-directory-title">{tr("campaignsPage.campaignDirectory")}</h2>
+          <span className="record-count">{rows.length} {tr("presetFilters.records")}</span>
         </div>
         <InlineFormError message={updateError} />
         <DataTable
           columns={columns}
           rows={rows}
           rowKey={(row) => row.id}
-          ariaLabel="Campaign directory"
+          ariaLabel={tr("campaignsPage.campaignDirectory")}
           loading={resource.status === "loading"}
-          empty={<EmptyState title="No Campaigns are available." />}
+          empty={<EmptyState title={tr("campaignsPage.noCampaignsAreAvailable")} />}
         />
       </section>
     </>

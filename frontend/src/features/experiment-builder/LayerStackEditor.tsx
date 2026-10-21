@@ -1,4 +1,7 @@
-import { useMemo, useRef, useState } from "react";
+import { enumLabel, localizeAppText } from "../../i18n";
+import { useMemo } from "react";
+import { translate as tr, useLanguage as useUiLanguage } from "../../i18n";
+import { useRef, useState } from "react";
 import type { DeviceLayer, LayerPreset, Material } from "../../types/api";
 import { RequiredLegend } from "../../components/RequiredLegend";
 import { VCD_VALVES } from "../../lib/constraints";
@@ -32,10 +35,11 @@ interface LayerStackEditorProps {
 }
 
 function layerLabel(layer: DeviceLayer): string {
-  return `${layer.name} · ${layer.role.replace(/_/g, " ")}`;
+  return `${layer.name} · ${enumLabel(layer.role)}`;
 }
 
 export function LayerStackEditor({ draft, presets, materials, vcdValves, onChange, onError }: LayerStackEditorProps) {
+  useUiLanguage();
   const [presetId, setPresetId] = useState("");
   const [blankType, setBlankType] = useState("");
   const valves = vcdValves ?? VCD_VALVES;
@@ -143,45 +147,45 @@ export function LayerStackEditor({ draft, presets, materials, vcdValves, onChang
   return (
     <section className="builder-panel" aria-labelledby="builder-layers-title">
       <div className="builder-panel__heading">
-        <div><span className="builder-panel__eyebrow">Step 3</span><h2 id="builder-layers-title">Functional layer stack</h2></div>
-        <span className="record-count">{draft.layers.length} layers</span>
+        <div><span className="builder-panel__eyebrow">{tr("layerStackEditor.step")}</span><h2 id="builder-layers-title">{tr("layerStackEditor.functionalLayerStack")}</h2></div>
+        <span className="record-count">{draft.layers.length} {tr("layerStackEditor.layers")}</span>
       </div>
-      <p className="builder-help">Adding or replacing a preset copies its complete values into this draft. Later preset revisions cannot alter the saved experiment.</p>
+      <p className="builder-help">{tr("layerStackEditor.addingOrReplacingAPresetCopiesItsCompleteValues")}</p>
       <RequiredLegend />
       <div className="builder-architecture-picker">
-        <label className="builder-field" htmlFor="builder-architecture"><span>Device architecture</span>
+        <label className="builder-field" htmlFor="builder-architecture"><span>{tr("layerStackEditor.deviceArchitecture")}</span>
           <select id="builder-architecture" className="text-input" value={draft.architecture} onChange={(event) => onChange(setArchitecture(draft, event.target.value as "pin" | "nip"))}>
-            <option value="pin">p-i-n (inverted: HTL on substrate)</option>
-            <option value="nip">n-i-p (regular: ETL on substrate)</option>
+            <option value="pin">{tr("layerStackEditor.pINInvertedHTLOnSubstrate")}</option>
+            <option value="nip">{tr("layerStackEditor.nIPRegularETLOnSubstrate")}</option>
           </select>
         </label>
-        <p className="builder-help">Sets the deposition role order. Switching re-sorts the stack; within-role material order is preserved.</p>
+        <p className="builder-help">{tr("layerStackEditor.setsTheDepositionRoleOrderSwitchingReSortsThe")}</p>
       </div>
       <div className="builder-preset-picker">
-        <label className="builder-field" htmlFor="builder-add-preset"><span>Layer preset</span>
+        <label className="builder-field" htmlFor="builder-add-preset"><span>{tr("layerStackEditor.layerPreset")}</span>
           <select id="builder-add-preset" className="text-input" value={presetId} onChange={(event) => setPresetId(event.target.value)}>
-            <option value="">Choose an active preset…</option>
+            <option value="">{tr("layerStackEditor.chooseAnActivePreset")}</option>
             {activePresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name} · {preset.layer.layer_type} · {preset.scope}</option>)}
           </select>
         </label>
-        <button type="button" className="button button--secondary" disabled={!presetId} onClick={addSelectedPreset}>Add copied preset</button>
+        <button type="button" className="button button--secondary" disabled={!presetId} onClick={addSelectedPreset}>{tr("layerStackEditor.addCopiedPreset")}</button>
       </div>
       <div className="builder-preset-picker">
-        <label className="builder-field" htmlFor="builder-add-blank"><span>New blank layer</span>
+        <label className="builder-field" htmlFor="builder-add-blank"><span>{tr("layerStackEditor.newBlankLayer")}</span>
           <select id="builder-add-blank" className="text-input" value={blankType} onChange={(event) => setBlankType(event.target.value)}>
-            <option value="">Choose a layer type…</option>
+            <option value="">{tr("layerStackEditor.chooseALayerType")}</option>
             {LAYER_TYPE_DEFS.filter((definition) => canAddLayerType(draft, definition.layerType)).map((definition) => (
-              <option key={definition.layerType} value={definition.layerType}>{definition.label} · {definition.role.replace(/_/g, " ")}</option>
+              <option key={definition.layerType} value={definition.layerType}>{localizeAppText(definition.label ?? "")} · {enumLabel(definition.role)}</option>
             ))}
           </select>
         </label>
-        <button type="button" className="button button--secondary" disabled={!blankType} onClick={addSelectedBlankLayer}>Add blank layer</button>
+        <button type="button" className="button button--secondary" disabled={!blankType} onClick={addSelectedBlankLayer}>{tr("layerStackEditor.addBlankLayer")}</button>
       </div>
-      <p className="builder-help">A blank layer starts with no solution and no process — add them via “Edit complete layer values”. Presets are a shortcut, not a requirement.</p>
-      <p className="builder-help">Layers of the same material type can be resequenced by dragging the handle; different materials retain the required device order.</p>
+      <p className="builder-help">{tr("layerStackEditor.aBlankLayerStartsWithNoSolutionAndNo")}</p>
+      <p className="builder-help">{tr("layerStackEditor.layersOfTheSameMaterialTypeCanBeResequenced")}</p>
 
       <div className="builder-layer-list">
-        {draft.layers.length === 0 ? <p className="builder-empty-editor">No layers yet. Add copied presets or blank layers; they are placed in the required device order.</p> : null}
+        {draft.layers.length === 0 ? <p className="builder-empty-editor">{tr("layerStackEditor.noLayersYetAddCopiedPresetsOrBlankLayers")}</p> : null}
         {draft.layers.map((layer, index) => {
           const replacementPresets = activePresets.filter((preset) => preset.layer.layer_type === layer.layer_type);
           const canMoveEarlier = index > 0 && draft.layers[index - 1].role === layer.role && draft.layers[index - 1].layer_type === layer.layer_type;
@@ -198,7 +202,7 @@ export function LayerStackEditor({ draft, presets, materials, vcdValves, onChang
                       draggable
                       onDragStart={(event) => handleDragStart(index, event)}
                       onDragEnd={handleDragEnd}
-                      title="Drag to reorder"
+                      title={tr("layerStackEditor.dragToReorder")}
                       aria-hidden="true"
                     >
                       ⠿
@@ -208,27 +212,27 @@ export function LayerStackEditor({ draft, presets, materials, vcdValves, onChang
                   )}
                   <span className="builder-layer-card__index">{String(index + 1).padStart(2, "0")}</span>
                   <h3>{layer.name}</h3>
-                  <p>{layer.role.replace(/_/g, " ")} · <code>{layer.layer_type}</code>{layer.preset_id ? ` · copied from ${layer.preset_id}` : ""}</p>
+                  <p>{enumLabel(layer.role)} · <code>{layer.layer_type}</code>{layer.preset_id ? tr("layerStackEditor.copiedFromSource", { "source": layer.preset_id }) : ""}</p>
                   {layer.layer_type === "perovskite" && perovskiteIncomplete ? (
-                    <p className="builder-layer-card__warning">Perovskite process incomplete — open “Edit complete layer values” and fill in every vacuum stage.</p>
+                    <p className="builder-layer-card__warning">{tr("layerStackEditor.perovskiteProcessIncompleteOpenEditCompleteLayerValuesAnd")}</p>
                   ) : layer.layer_type !== "perovskite" && incompleteLayers.has(index) ? (
-                    <p className="builder-layer-card__warning">Layer values incomplete — open “Edit complete layer values” and fill in the missing process or solution values.</p>
+                    <p className="builder-layer-card__warning">{tr("layerStackEditor.layerValuesIncompleteOpenEditCompleteLayerValuesAnd")}</p>
                   ) : null}
                 </div>
                 <div className="button-row">
-                  <button type="button" className="button button--secondary button--small" disabled={!canMoveEarlier} aria-label={`Move ${layer.name} up`} onClick={() => apply(() => moveLayerWithinRole(draft, index, -1))}>↑</button>
-                  <button type="button" className="button button--secondary button--small" disabled={!canMoveLater} aria-label={`Move ${layer.name} down`} onClick={() => apply(() => moveLayerWithinRole(draft, index, 1))}>↓</button>
-                  <button type="button" className="button button--secondary button--small" onClick={() => apply(() => removeLayer(draft, index))}>Remove</button>
+                  <button type="button" className="button button--secondary button--small" disabled={!canMoveEarlier} aria-label={tr("snapshotEditor.moveNameUp", { "name": layer.name })} onClick={() => apply(() => moveLayerWithinRole(draft, index, -1))}>↑</button>
+                  <button type="button" className="button button--secondary button--small" disabled={!canMoveLater} aria-label={tr("snapshotEditor.moveNameDown", { "name": layer.name })} onClick={() => apply(() => moveLayerWithinRole(draft, index, 1))}>↓</button>
+                  <button type="button" className="button button--secondary button--small" onClick={() => apply(() => removeLayer(draft, index))}>{tr("snapshotEditor.remove")}</button>
                 </div>
               </div>
               <details className="builder-layer-card__editor">
-                <summary>Edit complete layer values</summary>
+                <summary>{tr("layerStackEditor.editCompleteLayerValues")}</summary>
                 <div className="builder-fields builder-fields--two">
-                  <label className="builder-field"><span>Layer name</span><input className="text-input" value={layer.name} onChange={(event) => onChange(replacePrimaryLayer(draft, index, { ...layer, name: event.target.value }))} /></label>
-                  <label className="builder-field"><span>Replace from same-type preset</span>
+                  <label className="builder-field"><span>{tr("conditionPlanner.layerName")}</span><input className="text-input" value={layer.name} onChange={(event) => onChange(replacePrimaryLayer(draft, index, { ...layer, name: event.target.value }))} /></label>
+                  <label className="builder-field"><span>{tr("layerStackEditor.replaceFromSameTypePreset")}</span>
                     <select className="text-input" value="" onChange={(event) => { const preset = replacementPresets.find((item) => String(item.id) === event.target.value); if (preset) apply(() => expandLayerPreset(draft, index, preset)); }}>
-                      <option value="">Keep current expanded values</option>
-                      {replacementPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name} · revision {preset.current_revision_number}</option>)}
+                      <option value="">{tr("layerStackEditor.keepCurrentExpandedValues")}</option>
+                      {replacementPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name} {tr("layerStackEditor.revision")}{preset.current_revision_number}</option>)}
                     </select>
                   </label>
                 </div>

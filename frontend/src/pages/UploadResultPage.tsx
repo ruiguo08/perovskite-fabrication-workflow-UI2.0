@@ -1,4 +1,7 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { enumLabel, localizeAppText } from "../i18n";
+import { useMemo } from "react";
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
+import { useCallback, useLayoutEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
@@ -17,6 +20,7 @@ interface UploadedResult {
 }
 
 export function UploadResultPage() {
+  useUiLanguage();
   const { experimentId } = useParams();
   const experimentIdNumber = Number(experimentId);
   const navigate = useNavigate();
@@ -124,17 +128,16 @@ export function UploadResultPage() {
   }
 
   if (resource.status === "loading" && activeDetail === null) {
-    return <div className="page-loading" role="status">Loading experiment…</div>;
+    return <div className="page-loading" role="status">{tr("experimentDetailPage.loadingExperiment")}</div>;
   }
   if (resource.status === "error" && activeDetail === null) {
     return (
       <ErrorState
-        title="Unable to load experiment"
-        message={resource.error ?? "The experiment could not be loaded."}
+        title={tr("experimentDetailPage.unableToLoadExperiment")}
+        message={resource.error ?? tr("experimentDetailPage.theExperimentCouldNotBeLoaded")}
         action={
           <button type="button" className="button button--secondary" onClick={() => void resource.reload()}>
-            Retry
-          </button>
+            {tr("versionHistory.retry")}</button>
         }
       />
     );
@@ -146,15 +149,15 @@ export function UploadResultPage() {
   return (
     <>
       <PageHeader
-        title="Upload characterization result"
-        description="Read devices from a JV CSV and continue to the assignment step."
+        title={tr("uploadResultPage.uploadCharacterizationResult")}
+        description={tr("uploadResultPage.readDevicesFromAJVCSVAndContinueTo")}
         meta={null}
-        actions={<Link className="button button--secondary" to={`/experiments/${experimentIdNumber}`}>Back to plan</Link>}
+        actions={<Link className="button button--secondary" to={`/experiments/${experimentIdNumber}`}>{tr("batchDetailPage.backToPlan")}</Link>}
       />
       {groups.length > 0 ? (
         <section className="panel" aria-labelledby="expected-groups-title">
           <div className="panel__heading">
-            <h2 className="panel__title" id="expected-groups-title">Expected groups</h2>
+            <h2 className="panel__title" id="expected-groups-title">{tr("uploadResultPage.expectedGroups")}</h2>
           </div>
           <div className="badge-row">
             {groups.map((condition) => (
@@ -170,46 +173,46 @@ export function UploadResultPage() {
       ) : null}
       {eligibleBatches.length === 0 ? (
         <EmptyState
-          title="No eligible fabrication batches."
-          description="Start a fabrication batch and mark it in progress before uploading results."
+          title={tr("uploadResultPage.noEligibleFabricationBatches")}
+          description={tr("uploadResultPage.startAFabricationBatchAndMarkItInProgress")}
         />
       ) : (
         <form className="panel" aria-labelledby="upload-form-title" onSubmit={(event) => void submit(event)}>
           <div className="panel__heading">
-            <h2 className="panel__title" id="upload-form-title">Result file</h2>
+            <h2 className="panel__title" id="upload-form-title">{tr("uploadResultPage.resultFile")}</h2>
           </div>
           <label className="form-field">
-            <span className="form-field__label">Fabrication batch</span>
+            <span className="form-field__label">{tr("uploadResultPage.fabricationBatch")}</span>
             <select
               className="text-input"
-              aria-label="Fabrication batch"
+              aria-label={tr("uploadResultPage.fabricationBatch")}
               value={batchId}
               onChange={(event) => setBatchId(event.target.value)}
             >
-              <option value="">Choose the batch that produced these devices…</option>
+              <option value="">{tr("uploadResultPage.chooseTheBatchThatProducedTheseDevices")}</option>
               {eligibleBatches.map((batch) => (
                 <option key={batch.id} value={batch.id}>
-                  {batch.batch_code} ({batch.status.replace(/_/g, " ")})
+                  {batch.batch_code} ({enumLabel(batch.status)})
                 </option>
               ))}
             </select>
           </label>
           <label className="form-field">
-            <span className="form-field__label">CSV result file</span>
+            <span className="form-field__label">{tr("uploadResultPage.csvResultFile")}</span>
             <input
               ref={fileInputRef}
               className="text-input"
               type="file"
               accept=".csv,text/csv"
-              aria-label="CSV result file"
+              aria-label={tr("uploadResultPage.csvResultFile")}
               onChange={selectFile}
             />
           </label>
-          <p className="run-sheet-muted">Maximum size 10 MB. The server re-validates size, type, and integrity.</p>
+          <p className="run-sheet-muted">{tr("uploadResultPage.maximumSizeMBTheServerReValidatesSizeType")}</p>
           <button className="button button--primary" type="submit" disabled={submitting}>
-            {submitting ? "Reading devices…" : "Read devices and continue"}
+            {submitting ? tr("uploadResultPage.readingDevices") : tr("uploadResultPage.readDevicesAndContinue")}
           </button>
-          <InlineFormError message={error} />
+          <InlineFormError message={localizeAppText(error ?? "")} />
         </form>
       )}
     </>

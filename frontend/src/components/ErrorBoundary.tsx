@@ -1,5 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { ErrorState } from "./ErrorState";
+import { useLanguage } from "../i18n";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -33,24 +35,22 @@ export class ErrorBoundary extends Component<
 
   render(): ReactNode {
     if (this.state.error !== null) {
-      return (
-        <main className="app-loading">
-          <ErrorState
-            title="The application view crashed"
-            message="An unexpected error interrupted this page. Reload to recover; unsaved changes are lost."
-            action={
-              <button
-                type="button"
-                className="button button--secondary"
-                onClick={this.handleReload}
-              >
-                Reload
-              </button>
-            }
-          />
-        </main>
-      );
+      return <CrashFallback onReload={this.handleReload} />;
     }
     return this.props.children;
   }
+}
+
+function CrashFallback({ onReload }: { onReload: () => void }) {
+  const { t } = useLanguage();
+  return (
+    <main className="app-loading">
+      <LanguageSwitcher />
+      <ErrorState
+        title={t("error.crashTitle")}
+        message={t("error.crash")}
+        action={<button type="button" className="button button--secondary" onClick={onReload}>{t("common.reload")}</button>}
+      />
+    </main>
+  );
 }

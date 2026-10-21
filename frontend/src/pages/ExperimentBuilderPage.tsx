@@ -1,4 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { localizeAppText } from "../i18n";
+import { useMemo } from "react";
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSession } from "../auth/session";
 import { DeviceStackRail } from "../components/DeviceStackRail";
@@ -38,11 +41,11 @@ interface BuilderCatalogs {
 }
 
 const STEPS: Array<{ id: BuilderStep; label: string; number: string }> = [
-  { id: "starting", label: "Starting point", number: "01" },
-  { id: "substrate", label: "Substrate", number: "02" },
-  { id: "layers", label: "Layer stack", number: "03" },
-  { id: "conditions", label: "Conditions", number: "04" },
-  { id: "review", label: "Review", number: "05" },
+  { id: "starting", get label() { return tr("reviewPanel.startingPoint"); }, number: "01" },
+  { id: "substrate", get label() { return tr("deviceExclusionsPanel.substrate"); }, number: "02" },
+  { id: "layers", get label() { return tr("experimentBuilderPage.layerStack"); }, number: "03" },
+  { id: "conditions", get label() { return tr("batchDetailPage.conditions"); }, number: "04" },
+  { id: "review", get label() { return tr("experimentBuilderPage.review"); }, number: "05" },
 ];
 
 function matchingLayout(baseline: Baseline, layouts: DeviceLayout[]): DeviceLayout | null {
@@ -53,6 +56,7 @@ function matchingLayout(baseline: Baseline, layouts: DeviceLayout[]): DeviceLayo
 }
 
 export function ExperimentBuilderPage() {
+  useUiLanguage();
   const { user } = useSession();
   const { show } = useToast();
   const navigate = useNavigate();
@@ -195,24 +199,24 @@ export function ExperimentBuilderPage() {
   }
 
   if (resource.status === "loading" && resource.data === null) {
-    return <div className="page-loading" role="status">Loading experiment-planning catalogs…</div>;
+    return <div className="page-loading" role="status">{tr("experimentBuilderPage.loadingExperimentPlanningCatalogs")}</div>;
   }
   if (resource.status === "error" && resource.data === null) {
-    return <ErrorState title="Unable to load the planning workspace" message={resource.error ?? "The reusable directories did not respond."} action={<button type="button" className="button button--secondary" onClick={() => void resource.reload()}>Retry</button>} />;
+    return <ErrorState title={tr("experimentBuilderPage.unableToLoadThePlanningWorkspace")} message={resource.error ?? tr("experimentBuilderPage.theReusableDirectoriesDidNotRespond")} action={<button type="button" className="button button--secondary" onClick={() => void resource.reload()}>{tr("versionHistory.retry")}</button>} />;
   }
   if (!catalogs || !user) return null;
 
   return (
     <>
-      <PageHeader title="Plan experiment" description="Build a complete, independently reconstructible fabrication plan from versioned reusable inputs." meta={draft.source_baseline_name ? `${draft.source_baseline_name} · expanded baseline version ${draft.source_baseline_version_id}` : "Unsaved draft"} />
+      <PageHeader title={tr("experimentBuilderPage.planExperiment")} description={tr("experimentBuilderPage.buildACompleteIndependentlyReconstructibleFabricationPlanFromVersioned")} meta={draft.source_baseline_name ? `${draft.source_baseline_name} · expanded baseline version ${draft.source_baseline_version_id}` : "Unsaved draft"} />
       {restoredDraft ? (
         <div className="draft-restored-note" role="status">
-          <span>Draft restored from your last editing session. Your entered values are kept until you save or discard them.</span>
-          <button type="button" className="button button--secondary button--small" onClick={discardRestoredDraft}>Discard draft</button>
+          <span>{tr("baselineAuthoring.draftRestoredFromYourLastEditingSessionYourEntered")}</span>
+          <button type="button" className="button button--secondary button--small" onClick={discardRestoredDraft}>{tr("baselineAuthoring.discardDraft")}</button>
         </div>
       ) : null}
-      <div className="builder-step-rail" aria-label="Experiment planning steps">
-        {STEPS.map((item) => <button key={item.id} type="button" className={step === item.id ? "builder-step builder-step--active" : "builder-step"} aria-current={step === item.id ? "step" : undefined} onClick={() => setStep(item.id)}><span className="builder-step__number">{item.number}</span><span className="builder-step__label">{item.label}</span></button>)}
+      <div className="builder-step-rail" aria-label={tr("experimentBuilderPage.experimentPlanningSteps")}>
+        {STEPS.map((item) => <button key={item.id} type="button" className={step === item.id ? "builder-step builder-step--active" : "builder-step"} aria-current={step === item.id ? "step" : undefined} onClick={() => setStep(item.id)}><span className="builder-step__number">{item.number}</span><span className="builder-step__label">{localizeAppText(item.label ?? "")}</span></button>)}
       </div>
       <InlineFormError message={pageError} />
       <div className="builder-workspace">
@@ -223,23 +227,23 @@ export function ExperimentBuilderPage() {
           {step === "conditions" ? <ConditionPlanner draft={draft} layouts={catalogs.layouts} vcdValves={vcdValves} onChange={setDraft} onError={setPageError} /> : null}
           {step === "review" ? <ReviewPanel draft={draft} campaigns={catalogs.campaigns} baselines={catalogs.baselines} layouts={catalogs.layouts} issues={issues} /> : null}
         </div>
-        <aside className="builder-workspace__stack" aria-label="Current device stack">
-          <div className="builder-stack-heading"><span>Current stack</span><strong>{draft.layers.length} layers</strong></div>
+        <aside className="builder-workspace__stack" aria-label={tr("experimentBuilderPage.currentDeviceStack")}>
+          <div className="builder-stack-heading"><span>{tr("experimentBuilderPage.currentStack")}</span><strong>{draft.layers.length} {tr("layerStackEditor.layers")}</strong></div>
           <DeviceStackRail substrate={draft.substrate.material || "Substrate"} layers={draft.layers.map((layer) => ({ name: layer.name, role: layer.role, layerType: layer.layer_type }))} />
         </aside>
       </div>
       <div className="builder-actions">
-        <span>{step !== "review" ? "Complete each step, then review the plan before saving." : issues.length === 0 ? "All required planning values are complete." : `${issues.length} review items remain.`}</span>
+        <span>{step !== "review" ? tr("experimentBuilderPage.completeEachStepThenReviewThePlanBeforeSaving") : issues.length === 0 ? tr("experimentBuilderPage.allRequiredPlanningValuesAreComplete") : tr("experimentBuilderPage.nReviewItemsRemain", { "n": issues.length })}</span>
         <div className="button-row">
-          {step !== "review" ? <button type="button" className="button button--secondary" onClick={() => setStep("review")}>Review</button> : null}
-          <button type="button" className="button button--primary" disabled={submitting || issues.length > 0} onClick={() => void saveExperiment()}>{submitting ? "Saving…" : "Save experiment"}</button>
+          {step !== "review" ? <button type="button" className="button button--secondary" onClick={() => setStep("review")}>{tr("experimentBuilderPage.review")}</button> : null}
+          <button type="button" className="button button--primary" disabled={submitting || issues.length > 0} onClick={() => void saveExperiment()}>{submitting ? tr("runSheetTable.saving") : tr("experimentBuilderPage.saveExperiment")}</button>
         </div>
       </div>
       <ConfirmDialog
         open={pendingStartChange !== null}
-        title="Replace current draft?"
-        message="Selecting a different starting point replaces the draft you are editing, including any recorded layers, conditions, and process values. This cannot be undone."
-        confirmLabel="Discard edits and replace"
+        title={tr("experimentBuilderPage.replaceCurrentDraft")}
+        message={tr("experimentBuilderPage.selectingADifferentStartingPointReplacesTheDraftYou")}
+        confirmLabel={tr("experimentBuilderPage.discardEditsAndReplace")}
         destructive
         onConfirm={() => {
           const pending = pendingStartChange;

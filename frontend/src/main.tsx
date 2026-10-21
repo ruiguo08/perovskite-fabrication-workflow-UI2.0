@@ -8,6 +8,9 @@ import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { appTheme } from "./theme/theme";
 import "./styles.css";
+import { syncDocumentLanguage } from "./i18n";
+
+syncDocumentLanguage();
 
 /* The SPA entry route writes a per-request nonce into <meta name="csp-nonce">;
    feeding it to Emotion lets MUI's runtime <style> tags pass the CSP

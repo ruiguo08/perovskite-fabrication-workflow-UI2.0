@@ -1,3 +1,4 @@
+import { translate as tr, useLanguage as useUiLanguage } from "../../i18n";
 import { FormField } from "../../components/FormField";
 import type { LayerPreset } from "../../types/api";
 import { layerMethodLabel, layerTypeLabel } from "./presetSummary";
@@ -101,6 +102,7 @@ export function PresetFilters({
   onChange: (filters: PresetFilterState) => void;
   onClear: () => void;
 }) {
+  useUiLanguage();
   const layerTypes = uniqueSorted(catalogRows.map((preset) => preset.layer.layer_type));
   const methods = uniqueSorted(catalogRows.map((preset) => presetMethodValue(preset)));
   const hasActiveFilters = filters.query.trim() !== ""
@@ -109,78 +111,77 @@ export function PresetFilters({
     || filters.scope !== "all"
     || filters.status !== "all";
   return (
-    <section className="panel experiment-filters" aria-label="Layer preset filters">
-      <FormField label="Search presets" htmlFor="preset-filter-search">
+    <section className="panel experiment-filters" aria-label={tr("presetFilters.layerPresetFilters")}>
+      <FormField label={tr("presetFilters.searchPresets")} htmlFor="preset-filter-search">
         <input
           id="preset-filter-search"
           className="text-input"
           type="search"
           value={filters.query}
           onChange={(event) => onChange({ ...filters, query: event.target.value })}
-          placeholder="Name, material, or process"
+          placeholder={tr("presetFilters.nameMaterialOrProcess")}
         />
       </FormField>
-      <FormField label="Layer type" htmlFor="preset-filter-layer-type">
+      <FormField label={tr("blankPresetForm.layerType")} htmlFor="preset-filter-layer-type">
         <select
           id="preset-filter-layer-type"
           className="text-input"
           value={filters.layerType}
           onChange={(event) => onChange({ ...filters, layerType: event.target.value })}
         >
-          <option value="all">All layer types</option>
+          <option value="all">{tr("presetFilters.allLayerTypes")}</option>
           {layerTypes.map((layerType) => (
             <option key={layerType} value={layerType}>{layerTypeLabel(layerType)}</option>
           ))}
         </select>
       </FormField>
-      <FormField label="Method" htmlFor="preset-filter-method">
+      <FormField label={tr("processEditor.method")} htmlFor="preset-filter-method">
         <select
           id="preset-filter-method"
           className="text-input"
           value={filters.method}
           onChange={(event) => onChange({ ...filters, method: event.target.value })}
         >
-          <option value="all">All methods</option>
+          <option value="all">{tr("presetFilters.allMethods")}</option>
           {methods.map((method) => (
             <option key={method} value={method}>
               {method === "spin_coating_vcd"
-                ? "Spin coating + VCD"
+                ? tr("presetDetailView.spinCoatingVCD")
                 : method === "none"
-                  ? "No process recorded"
+                  ? tr("presetFilters.noProcessRecorded")
                   : layerMethodLabel(method)}
             </option>
           ))}
         </select>
       </FormField>
-      <FormField label="Scope" htmlFor="preset-filter-scope">
+      <FormField label={tr("presetDetailView.scope")} htmlFor="preset-filter-scope">
         <select
           id="preset-filter-scope"
           className="text-input"
           value={filters.scope}
           onChange={(event) => onChange({ ...filters, scope: event.target.value })}
         >
-          <option value="all">All scopes</option>
-          <option value="shared">Shared</option>
-          <option value="personal">Personal</option>
+          <option value="all">{tr("presetFilters.allScopes")}</option>
+          <option value="shared">{tr("presetFilters.shared")}</option>
+          <option value="personal">{tr("blankPresetForm.personal")}</option>
         </select>
       </FormField>
-      <FormField label="Status" htmlFor="preset-filter-status">
+      <FormField label={tr("presetFilters.status")} htmlFor="preset-filter-status">
         <select
           id="preset-filter-status"
           className="text-input"
           value={filters.status}
           onChange={(event) => onChange({ ...filters, status: event.target.value })}
         >
-          <option value="all">All statuses</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
+          <option value="all">{tr("presetFilters.allStatuses")}</option>
+          <option value="active">{tr("presetFilters.active")}</option>
+          <option value="inactive">{tr("presetFilters.inactive")}</option>
         </select>
       </FormField>
-      <span className="record-count experiment-filters__count">{rows.length} of {totalCount} records</span>
+      <span className="record-count experiment-filters__count">{rows.length} {tr("runSheetTable.of")}{totalCount} {tr("presetFilters.records")}</span>
       {hasActiveFilters ? (
         <button type="button" className="button button--secondary button--small" onClick={onClear}>
-          Clear filters
-        </button>
+          {tr("presetFilters.clearFilters")}</button>
       ) : null}
     </section>
   );

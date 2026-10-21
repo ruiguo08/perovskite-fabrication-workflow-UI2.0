@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
+import { useState } from "react";
 import type { AnalysisDevice, ResultAssignmentGroup } from "../types/api";
 import { formatNumber, scaleMetric } from "../lib/format";
 import { evaluateDeviceExclusion, parseExclusionThreshold, type ExclusionThresholds } from "../lib/deviceExclusionRules";
@@ -31,6 +33,7 @@ export function DeviceExclusionsPanel({
   initialThresholds,
   onApplyAutomatic,
 }: DeviceExclusionsPanelProps) {
+  useUiLanguage();
   const [vocThreshold, setVocThreshold] = useState(() => initialThresholds?.voc?.toString() ?? DEFAULT_THRESHOLDS.voc);
   const [pceThreshold, setPceThreshold] = useState(() => initialThresholds?.pce?.toString() ?? DEFAULT_THRESHOLDS.pce);
   const [ffThreshold, setFfThreshold] = useState(() => initialThresholds?.ff?.toString() ?? DEFAULT_THRESHOLDS.ff);
@@ -77,19 +80,14 @@ export function DeviceExclusionsPanel({
   return (
     <section className="panel" aria-labelledby="exclusions-title">
       <div className="panel__heading">
-        <h2 className="panel__title" id="exclusions-title">Device exclusions</h2>
-        <span className="record-count">{exclusions.size} manual · {automaticExclusions.size} threshold matches</span>
+        <h2 className="panel__title" id="exclusions-title">{tr("deviceExclusionsPanel.deviceExclusions")}</h2>
+        <span className="record-count">{exclusions.size} {tr("deviceExclusionsPanel.manual")}{automaticExclusions.size} {tr("deviceExclusionsPanel.thresholdMatches")}</span>
       </div>
       <p className="run-sheet-muted">
-        Automatic exclusion requires both forward and reverse representative scans to fall below
-        at least one enabled threshold. Each metric uses the same threshold in both directions;
-        different metrics may trigger each direction. Devices with a missing direction need manual
-        review. Threshold matches apply only to the current analysis view and are not saved.
-        Manual reasons are saved and take priority. Exclusion never removes J–V curves or the underlying measurements.
-      </p>
+        {tr("deviceExclusionsPanel.automaticExclusionRequiresBothForwardAndReverseRepresentativeScans")}</p>
       <div className="exclusion-presets">
         <label className="form-field">
-          <span className="form-field__label">Voc below (V)</span>
+          <span className="form-field__label">{tr("deviceExclusionsPanel.vocBelowV")}</span>
           <input
             className="text-input"
             type="number"
@@ -97,11 +95,11 @@ export function DeviceExclusionsPanel({
             min="0"
             value={vocThreshold}
             onChange={(event) => setVocThreshold(event.target.value)}
-            aria-label="Flag devices with Voc below (V)"
+            aria-label={tr("deviceExclusionsPanel.flagDevicesWithVocBelowV")}
           />
         </label>
         <label className="form-field">
-          <span className="form-field__label">PCE below (%)</span>
+          <span className="form-field__label">{tr("deviceExclusionsPanel.pceBelow")}</span>
           <input
             className="text-input"
             type="number"
@@ -109,11 +107,11 @@ export function DeviceExclusionsPanel({
             min="0"
             value={pceThreshold}
             onChange={(event) => setPceThreshold(event.target.value)}
-            aria-label="Flag devices with PCE below (%)"
+            aria-label={tr("deviceExclusionsPanel.flagDevicesWithPCEBelow")}
           />
         </label>
         <label className="form-field">
-          <span className="form-field__label">FF below (%)</span>
+          <span className="form-field__label">{tr("deviceExclusionsPanel.ffBelow")}</span>
           <input
             className="text-input"
             type="number"
@@ -122,28 +120,26 @@ export function DeviceExclusionsPanel({
             max="100"
             value={ffThreshold}
             onChange={(event) => setFfThreshold(event.target.value)}
-            aria-label="Flag devices with FF below (%)"
+            aria-label={tr("deviceExclusionsPanel.flagDevicesWithFFBelow")}
           />
         </label>
         <div className="exclusion-presets__actions">
           <button type="button" className="button button--secondary" onClick={applyPreset}>
-            Apply thresholds
-          </button>
+            {tr("deviceExclusionsPanel.applyThresholds")}</button>
           <button type="button" className="button button--secondary" onClick={() => {
             setVocThreshold(DEFAULT_THRESHOLDS.voc);
             setPceThreshold(DEFAULT_THRESHOLDS.pce);
             setFfThreshold(DEFAULT_THRESHOLDS.ff);
             onApplyAutomatic(new Map(), { voc: null, pce: null, ff: null });
           }}
-            disabled={!initialThresholds}>Clear threshold filter</button>
+            disabled={!initialThresholds}>{tr("deviceExclusionsPanel.clearThresholdFilter")}</button>
           <button
             type="button"
             className="button button--secondary"
             onClick={clearAll}
             disabled={exclusions.size === 0}
           >
-            Clear manual exclusions
-          </button>
+            {tr("deviceExclusionsPanel.clearManualExclusions")}</button>
         </div>
       </div>
       <div className="table-scroll">
@@ -151,9 +147,9 @@ export function DeviceExclusionsPanel({
           <thead>
             <tr>
               <th>Exclude</th>
-              <th>Device</th>
-              <th>Substrate</th>
-              <th>Group</th>
+              <th>{tr("deviceExclusionsPanel.device")}</th>
+              <th>{tr("deviceExclusionsPanel.substrate")}</th>
+              <th>{tr("deviceExclusionsPanel.group")}</th>
               <th>Voc (V), F / R</th>
               <th>PCE (%), F / R</th>
               <th>FF (%), F / R</th>
@@ -173,13 +169,13 @@ export function DeviceExclusionsPanel({
                     <input
                       type="checkbox"
                       checked={excluded}
-                      aria-label={`Exclude ${device.device_id}`}
+                      aria-label={tr("deviceExclusionsPanel.excludeId", { "id": device.device_id })}
                       onChange={() => toggle(device.device_id)}
                     />
                   </td>
-                  <td>{device.device_id}{automaticReason ? <span className="status-badge">Threshold match</span> : null}</td>
+                  <td>{device.device_id}{automaticReason ? <span className="status-badge">{tr("deviceExclusionsPanel.thresholdMatch")}</span> : null}</td>
                   <td>{device.substrate_id}</td>
-                  <td>{groupNames.get(device.group_id) || "Unassigned"}</td>
+                  <td>{groupNames.get(device.group_id) || tr("deviceExclusionsPanel.unassigned")}</td>
                   <td>{formatNumber(device.metrics?.forward?.voc, 3)} / {formatNumber(device.metrics?.reverse?.voc, 3)}</td>
                   <td>{formatNumber(device.metrics?.forward?.pce, 2)} / {formatNumber(device.metrics?.reverse?.pce, 2)}</td>
                   <td>{formatNumber(scaleMetric("ff", device.metrics?.forward?.ff), 2)} / {formatNumber(scaleMetric("ff", device.metrics?.reverse?.ff), 2)}</td>
@@ -190,7 +186,7 @@ export function DeviceExclusionsPanel({
                         type="text"
                         value={exclusions.get(device.device_id) ?? ""}
                         maxLength={200}
-                        aria-label={`Exclusion reason for ${device.device_id}`}
+                        aria-label={tr("deviceExclusionsPanel.exclusionReasonForId", { "id": device.device_id })}
                         onChange={(event) => setReason(device.device_id, event.target.value)}
                       />
                     ) : (automaticReason ?? "—")}

@@ -1,4 +1,7 @@
-import { useCallback, useMemo, useState } from "react";
+import { enumLabel } from "../i18n";
+import { useMemo } from "react";
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
+import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 import { DataTable, type Column } from "../components/DataTable";
 import { EmptyState } from "../components/EmptyState";
@@ -17,6 +20,7 @@ function stackSummary(experiment: Experiment): string {
 }
 
 export function ExperimentsPage() {
+  useUiLanguage();
   const loadExperiments = useCallback(() => apiFetch<Experiment[]>("/api/experiments"), []);
   const resource = useApiResource(loadExperiments);
   const [campaign, setCampaign] = useState("all");
@@ -45,14 +49,14 @@ export function ExperimentsPage() {
   const columns: Column<Experiment>[] = [
     {
       key: "experiment_code",
-      header: "Experiment",
+      header: tr("experimentsPage.experiment"),
       render: (row) => <Link className="record-link mono" to={`/experiments/${row.id}`}>{row.experiment_code ?? row.id}</Link>,
     },
-    { key: "campaign_id", header: "Campaign", render: (row) => row.campaign_id ?? "unassigned" },
-    { key: "plan_type", header: "Plan type", render: (row) => row.plan_type?.replace(/_/g, " ") ?? "—" },
+    { key: "campaign_id", header: tr("campaignAnalysisPanel.campaign"), render: (row) => row.campaign_id ?? "unassigned" },
+    { key: "plan_type", header: tr("conditionPlanner.planType"), render: (row) => enumLabel(row.plan_type) ?? "—" },
     {
       key: "best_pce",
-      header: "Best PCE",
+      header: tr("experimentsPage.bestPCE"),
       render: (row) =>
         row.best_pce !== null ? (
           <strong>{formatNumber(row.best_pce, 2)} %</strong>
@@ -60,54 +64,54 @@ export function ExperimentsPage() {
           <span className="numeric-cell" style={{ color: "var(--steel-soft)" }}>—</span>
         ),
     },
-    { key: "plan_status", header: "Plan", render: (row) => row.plan_status ? <StatusBadge status={row.plan_status} /> : "—" },
-    { key: "status", header: "Record", render: (row) => <StatusBadge status={row.status} /> },
-    { key: "stack", header: "Device stack", render: (row) => <span className="stack-summary" title={stackSummary(row)}>{stackSummary(row)}</span> },
-    { key: "updated_at", header: "Updated", render: (row) => formatRelativeTime(row.updated_at) },
+    { key: "plan_status", header: tr("experimentsPage.plan"), render: (row) => row.plan_status ? <StatusBadge status={row.plan_status} /> : "—" },
+    { key: "status", header: tr("experimentsPage.record"), render: (row) => <StatusBadge status={row.status} /> },
+    { key: "stack", header: tr("deviceStackRail.deviceStack"), render: (row) => <span className="stack-summary" title={stackSummary(row)}>{stackSummary(row)}</span> },
+    { key: "updated_at", header: tr("presetDetailView.updated"), render: (row) => formatRelativeTime(row.updated_at) },
   ];
 
   if (resource.status === "loading" && resource.data === null) {
-    return <div className="page-loading" role="status">Loading experiments…</div>;
+    return <div className="page-loading" role="status">{tr("experimentsPage.loadingExperiments")}</div>;
   }
   if (resource.status === "error" && resource.data === null) {
-    return <ErrorState message={resource.error ?? "Unable to load experiments."} action={
-      <button type="button" className="button button--secondary" onClick={() => void resource.reload()}>Retry</button>
+    return <ErrorState message={resource.error ?? tr("experimentsPage.unableToLoadExperiments")} action={
+      <button type="button" className="button button--secondary" onClick={() => void resource.reload()}>{tr("versionHistory.retry")}</button>
     } />;
   }
 
   return (
     <>
       <PageHeader
-        title="Experiments"
-        description="Plans and records across all campaigns."
-        actions={<Link className="button button--primary" to="/experiments/new">Plan new experiment</Link>}
+        title={tr("experimentsPage.experiments")}
+        description={tr("experimentsPage.plansAndRecordsAcrossAllCampaigns")}
+        actions={<Link className="button button--primary" to="/experiments/new">{tr("experimentsPage.planNewExperiment")}</Link>}
       />
-      <section className="panel experiment-filters" aria-label="Experiment filters">
-        <FormField label="Campaign" htmlFor="experiment-campaign-filter">
+      <section className="panel experiment-filters" aria-label={tr("experimentsPage.experimentFilters")}>
+        <FormField label={tr("campaignAnalysisPanel.campaign")} htmlFor="experiment-campaign-filter">
           <select id="experiment-campaign-filter" className="text-input" value={campaign} onChange={(event) => setCampaign(event.target.value)}>
-            <option value="all">All Campaigns</option>
+            <option value="all">{tr("experimentsPage.allCampaigns")}</option>
             {campaigns.map((value) => <option key={value} value={value}>{value}</option>)}
           </select>
         </FormField>
-        <FormField label="Plan status" htmlFor="experiment-status-filter">
+        <FormField label={tr("experimentsPage.planStatus")} htmlFor="experiment-status-filter">
           <select id="experiment-status-filter" className="text-input" value={planStatus} onChange={(event) => setPlanStatus(event.target.value)}>
-            <option value="all">All statuses</option>
-            {planStatuses.map((value) => <option key={value} value={value}>{value.replace(/_/g, " ")}</option>)}
+            <option value="all">{tr("presetFilters.allStatuses")}</option>
+            {planStatuses.map((value) => <option key={value} value={value}>{enumLabel(value)}</option>)}
           </select>
         </FormField>
-        <FormField label="Search experiments" htmlFor="experiment-search">
-          <input id="experiment-search" className="text-input" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Code, Campaign, or material" />
+        <FormField label={tr("experimentsPage.searchExperiments")} htmlFor="experiment-search">
+          <input id="experiment-search" className="text-input" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tr("experimentsPage.codeCampaignOrMaterial")} />
         </FormField>
-        <span className="record-count experiment-filters__count">{rows.length} records</span>
+        <span className="record-count experiment-filters__count">{rows.length} {tr("presetFilters.records")}</span>
       </section>
       <section className="panel">
         <DataTable
           columns={columns}
           rows={rows}
           rowKey={(row) => row.id}
-          ariaLabel="Experiment records"
+          ariaLabel={tr("experimentsPage.experimentRecords")}
           loading={resource.status === "loading"}
-          empty={<EmptyState title="No experiments match these filters." />}
+          empty={<EmptyState title={tr("experimentsPage.noExperimentsMatchTheseFilters")} />}
         />
       </section>
     </>

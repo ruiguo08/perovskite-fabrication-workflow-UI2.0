@@ -1,3 +1,5 @@
+import { localizeAppText } from "../i18n";
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
 import { useEffect, useRef, useState } from "react";
 import { FormField } from "./FormField";
 import { trapModalFocus } from "../lib/modalFocus";
@@ -34,6 +36,7 @@ export function CompleteBatchDialog({
   onConfirm,
   onCancel,
 }: CompleteBatchDialogProps) {
+  useUiLanguage();
   const [inputs, setInputs] = useState<Record<number, CompleteConditionInput>>({});
   const dialogRef = useRef<HTMLDivElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
@@ -109,13 +112,9 @@ export function CompleteBatchDialog({
         }}
       >
         <h2 className="dialog__title" id="complete-batch-title">
-          Complete batch
-        </h2>
+          {tr("completeBatchDialog.completeBatch")}</h2>
         <p className="dialog__message">
-          Record how many substrates were actually made in each condition. A
-          count below the planned number needs a deviation reason and counts of
-          zero mean the whole group was abandoned.
-        </p>
+          {tr("completeBatchDialog.recordHowManySubstratesWereActuallyMadeInEach")}</p>
         <div className="completion-form">
           {conditions.map((condition) => {
             const current = inputs[condition.id] ?? { actualCount: "", deviationDescription: "" };
@@ -127,11 +126,11 @@ export function CompleteBatchDialog({
                 <div className="completion-form__heading">
                   <strong>{condition.condition_name}</strong>
                   <span className="run-sheet-muted">
-                    {condition.condition_code} · planned {condition.planned_substrate_count}
+                    {condition.condition_code} {tr("completeBatchDialog.planned")}{condition.planned_substrate_count}
                   </span>
                 </div>
                 <FormField
-                  label="Actual substrates"
+                  label={tr("completeBatchDialog.actualSubstrates")}
                   htmlFor={`completion-count-${condition.id}`}
                   error={countValid(condition) ? null : "Enter how many substrates were actually made."}
                 >
@@ -160,7 +159,7 @@ export function CompleteBatchDialog({
                 </FormField>
                 {shortfall ? (
                   <FormField
-                    label="Deviation reason (required)"
+                    label={tr("completeBatchDialog.deviationReasonRequired")}
                     htmlFor={`completion-deviation-${condition.id}`}
                   >
                     <textarea
@@ -185,7 +184,7 @@ export function CompleteBatchDialog({
             );
           })}
         </div>
-        {error ? <p className="inline-form-error" role="alert">{error}</p> : null}
+        {error ? <p className="inline-form-error" role="alert">{localizeAppText(error ?? "")}</p> : null}
         <div className="dialog__actions">
           <button
             type="button"
@@ -193,8 +192,7 @@ export function CompleteBatchDialog({
             disabled={submitting}
             onClick={onCancel}
           >
-            Cancel
-          </button>
+            {tr("completeBatchDialog.cancel")}</button>
           <button
             type="button"
             className="button button--primary"
@@ -202,8 +200,7 @@ export function CompleteBatchDialog({
             disabled={submitting || !validationPasses}
             onClick={() => onConfirm(inputs)}
           >
-            Complete batch
-          </button>
+            {tr("completeBatchDialog.completeBatch")}</button>
         </div>
       </div>
     </div>

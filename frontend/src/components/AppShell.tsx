@@ -3,7 +3,9 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useSession, type Role } from "../auth/session";
 import { PipelineHeader } from "./PipelineHeader";
 import { useToast } from "./Toast";
-import { titleCase } from "../lib/format";
+import { useLanguage, localizeKnownError } from "../i18n";
+import type { MessageKey } from "../i18n/messages";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 
 const ROLE_RANK: Record<Role, number> = {
   student: 1,
@@ -12,7 +14,7 @@ const ROLE_RANK: Record<Role, number> = {
 };
 
 interface NavItemDef {
-  label: string;
+  label: MessageKey;
   /** React route path relative to /app; overrides legacyPath when present. */
   path?: string;
   /** Full legacy URL used until the React route exists in a later phase. */
@@ -23,32 +25,32 @@ interface NavItemDef {
   disabled?: boolean;
 }
 
-const NAV_GROUPS: { label: string; items: NavItemDef[] }[] = [
+const NAV_GROUPS: { label: MessageKey; items: NavItemDef[] }[] = [
   {
-    label: "Laboratory",
+    label: "nav.laboratory",
     items: [
-      { label: "Overview", path: "/" },
-      { label: "Workflow guide", path: "/workflow" },
-      { label: "Experiments", path: "/experiments" },
-      { label: "Fabrication batches", path: "/fabrication-batches" },
-      { label: "Results", path: "/results" },
-      { label: "Analysis workbench", path: "/analysis" },
+      { label: "nav.overview", path: "/" },
+      { label: "nav.workflow", path: "/workflow" },
+      { label: "nav.experiments", path: "/experiments" },
+      { label: "nav.batches", path: "/fabrication-batches" },
+      { label: "nav.results", path: "/results" },
+      { label: "nav.analysis", path: "/analysis" },
     ],
   },
   {
-    label: "Library",
+    label: "nav.library",
     items: [
-      { label: "Materials", path: "/materials" },
-      { label: "Layer presets", path: "/layer-presets" },
-      { label: "Baselines", path: "/baselines" },
-      { label: "Device layouts", path: "/device-layouts" },
+      { label: "nav.materials", path: "/materials" },
+      { label: "nav.presets", path: "/layer-presets" },
+      { label: "nav.baselines", path: "/baselines" },
+      { label: "nav.layouts", path: "/device-layouts" },
     ],
   },
   {
-    label: "Management",
+    label: "nav.management",
     items: [
-      { label: "Campaigns", path: "/campaigns" },
-      { label: "Users", path: "/users", minRole: "administrator" },
+      { label: "nav.campaigns", path: "/campaigns" },
+      { label: "nav.users", path: "/users", minRole: "administrator" },
     ],
   },
 ];
@@ -59,6 +61,7 @@ function canSee(item: NavItemDef, role: Role): boolean {
 }
 
 export function AppShell() {
+  const { t } = useLanguage();
   const { user } = useSession();
   const location = useLocation();
   const { show: showToast } = useToast();
@@ -69,17 +72,17 @@ export function AppShell() {
   return (
     <div className="shell">
       <a className="skip-link" href="#main-content">
-        Skip to main content
+        {t("nav.skip")}
       </a>
       <aside className="shell__nav">
         <Link to="/" className="shell__brand">
-          <span className="shell__brand-title">Perovskite Solar Cell</span>
-          <span className="shell__brand-subtitle">Fabrication Workflow</span>
+          <span className="shell__brand-title">{t("app.brand")}</span>
+          <span className="shell__brand-subtitle">{t("app.subtitle")}</span>
         </Link>
-        <nav aria-label="Primary">
+        <nav aria-label={t("nav.primary")}>
           {NAV_GROUPS.map((group) => (
             <div key={group.label} className="nav-group">
-              <h2 className="nav-group__label">{group.label}</h2>
+              <h2 className="nav-group__label">{t(group.label)}</h2>
               <ul className="nav-group__list">
                 {group.items
                   .filter((item) => canSee(item, user.role))
@@ -108,15 +111,15 @@ export function AppShell() {
                             type="button"
                             className="nav-item nav-item--disabled"
                             aria-disabled="true"
-                            title="Becomes available in a later migration phase"
+                            title={t("nav.later")}
                             onClick={() =>
                               showToast(
-                                `${item.label} becomes available in a later migration phase.`,
+                                t("nav.laterSection", { label: t(item.label) }),
                                 "info",
                               )
                             }
                           >
-                            {item.label}
+                            {t(item.label)}
                           </button>
                         </li>
                       );
@@ -129,7 +132,7 @@ export function AppShell() {
                             className={`nav-item${effectiveActive ? " nav-item--active" : ""}`}
                             aria-current={effectiveActive ? "page" : undefined}
                           >
-                            {item.label}
+                            {t(item.label)}
                           </Link>
                         </li>
                       );
@@ -137,7 +140,7 @@ export function AppShell() {
                     return (
                       <li key={item.label}>
                         <a className="nav-item" href={item.legacyPath}>
-                          {item.label}
+                          {t(item.label)}
                         </a>
                       </li>
                     );
@@ -149,8 +152,9 @@ export function AppShell() {
       </aside>
       <div className="shell__main">
         <header className="topbar">
+          <LanguageSwitcher />
           <span className="topbar__role">
-            {titleCase(user.role)}
+            {t(`role.${user.role}`)}
           </span>
           <span className="topbar__user">{user.display_name}</span>
           <LogoutButton />
@@ -165,6 +169,7 @@ export function AppShell() {
 }
 
 function LogoutButton() {
+  const { t } = useLanguage();
   const { logout } = useSession();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
@@ -193,17 +198,17 @@ function LogoutButton() {
         disabled={submitting}
         onClick={() => void handleLogout()}
       >
-        {submitting ? "Logging out…" : "Log out"}
+        {submitting ? t("auth.loggingOut") : t("auth.logout")}
       </button>
       {error ? (
         <p className="inline-form-error" role="alert">
-          {error}{" "}
+          {localizeKnownError(error)}{" "}
           <button
             type="button"
             className="button button--link"
             onClick={() => void handleLogout()}
           >
-            Retry
+            {t("common.retry")}
           </button>
         </p>
       ) : null}

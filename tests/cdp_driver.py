@@ -437,8 +437,14 @@ def launch_chrome_with_viewport(
     height: int = 900,
     user_data_dir: str | None = None,
     chrome: str | None = None,
+    language: str | None = "en",
 ) -> tuple[subprocess.Popen, CdpSession]:
-    """Launch headless Chrome and force the layout viewport to (width, height)."""
+    """Launch Chrome at the requested viewport with an explicit test language.
+
+    Existing English-copy regressions use ``en``. Pass ``None`` to exercise
+    the production default (Chinese) without a saved preference. A later
+    user selection is retained across navigations.
+    """
 
     if chrome is None:
         chrome = discover_chrome_executable()
@@ -515,6 +521,18 @@ def launch_chrome_with_viewport(
             "Page.addScriptToEvaluateOnNewDocument",
             {"source": "window.__initialPath = window.location.pathname;"},
         )
+        if language is not None:
+            if language not in {"en", "zh"}:
+                raise ValueError("unsupported UI test language")
+            session.call(
+                "Page.addScriptToEvaluateOnNewDocument",
+                {"source": (
+                    "try { if (!localStorage.getItem('perovskite.ui.language')) {"
+                    "localStorage.setItem('perovskite.ui.language', "
+                    + json.dumps(language)
+                    + "); } } catch (_) {}"
+                )},
+            )
         session.call("Page.navigate", {"url": url})
         return process, session
     except Exception:

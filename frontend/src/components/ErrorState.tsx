@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useLanguage, localizeKnownError } from "../i18n";
 
 interface ErrorStateProps {
   title?: string;
@@ -7,14 +8,15 @@ interface ErrorStateProps {
 }
 
 export function ErrorState({
-  title = "Something went wrong",
+  title,
   message,
   action,
 }: ErrorStateProps) {
+  const { t } = useLanguage();
   return (
     <div className="error-state" role="alert">
-      <p className="error-state__title">{title}</p>
-      <p className="error-state__message">{message}</p>
+      <p className="error-state__title">{title ? localizeKnownError(title) : t("error.title")}</p>
+      <p className="error-state__message">{localizeKnownError(message)}</p>
       {action ? <div className="error-state__action">{action}</div> : null}
     </div>
   );

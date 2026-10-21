@@ -1,4 +1,5 @@
 import { titleCase } from "../../lib/format";
+import { enumLabel, localizeAppText, translate } from "../../i18n";
 import type { DeviceLayer, LayerPreset, LayerProcess } from "../../types/api";
 import { LAYER_TYPE_DEFS } from "../experiment-builder/state";
 import type { DraftIssue } from "../experiment-builder/types";
@@ -58,7 +59,7 @@ const ROLE_ABBREVIATIONS: Record<string, string> = {
 /** Display form of a functional role: known abbreviations are uppercased
  * (HTL/ETL), everything else reads as normal words. */
 export function roleLabel(role: string): string {
-  return ROLE_ABBREVIATIONS[role] ?? titleCase(role);
+  return ROLE_ABBREVIATIONS[role] ?? enumLabel(titleCase(role));
 }
 
 /**
@@ -74,13 +75,13 @@ export function processSummary(preset: PresetSummaryInput): string {
       return "No deposition process recorded";
     }
     const parts = [
-      `${process.spin_steps.length} spin stage${process.spin_steps.length === 1 ? "" : "s"}`,
-      `${process.vcd_stages.length} evacuation stage${process.vcd_stages.length === 1 ? "" : "s"}`,
+      translate("summary.spinStages", { n: process.spin_steps.length, s: process.spin_steps.length === 1 ? "" : "s" }),
+      translate("summary.evacuationStages", { n: process.vcd_stages.length, s: process.vcd_stages.length === 1 ? "" : "s" }),
     ];
     if (process.gas_backfill_stages.length > 0) {
-      parts.push(`${process.gas_backfill_stages.length} gas-backfill stage${process.gas_backfill_stages.length === 1 ? "" : "s"}`);
+      parts.push(translate("summary.backfillStages", { n: process.gas_backfill_stages.length, s: process.gas_backfill_stages.length === 1 ? "" : "s" }));
     }
-    parts.push(`${process.anneal_steps.length} annealing stage${process.anneal_steps.length === 1 ? "" : "s"}`);
+    parts.push(translate("summary.annealStages", { n: process.anneal_steps.length, s: process.anneal_steps.length === 1 ? "" : "s" }));
     return parts.join(" · ");
   }
   const process = layer.process;
@@ -90,7 +91,7 @@ export function processSummary(preset: PresetSummaryInput): string {
   if (process.method === "spin_coating") {
     const spins = process.spin_steps?.length ?? 0;
     const anneals = process.anneal_steps?.length ?? 0;
-    return `${spins} spin stage${spins === 1 ? "" : "s"} · ${anneals} annealing stage${anneals === 1 ? "" : "s"}`;
+    return `${translate("summary.spinStages", { n: spins, s: spins === 1 ? "" : "s" })} · ${translate("summary.annealStages", { n: anneals, s: anneals === 1 ? "" : "s" })}`;
   }
   if (process.method === "sputtering") {
     return `Sputtering · ${(process.sputter_mode ?? "").toUpperCase() || "RF"} · ${numberValue(process.power_w)} W`;
@@ -173,7 +174,7 @@ const LAYER_METHOD_LABELS: Record<string, string> = {
 };
 
 export function layerMethodLabel(method: string): string {
-  return LAYER_METHOD_LABELS[method] ?? titleCase(method);
+  return localizeAppText(LAYER_METHOD_LABELS[method] ?? titleCase(method));
 }
 
 function numberValue(value: number | null | undefined): string {

@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
-import { afterEach } from "vitest";
+import { afterEach, beforeEach } from "vitest";
+import { setLanguage } from "../i18n";
 
 class MemoryStorage implements Storage {
   private readonly values = new Map<string, string>();
@@ -39,6 +40,10 @@ Object.defineProperty(window, "localStorage", {
   configurable: true,
   value: new MemoryStorage(),
 });
+
+// Existing behavior tests intentionally exercise the English UI. Bilingual
+// tests select Chinese explicitly; production defaults to Chinese.
+beforeEach(() => setLanguage("en"));
 
 // With `globals: false` the testing-library auto-cleanup hook is not
 // registered; run it explicitly so tests do not share the document.

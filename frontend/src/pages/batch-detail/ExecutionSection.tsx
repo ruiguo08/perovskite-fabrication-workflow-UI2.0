@@ -1,3 +1,5 @@
+import { enumLabel, localizeAppText } from "../../i18n";
+import { translate as tr, useLanguage as useUiLanguage } from "../../i18n";
 import { useState, type FormEvent } from "react";
 import { InlineFormError } from "../../components/InlineFormError";
 import { SnapshotEditor } from "../../components/SnapshotEditor";
@@ -16,6 +18,7 @@ interface ExecutionSectionProps {
 }
 
 export function ExecutionSection({ item, sheet, onSave, onSplit, onRequestMerge, disabled }: ExecutionSectionProps) {
+  useUiLanguage();
   const { execution, members } = item;
   const editable = !["completed", "cancelled"].includes(sheet.batch.status) &&
     !["completed", "failed", "cancelled"].includes(execution.status);
@@ -95,11 +98,11 @@ export function ExecutionSection({ item, sheet, onSave, onSplit, onRequestMerge,
   }
 
   return (
-    <article className="run-sheet-card" data-execution={execution.id} aria-label={`Process execution ${execution.execution_code}`}>
+    <article className="run-sheet-card" data-execution={execution.id} aria-label={tr("executionSection.processExecutionCode", { "code": execution.execution_code })}>
       <div className="run-sheet-card__heading">
         <strong>{execution.execution_code}</strong>
         <StatusBadge status={execution.status} />
-        <span className="run-sheet-muted">{execution.method.replace(/_/g, " ")} · {execution.layer_name}</span>
+        <span className="run-sheet-muted">{enumLabel(execution.method)} · {execution.layer_name}</span>
       </div>
       {execution.actual_recording_mode ? (
         <StatusBadge status="Recorded" tone="success" />
@@ -109,16 +112,16 @@ export function ExecutionSection({ item, sheet, onSave, onSplit, onRequestMerge,
       {editable ? (
         <form className="run-sheet-form" onSubmit={(event) => void save(event)}>
           <label className="form-field">
-            <span className="form-field__label">Status</span>
+            <span className="form-field__label">{tr("presetFilters.status")}</span>
             <select className="text-input" data-exec-status="true" value={status} onChange={(event) => setStatus(event.target.value)}>
-              <option value="">Keep current</option>
+              <option value="">{tr("executionSection.keepCurrent")}</option>
               {executionStatusOptions(execution.status).map((option) => (
-                <option key={option} value={option}>{option.replace(/_/g, " ")}</option>
+                <option key={option} value={option}>{enumLabel(option)}</option>
               ))}
             </select>
           </label>
           <label className="form-field">
-            <span className="form-field__label">Equipment identifier</span>
+            <span className="form-field__label">{tr("executionSection.equipmentIdentifier")}</span>
             <input className="text-input" data-exec-equipment="true" maxLength={120} value={equipment} onChange={(event) => setEquipment(event.target.value)} />
           </label>
           <RecordingControl
@@ -133,12 +136,11 @@ export function ExecutionSection({ item, sheet, onSave, onSplit, onRequestMerge,
             }
           />
           <label className="form-field">
-            <span className="form-field__label">Notes</span>
+            <span className="form-field__label">{tr("executionSection.notes")}</span>
             <input className="text-input" data-exec-notes="true" maxLength={2000} value={notes} onChange={(event) => setNotes(event.target.value)} />
           </label>
           <button className="button button--primary" type="submit" data-save-execution={execution.id} disabled={submitting || disabled}>
-            Save execution
-          </button>
+            {tr("executionSection.saveExecution")}</button>
         </form>
       ) : null}
 
@@ -150,7 +152,7 @@ export function ExecutionSection({ item, sheet, onSave, onSplit, onRequestMerge,
             aria-expanded={splitOpen}
             onClick={() => setSplitOpen(!splitOpen)}
           >
-            Split execution {splitOpen ? "▲" : "▼"}
+            {tr("executionSection.splitExecution")}{splitOpen ? "▲" : "▼"}
           </button>
           {splitOpen ? (
             <div className="run-sheet-split__body">
@@ -168,7 +170,7 @@ export function ExecutionSection({ item, sheet, onSave, onSplit, onRequestMerge,
                       )
                     }
                   />
-                  substrate {member.substrate_id}, layer {member.layer_ordinal}
+                  {tr("executionSection.substrate")}{member.substrate_id}{tr("executionSection.layer")}{member.layer_ordinal}
                 </label>
               ))}
               <button
@@ -178,8 +180,7 @@ export function ExecutionSection({ item, sheet, onSave, onSplit, onRequestMerge,
                 disabled={splitMembers.length === 0 || splitMembers.length >= members.length || submitting}
                 onClick={() => void split()}
               >
-                Split
-              </button>
+                {tr("executionSection.split")}</button>
             </div>
           ) : null}
         </section>
@@ -188,9 +189,9 @@ export function ExecutionSection({ item, sheet, onSave, onSplit, onRequestMerge,
       {sheet.batch.status === "draft" && mergeCandidates.length > 0 ? (
         <section className="run-sheet-merge">
           <label className="form-field">
-            <span className="form-field__label">Merge into this execution</span>
+            <span className="form-field__label">{tr("executionSection.mergeIntoThisExecution")}</span>
             <select className="text-input" data-merge-source={execution.id} value={mergeSource} onChange={(event) => setMergeSource(event.target.value === "" ? "" : Number(event.target.value))}>
-              <option value="">Select a source execution</option>
+              <option value="">{tr("executionSection.selectASourceExecution")}</option>
               {mergeCandidates.map((other) => (
                 <option key={other.execution.id} value={other.execution.id}>
                   {other.execution.execution_code}
@@ -205,11 +206,10 @@ export function ExecutionSection({ item, sheet, onSave, onSplit, onRequestMerge,
             disabled={mergeSource === "" || submitting}
             onClick={requestMerge}
           >
-            Merge
-          </button>
+            {tr("executionSection.merge")}</button>
         </section>
       ) : null}
-      <InlineFormError message={error} />
+      <InlineFormError message={localizeAppText(error ?? "")} />
     </article>
   );
 }

@@ -1,3 +1,5 @@
+import { localizeAppText } from "../i18n";
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
 import { useState, type ReactNode, type SyntheticEvent } from "react";
 import { apiFetch } from "../lib/api";
 import { formatDateTime } from "../lib/format";
@@ -21,6 +23,7 @@ export function VersionHistory<T extends VersionRecord>({
   endpoint,
   renderSnapshot,
 }: VersionHistoryProps<T>) {
+  useUiLanguage();
   const [versions, setVersions] = useState<T[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,16 +48,16 @@ export function VersionHistory<T extends VersionRecord>({
 
   return (
     <details className="version-history" onToggle={handleToggle}>
-      <summary>Version history</summary>
+      <summary>{tr("versionHistory.versionHistory")}</summary>
       <div className="version-history__body">
-        {loading ? <p role="status">Loading versions…</p> : null}
+        {loading ? <p role="status">{tr("versionHistory.loadingVersions")}</p> : null}
         {error ? (
           <div className="inline-form-error" role="alert">
-            {error}{" "}
-            <button className="button button--secondary button--small" type="button" onClick={() => void load()}>Retry</button>
+            {localizeAppText(error ?? "")}{" "}
+            <button className="button button--secondary button--small" type="button" onClick={() => void load()}>{tr("versionHistory.retry")}</button>
           </div>
         ) : null}
-        {versions?.length === 0 ? <p className="table-empty">No revisions are available.</p> : null}
+        {versions?.length === 0 ? <p className="table-empty">{tr("versionHistory.noRevisionsAreAvailable")}</p> : null}
         {versions ? (
           <ol className="version-list">
             {versions.map((version) => {
@@ -62,15 +65,15 @@ export function VersionHistory<T extends VersionRecord>({
               return (
                 <li key={version.id} className="version-list__item">
                   <div className="version-list__heading">
-                    <strong>Revision {version.revision_number}</strong>
-                    <span>schema {schema ?? "—"}</span>
-                    <span>actor {version.created_by_id ?? "system"}</span>
+                    <strong>{tr("versionHistory.revision")}{version.revision_number}</strong>
+                    <span>{tr("conditionCard.schema")}{schema ?? "—"}</span>
+                    <span>{tr("versionHistory.actor")}{version.created_by_id ?? tr("versionHistory.system")}</span>
                     <time dateTime={version.created_at}>{formatDateTime(version.created_at)}</time>
                   </div>
                   <code className="version-list__hash">{version.canonical_hash}</code>
                   {renderSnapshot ? (
                     <details className="snapshot-disclosure">
-                      <summary>Inspect snapshot</summary>
+                      <summary>{tr("versionHistory.inspectSnapshot")}</summary>
                       {renderSnapshot(version)}
                     </details>
                   ) : null}

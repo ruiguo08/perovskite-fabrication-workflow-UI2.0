@@ -1,3 +1,4 @@
+import { localizeAppText, useLanguage as useBoundaryLanguage } from "../i18n";
 import { fieldMeta } from "../lib/fields";
 
 function optionalNumber(value: string): number | null {
@@ -17,10 +18,11 @@ interface NumberFieldProps {
 
 /** Numeric input driven by the field registry (min/step) when a name is given. */
 export function NumberField({ name, label, value, onChange, step }: NumberFieldProps) {
+  useBoundaryLanguage();
   const meta = fieldMeta(name ?? "");
   return (
     <label className="builder-field">
-      <span>{label}</span>
+      <span>{localizeAppText(label)}</span>
       <input
         className="text-input"
         type="number"
@@ -48,6 +50,7 @@ interface SelectFieldProps {
 
 /** Select input driven by the field registry (options) when a name is given. */
 export function SelectField({ name, label, value, onChange, options, missingOptionLabel }: SelectFieldProps) {
+  useBoundaryLanguage();
   const meta = fieldMeta(name ?? "");
   const opts = options ?? meta.options ?? [];
   const rendered = opts.includes(value)
@@ -55,9 +58,9 @@ export function SelectField({ name, label, value, onChange, options, missingOpti
     : [{ value, label: missingOptionLabel ?? value }, ...opts.map((option) => ({ value: option, label: option }))];
   return (
     <label className="builder-field">
-      <span>{label}</span>
+      <span>{localizeAppText(label)}</span>
       <select className="text-input" value={value} onChange={(event) => onChange(event.target.value)}>
-        {rendered.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        {rendered.map((option) => <option key={option.value} value={option.value}>{localizeAppText(option.label ?? "")}</option>)}
       </select>
     </label>
   );

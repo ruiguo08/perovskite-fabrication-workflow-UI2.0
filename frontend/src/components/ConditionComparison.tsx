@@ -1,4 +1,7 @@
-import { useMemo, useState } from "react";
+import { enumLabel, localizeAppText } from "../i18n";
+import { useMemo } from "react";
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
+import { useState } from "react";
 import type {
   Condition,
   DeviceLayer,
@@ -114,7 +117,7 @@ function formatLayerProcess(process: LayerProcess): string | null {
       parts.push(`${label}: ${value}`);
     }
   }
-  return parts.length > 0 ? parts.join("\n") : process.method.replace(/_/g, " ");
+  return parts.length > 0 ? parts.join("\n") : enumLabel(process.method);
 }
 
 type DepositionProcess = PerovskiteDepositionProcess | null;
@@ -148,7 +151,7 @@ function perovskiteValue(process: DepositionProcess, label: string): string | nu
     return null;
   }
   if (label === "Method") {
-    return process.method.replace(/_/g, " ");
+    return enumLabel(process.method);
   }
   if (label === "VCD sequence") {
     return process.vcd_step_sequence?.length ? process.vcd_step_sequence.join(" → ") : null;
@@ -207,9 +210,9 @@ function deviceValue(snapshot: Condition["recipe_snapshot"], label: string): str
       return `${substrate.material} · ${substrate.vendor} · ${substrate.type_number}`;
     }
     case "Junction":
-      return device.junction_type.replace(/_/g, " ");
+      return enumLabel(device.junction_type);
     case "Bandgap":
-      return device.perovskite_bandgap?.replace(/_/g, " ") ?? null;
+      return enumLabel(device.perovskite_bandgap) ?? null;
     case "Layer sequence":
       return device.layers.map((layer) => layer.name).join(" → ") || null;
     default:
@@ -272,7 +275,7 @@ function buildGroups(conditions: Condition[]): { controlIndex: number; groups: C
         snapshots.map((snapshot) => {
           const layer = snapshot.device.layers[index] ?? null;
           return layer
-            ? `${layer.name} (${layer.role.replace(/_/g, " ")} · ${layer.layer_type})`
+            ? `${layer.name} (${enumLabel(layer.role)} · ${layer.layer_type})`
             : null;
         }),
       ),
@@ -303,7 +306,7 @@ function buildGroups(conditions: Condition[]): { controlIndex: number; groups: C
       finalize(
         `layer-${index}`,
         `${index + 1} · ${controlLayer?.name ?? "—"}`,
-        controlLayer ? controlLayer.role.replace(/_/g, " ") : null,
+        controlLayer ? enumLabel(controlLayer.role) : null,
         rows,
       ),
     );
@@ -313,14 +316,15 @@ function buildGroups(conditions: Condition[]): { controlIndex: number; groups: C
 }
 
 export function ConditionComparison({ conditions }: { conditions: Condition[] }) {
+  useUiLanguage();
   const [openOverrides, setOpenOverrides] = useState<Record<string, boolean>>({});
   const { controlIndex, groups } = useMemo(() => buildGroups(conditions), [conditions]);
 
   return (
     <section className="condition-comparison" aria-labelledby="condition-comparison-title">
       <div className="panel__heading">
-        <h3 className="panel__title" id="condition-comparison-title">Condition comparison</h3>
-        <span className="condition-comparison__legend">layers in fabrication order · identical layers collapsed</span>
+        <h3 className="panel__title" id="condition-comparison-title">{tr("conditionComparison.conditionComparison")}</h3>
+        <span className="condition-comparison__legend">{tr("conditionComparison.layersInFabricationOrderIdenticalLayersCollapsed")}</span>
       </div>
       {groups.map((group) => {
         const open = openOverrides[group.key] ?? group.hasDifference;
@@ -344,20 +348,20 @@ export function ConditionComparison({ conditions }: { conditions: Condition[] })
                   {group.diffRowCount} {group.diffRowCount === 1 ? "difference" : "differences"}
                 </span>
               ) : (
-                <span className="condition-comparison__mark condition-comparison__mark--same">identical</span>
+                <span className="condition-comparison__mark condition-comparison__mark--same">{tr("conditionComparison.identical")}</span>
               )}
             </summary>
             <div className="table-scroll">
               <table className="data-table condition-comparison__table">
                 <thead>
                   <tr>
-                    <th scope="col">Parameter</th>
+                    <th scope="col">{tr("conditionComparison.parameter")}</th>
                     {conditions.map((condition, index) => (
                       <th scope="col" key={condition.id}>
                         {condition.condition_name}
                         <span className="condition-comparison__role">
                           {condition.role}
-                          {index === controlIndex ? " · reference" : ""}
+                          {index === controlIndex ? tr("conditionComparison.reference") : ""}
                         </span>
                       </th>
                     ))}
@@ -366,7 +370,7 @@ export function ConditionComparison({ conditions }: { conditions: Condition[] })
                 <tbody>
                   {group.rows.map((row) => (
                     <tr key={row.label}>
-                      <th scope="row">{row.label}</th>
+                      <th scope="row">{localizeAppText(row.label ?? "")}</th>
                       {conditions.map((condition, index) => {
                         const value = row.values[index] ?? null;
                         const controlValue = row.values[controlIndex] ?? null;
