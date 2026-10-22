@@ -70,7 +70,9 @@ ledger and pending list, and can end abandoned use with a reason.
 State-changing booking operations own one transaction and share its connection
 with `repository.booking.BookingStore` and the existing audit writer. Equipment
 row locks precede reservation and usage locks. Manager reassignment locks the
-target user before the equipment, matching account deactivation. Conditional
+target user before the equipment, matching account deactivation. User locks use
+PostgreSQL `FOR NO KEY UPDATE`, allowing audit foreign keys to take key-share
+locks on another administrator without a lock cycle. Conditional
 state updates, a partial unique in-use index, and a unique usage/reservation
 constraint prevent state reversal and duplicate ledger records. PostgreSQL's
 GiST exclusion constraint additionally protects direct independent transactions.
@@ -132,7 +134,10 @@ submission uses the usage PUT, rather than repeating the end command. Submitted
 records cannot be turned back into drafts; amendments record actor/time and
 before/after values in `audit_events`.
 
-Conflicts and invalid transitions return 409 with a business message, permission
+Conflicts and invalid transitions return 409 with a business message. PostgreSQL
+deadlock/serialization aborts also return a retryable 409 after transaction
+rollback; a direct exclusion-constraint race may abort its losing participant
+this way rather than with an exclusion-violation code. Permission
 failures 403, unknown records 404, and invalid input 422. Authentication failures
 retain the existing API 401 contract. Raw database diagnostics are not returned.
 

@@ -40,7 +40,9 @@ class BookingStore:
         if order is not None:
             statement = statement.order_by(*order)
         if lock:
-            statement = statement.with_for_update()
+            # Identity keys never change here. NO KEY UPDATE serializes user
+            # activity/manager changes while allowing audit FKs' KEY SHARE.
+            statement = statement.with_for_update(key_share=table is users)
         return [normalize_row(row) for row in (await self.connection.execute(statement)).mappings()]
 
     async def one(self, table: Table, *criteria, lock=False) -> dict | None:

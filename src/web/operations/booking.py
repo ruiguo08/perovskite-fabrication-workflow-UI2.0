@@ -3,7 +3,7 @@
 from contextlib import asynccontextmanager
 from datetime import timedelta
 
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError
 
 from ..audit_trail import add_audit_event, utc_now
 from ..booking_models import (
@@ -42,22 +42,28 @@ class BookingOperations:
                 if actor is None:
                     raise AccessDenied("active account required")
                 yield store, actor["role"] == "administrator"
-        except IntegrityError as error:
+        except DBAPIError as error:
             # Do not turn programming errors or unrelated integrity failures
             # into successful responses, and never expose driver diagnostics.
             constraint = getattr(getattr(error.orig, "__cause__", None), "constraint_name", None)
+            sqlstate = getattr(error.orig, "sqlstate", None)
             message = str(error.orig)
-            if constraint in {
-                "reservation_no_overlap",
-                "uq_reservation_in_use",
-                "uq_reservation_request_key",
-                "uq_equipment_notice_request_key",
-            } or any(
-                token in message
-                for token in (
-                    "reservation.equipment_id",
-                    "reservation.request_key",
-                    "equipment_notice.request_key",
+            if (
+                sqlstate in {"40P01", "40001"}
+                or constraint
+                in {
+                    "reservation_no_overlap",
+                    "uq_reservation_in_use",
+                    "uq_reservation_request_key",
+                    "uq_equipment_notice_request_key",
+                }
+                or any(
+                    token in message
+                    for token in (
+                        "reservation.equipment_id",
+                        "reservation.request_key",
+                        "equipment_notice.request_key",
+                    )
                 )
             ):
                 raise StateConflict(

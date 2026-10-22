@@ -11,7 +11,7 @@ from uuid import uuid4
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import func, insert, select, text, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from web.audit_trail import utc_now
 from web.booking_catalog import seed_equipment
@@ -20,7 +20,13 @@ from web.database import Database, users
 from web.operations.booking import BookingOperations
 from web.operations.errors import StateConflict
 from web.repository import UserRole, WebRepository
-from web.repository.booking import equipment, reservation, usage_record, workflow_access
+from web.repository.booking import (
+    BookingStore,
+    equipment,
+    reservation,
+    usage_record,
+    workflow_access,
+)
 
 
 @unittest.skipUnless(
@@ -90,8 +96,13 @@ class PostgreSQLBookingTests(unittest.IsolatedAsyncioTestCase):
                     await connection.execute(statement)
                     await transaction.commit()
                     return "committed"
-                except IntegrityError:
+                except DBAPIError as error:
                     await transaction.rollback()
+                    # Exclusion checks may resolve a simultaneous insert by
+                    # aborting a deadlock participant (40P01); it is still a
+                    # database-enforced conflict with exactly one committed row.
+                    if getattr(error.orig, "sqlstate", None) not in {"23P01", "23505", "40P01"}:
+                        raise
                     return "conflict"
 
         return await asyncio.wait_for(
@@ -249,6 +260,57 @@ class PostgreSQLBookingTests(unittest.IsolatedAsyncioTestCase):
             )
         with self.assertRaises(StateConflict):
             await self.op.action(identity, ReservationAction(action="start"))
+
+    async def test_account_locks_allow_cross_administrator_audit_foreign_keys(self):
+        other = await WebRepository(self.db).create_user(
+            username=f"other-{self.suffix}",
+            display_name="Synthetic second administrator",
+            password_hash="unused-synthetic-hash",
+            role=UserRole.ADMINISTRATOR,
+        )
+        barrier = asyncio.Barrier(2)
+
+        async def participant(actor_id, target_id):
+            async with self.db.begin() as connection:
+                store = BookingStore(connection)
+                await store.one(users, users.c.id == target_id, lock=True)
+                await barrier.wait()
+                # These FKs take KEY SHARE on the opposite locked user.
+                # FOR UPDATE would create an AB/BA deadlock here.
+                await BookingOperations(self.db, actor_id).audit(
+                    store,
+                    "workflow_access.lock_test",
+                    workflow_access,
+                    target_id,
+                )
+
+        await asyncio.wait_for(
+            asyncio.gather(
+                participant(self.user.id, other.id),
+                participant(other.id, self.user.id),
+            ),
+            timeout=20,
+        )
+
+    async def test_service_concurrent_overlap_returns_business_conflict(self):
+        payloads = [
+            ReservationCreate(
+                equipment_id=self.eq,
+                starts_at=self.now + timedelta(minutes=minutes),
+                ends_at=self.now + timedelta(hours=1),
+                request_key=uuid4().hex,
+            )
+            for minutes in (0, 10)
+        ]
+        results = await asyncio.wait_for(
+            asyncio.gather(
+                *(self.op.create_reservation(payload) for payload in payloads),
+                return_exceptions=True,
+            ),
+            timeout=20,
+        )
+        self.assertEqual(sum(isinstance(result, dict) for result in results), 1)
+        self.assertEqual(sum(isinstance(result, StateConflict) for result in results), 1)
 
     async def test_runtime_does_not_have_extension_or_ddl_privileges(self):
         async with self.db.engine.connect() as connection:
