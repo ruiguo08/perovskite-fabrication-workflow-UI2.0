@@ -1,3 +1,4 @@
+import { translate as tr, useLanguage as useUiLanguage, localizeAppText } from "../i18n";
 import type { EditorConfig } from "../types/api";
 
 type JsonPath = (string | number)[];
@@ -196,6 +197,7 @@ interface FieldProps {
 }
 
 function ScalarField({ name, value, path, editorConfig, snapshot, onChange }: FieldProps) {
+  useUiLanguage();
   const inputId = `snapshot-field-${path.join("-")}`;
   const label = `${labelFor(name)}${FIELD_UNITS[name] ? ` (${FIELD_UNITS[name]})` : ""}`;
   const update = (nextValue: unknown) => onChange(setAtPath(snapshot, path, nextValue));
@@ -203,15 +205,15 @@ function ScalarField({ name, value, path, editorConfig, snapshot, onChange }: Fi
   if (name === "formulation_type") {
     return (
       <label className="form-field" htmlFor={inputId}>
-        <span className="form-field__label">{label}</span>
+        <span className="form-field__label">{localizeAppText(label)}</span>
         <select
           id={inputId}
           className="text-input"
           value={String(value ?? "")}
           onChange={(event) => onChange(normalizeFormulation(snapshot, event.target.value))}
         >
-          <option value="weighed_solids">Weighed solids</option>
-          <option value="diluted_dispersion">Diluted dispersion</option>
+          <option value="weighed_solids">{tr("snapshotEditor.weighedSolids")}</option>
+          <option value="diluted_dispersion">{tr("snapshotEditor.dilutedDispersion")}</option>
         </select>
       </label>
     );
@@ -219,7 +221,7 @@ function ScalarField({ name, value, path, editorConfig, snapshot, onChange }: Fi
   if (name === "sputter_mode") {
     return (
       <label className="form-field" htmlFor={inputId}>
-        <span className="form-field__label">{label}</span>
+        <span className="form-field__label">{localizeAppText(label)}</span>
         <select id={inputId} className="text-input" value={String(value ?? "")} onChange={(event) => update(event.target.value)}>
           {["rf", "dc", "pulsed_dc"].map((option) => (
             <option key={option} value={option}>{option.replaceAll("_", " ").toUpperCase()}</option>
@@ -231,9 +233,9 @@ function ScalarField({ name, value, path, editorConfig, snapshot, onChange }: Fi
   if (name === "valve") {
     return (
       <label className="form-field" htmlFor={inputId}>
-        <span className="form-field__label">{label}</span>
+        <span className="form-field__label">{localizeAppText(label)}</span>
         <select id={inputId} className="text-input" value={String(value ?? "")} onChange={(event) => update(event.target.value)}>
-          <option value="">Select valve</option>
+          <option value="">{tr("snapshotEditor.selectValve")}</option>
           {editorConfig.vcd_valves.map((option) => (
             <option key={option} value={option}>{option}</option>
           ))}
@@ -244,7 +246,7 @@ function ScalarField({ name, value, path, editorConfig, snapshot, onChange }: Fi
   if (name === "method") {
     return (
       <label className="form-field" htmlFor={inputId}>
-        <span className="form-field__label">{label}</span>
+        <span className="form-field__label">{localizeAppText(label)}</span>
         <input id={inputId} className="text-input" readOnly value={String(value ?? "")} />
       </label>
     );
@@ -252,7 +254,7 @@ function ScalarField({ name, value, path, editorConfig, snapshot, onChange }: Fi
   if (NUMERIC_FIELDS.has(name)) {
     return (
       <label className="form-field" htmlFor={inputId}>
-        <span className="form-field__label">{label}</span>
+        <span className="form-field__label">{localizeAppText(label)}</span>
         <input
           id={inputId}
           className="text-input"
@@ -266,7 +268,7 @@ function ScalarField({ name, value, path, editorConfig, snapshot, onChange }: Fi
   }
   return (
     <label className="form-field" htmlFor={inputId}>
-      <span className="form-field__label">{label}</span>
+      <span className="form-field__label">{localizeAppText(label)}</span>
       <input id={inputId} className="text-input" value={String(value ?? "")} onChange={(event) => update(event.target.value)} />
     </label>
   );
@@ -280,6 +282,7 @@ interface SequenceProps {
 }
 
 function SequenceEditor({ sequence, path, snapshot, onChange }: SequenceProps) {
+  useUiLanguage();
   const swap = (index: number, direction: -1 | 1) => {
     const next = [...sequence];
     const neighbor = index + direction;
@@ -294,13 +297,13 @@ function SequenceEditor({ sequence, path, snapshot, onChange }: SequenceProps) {
         return (
           <div className="snapshot-sequence__row" key={`${reference}-${index}`}>
             <span>
-              {index + 1}. {reference.startsWith("vcd_stage") ? "Evacuate" : "Gas backfill"} (
+              {index + 1}. {reference.startsWith("vcd_stage") ? tr("snapshotEditor.evacuate") : tr("snapshotEditor.gasBackfill")} (
               {reference.replace(/.*stage/, "stage ")})
             </span>
             <button
               type="button"
               className="button button--secondary button--small"
-              aria-label={`Move ${reference} up`}
+              aria-label={tr("snapshotEditor.moveNameUp", { "name": reference })}
               disabled={index === 0}
               onClick={() => swap(index, -1)}
             >
@@ -309,7 +312,7 @@ function SequenceEditor({ sequence, path, snapshot, onChange }: SequenceProps) {
             <button
               type="button"
               className="button button--secondary button--small"
-              aria-label={`Move ${reference} down`}
+              aria-label={tr("snapshotEditor.moveNameDown", { "name": reference })}
               disabled={index === sequence.length - 1}
               onClick={() => swap(index, 1)}
             >
@@ -332,6 +335,7 @@ interface ArraySectionProps {
 }
 
 function ArraySection({ name, items, path, editorConfig, snapshot, onChange }: ArraySectionProps) {
+  useUiLanguage();
   if (name === "vcd_step_sequence") {
     return <SequenceEditor sequence={items} path={path} snapshot={snapshot} onChange={onChange} />;
   }
@@ -367,11 +371,11 @@ function ArraySection({ name, items, path, editorConfig, snapshot, onChange }: A
         <button
           type="button"
           className="button button--secondary button--small"
-          aria-label={`Add ${singular.toLowerCase()}`}
+          aria-label={tr("snapshotEditor.addLabel", { "label": singular.toLowerCase() })}
           disabled={items.length >= rule.max}
           onClick={addItem}
         >
-          + Add {singular.toLowerCase()}
+          {tr("snapshotEditor.add")}{singular.toLowerCase()}
         </button>
       </div>
       {items.map((item, index) => (
@@ -381,12 +385,11 @@ function ArraySection({ name, items, path, editorConfig, snapshot, onChange }: A
             <button
               type="button"
               className="button button--secondary button--small"
-              aria-label={`Remove ${singular.toLowerCase()} ${index + 1}`}
+              aria-label={tr("snapshotEditor.removeLabelN", { "label": singular.toLowerCase(), "n": index + 1 })}
               disabled={items.length <= rule.min}
               onClick={() => removeItem(index)}
             >
-              Remove
-            </button>
+              {tr("snapshotEditor.remove")}</button>
           </div>
           <ObjectFields
             object={item as Record<string, unknown>}
@@ -410,6 +413,7 @@ interface ObjectFieldsProps {
 }
 
 function ObjectFields({ object, path, editorConfig, snapshot, onChange }: ObjectFieldsProps) {
+  useUiLanguage();
   const entries = Object.entries(object);
   const scalarEntries = entries.filter(([, value]) => !Array.isArray(value));
   const arrayEntries = entries.filter(([, value]) => Array.isArray(value));
@@ -458,6 +462,7 @@ function ObjectFields({ object, path, editorConfig, snapshot, onChange }: Object
  * immutable and the component never mutates the snapshot owned by the caller.
  */
 export function SnapshotEditor({ snapshot, editorConfig, onChange }: SnapshotEditorProps) {
+  useUiLanguage();
   return (
     <div className="snapshot-editor" data-snapshot-editor="true">
       <ObjectFields

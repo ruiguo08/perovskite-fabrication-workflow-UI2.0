@@ -1,4 +1,7 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { enumLabel, localizeAppText } from "../../i18n";
+import { useMemo } from "react";
+import { translate as tr, useLanguage as useUiLanguage } from "../../i18n";
+import { Fragment, useEffect, useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
@@ -38,6 +41,7 @@ interface CampaignAnalysisPanelProps {
 }
 
 function SectionHeading({ children, hint }: { children: string; hint?: string }) {
+  useUiLanguage();
   return (
     <Typography component="h3" sx={{ fontSize: 13.5, fontWeight: 600, letterSpacing: "-0.12px" }}>
       {children}
@@ -51,6 +55,7 @@ function SectionHeading({ children, hint }: { children: string; hint?: string })
 }
 
 function OriginBadge({ origin }: { origin: string | null }) {
+  useUiLanguage();
   if (!origin) return null;
   return (
     <span style={{
@@ -71,6 +76,7 @@ function OriginBadge({ origin }: { origin: string | null }) {
  * statistics are computed by the backend; this panel only filters, links,
  * and formats (FF percent conversion happens once, in campaignView). */
 export function CampaignAnalysisPanel({ campaignIds, experimentCampaignById, batches }: CampaignAnalysisPanelProps) {
+  useUiLanguage();
   const [campaign, setCampaign] = useState<string | null>(campaignIds[0] ?? null);
   const [batchId, setBatchId] = useState<number | null>(null);
   const [representative, setRepresentative] = useState<RepresentativeRule>("latest");
@@ -118,8 +124,7 @@ export function CampaignAnalysisPanel({ campaignIds, experimentCampaignById, bat
   if (campaignIds.length === 0) {
     return (
       <Typography sx={{ fontSize: 13.5, letterSpacing: "-0.12px", color: "rgba(0,0,0,.48)" }}>
-        Campaign comparison needs an experiment in a campaign — none is visible yet.
-      </Typography>
+        {tr("campaignAnalysisPanel.campaignComparisonNeedsAnExperimentInACampaignNone")}</Typography>
     );
   }
 
@@ -131,15 +136,14 @@ export function CampaignAnalysisPanel({ campaignIds, experimentCampaignById, bat
 
   return (
     <Stack spacing={2} sx={{ minWidth: 0 }}>
-      <SectionHeading hint="Read-only comparison across the campaign: directional device statistics, recorded actual process variants against the frozen plan, and same-batch control/target differences.">
-        Campaign comparison
-      </SectionHeading>
+      <SectionHeading hint={tr("campaignAnalysisPanel.readOnlyComparisonAcrossTheCampaignDirectionalDeviceStatistics")}>
+        {tr("campaignAnalysisPanel.campaignComparison")}</SectionHeading>
 
       <Box sx={{ display: "flex", gap: 1.5, alignItems: "center", flexWrap: "wrap", minWidth: 0 }}>
         <TextField
           select
           size="small"
-          label="Campaign"
+          label={tr("campaignAnalysisPanel.campaign")}
           value={campaign ?? ""}
           onChange={(event) => { setBatchId(null); setCampaign(event.target.value); }}
           sx={{ width: 220, maxWidth: "100%" }}
@@ -151,12 +155,12 @@ export function CampaignAnalysisPanel({ campaignIds, experimentCampaignById, bat
         <TextField
           select
           size="small"
-          label="Batch"
+          label={tr("campaignAnalysisPanel.batch")}
           value={batchId === null ? "all" : String(batchId)}
           onChange={(event) => setBatchId(event.target.value === "all" ? null : Number(event.target.value))}
           sx={{ width: 200, maxWidth: "100%" }}
         >
-          <MenuItem value="all">All batches</MenuItem>
+          <MenuItem value="all">{tr("campaignAnalysisPanel.allBatches")}</MenuItem>
           {campaignBatches.map((batch) => (
             <MenuItem key={batch.id} value={String(batch.id)}>{batch.batch_code}</MenuItem>
           ))}
@@ -164,57 +168,54 @@ export function CampaignAnalysisPanel({ campaignIds, experimentCampaignById, bat
         <TextField
           select
           size="small"
-          label="Representative"
+          label={tr("deviceScanHistoryPanel.representative")}
           value={representative}
           onChange={(event) => setRepresentative(event.target.value as RepresentativeRule)}
           sx={{ width: 200, maxWidth: "100%" }}
         >
-          <MenuItem value="latest">latest upload</MenuItem>
-          <MenuItem value="mean">mean across uploads</MenuItem>
+          <MenuItem value="latest">{tr("campaignAnalysisPanel.latestUpload")}</MenuItem>
+          <MenuItem value="mean">{tr("campaignAnalysisPanel.meanAcrossUploads")}</MenuItem>
         </TextField>
       </Box>
 
       {state === "loading" ? (
-        <Typography role="status" sx={{ fontSize: 13, letterSpacing: "-0.12px" }}>Loading campaign analysis…</Typography>
+        <Typography role="status" sx={{ fontSize: 13, letterSpacing: "-0.12px" }}>{tr("campaignAnalysisPanel.loadingCampaignAnalysis")}</Typography>
       ) : null}
       {state === "error" ? (
         <Typography role="alert" sx={{ fontSize: 13, letterSpacing: "-0.12px", color: "#b3261e" }}>
-          Unable to load the campaign analysis: {error}
+          {tr("campaignAnalysisPanel.unableToLoadTheCampaignAnalysis")}{localizeAppText(error ?? "")}
         </Typography>
       ) : null}
       {state === "success" && analysis ? (
         <>
           <Typography sx={{ fontSize: 12, color: "rgba(0,0,0,.48)", letterSpacing: "-0.12px" }}>
-            {analysis.experiment_count} experiment(s) in scope · rules {analysis.rules_version} ·
-            representative {analysis.scope.representative} · digest {shortDigest(analysis.content_digest)}
+            {analysis.experiment_count} {tr("campaignAnalysisPanel.experimentSInScopeRules")}{analysis.rules_version} {tr("campaignAnalysisPanel.representative")}{analysis.scope.representative} {tr("campaignAnalysisPanel.digest")}{shortDigest(analysis.content_digest)}
           </Typography>
 
           <Box sx={{ bgcolor: "#f5f5f7", borderRadius: "12px", p: 1.5, minWidth: 0 }}>
-            <SectionHeading hint="Forward and reverse scans are reported separately. Device statistics are descriptive; the substrate mean is the equally weighted per-substrate view.">
-              Directional summaries
-            </SectionHeading>
+            <SectionHeading hint={tr("campaignAnalysisPanel.forwardAndReverseScansAreReportedSeparatelyDeviceStatistics")}>
+              {tr("campaignAnalysisPanel.directionalSummaries")}</SectionHeading>
             {summaryRows.length === 0 ? (
               <Typography sx={{ fontSize: 13, letterSpacing: "-0.12px", color: "rgba(0,0,0,.48)" }}>
-                No measured devices are visible in this scope yet.
-              </Typography>
+                {tr("campaignAnalysisPanel.noMeasuredDevicesAreVisibleInThisScopeYet")}</Typography>
             ) : (
-              <Box role="region" aria-label="Campaign summary table" tabIndex={0} sx={{ overflowX: "auto", maxWidth: "100%" }}>
+              <Box role="region" aria-label={tr("campaignAnalysisPanel.campaignSummaryTable")} tabIndex={0} sx={{ overflowX: "auto", maxWidth: "100%" }}>
                 <table className="data-table" style={{ width: "100%", fontSize: 13, letterSpacing: "-0.12px" }}>
-                  <caption className="visually-hidden">Directional summaries per condition variant, forward and reverse separate</caption>
+                  <caption className="visually-hidden">{tr("campaignAnalysisPanel.directionalSummariesPerConditionVariantForwardAndReverseSeparate")}</caption>
                   <thead>
                     <tr>
-                      <th scope="col">Condition</th>
-                      <th scope="col">Variant</th>
-                      <th scope="col">Direction</th>
-                      <th scope="col">Devices</th>
-                      <th scope="col">Substrates</th>
-                      <th scope="col">Measurements</th>
-                      <th scope="col">PCE median</th>
-                      <th scope="col">PCE best</th>
+                      <th scope="col">{tr("campaignAnalysisPanel.condition")}</th>
+                      <th scope="col">{tr("campaignAnalysisPanel.variant")}</th>
+                      <th scope="col">{tr("deviceScanHistoryPanel.direction")}</th>
+                      <th scope="col">{tr("conditionCard.devices")}</th>
+                      <th scope="col">{tr("conditionCard.substrates")}</th>
+                      <th scope="col">{tr("campaignAnalysisPanel.measurements")}</th>
+                      <th scope="col">{tr("campaignAnalysisPanel.pceMedian")}</th>
+                      <th scope="col">{tr("campaignAnalysisPanel.pceBest")}</th>
                       <th scope="col">Voc</th>
                       <th scope="col">Jsc</th>
                       <th scope="col">FF</th>
-                      <th scope="col">Substrate-mean PCE</th>
+                      <th scope="col">{tr("campaignAnalysisPanel.substrateMeanPCE")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -226,7 +227,7 @@ export function CampaignAnalysisPanel({ campaignIds, experimentCampaignById, bat
                             {direction === "forward" ? row.conditionLabel : ""}
                           </th>
                           <td>{direction === "forward" ? row.variantLabel : ""}</td>
-                          <td>{direction}</td>
+                          <td>{enumLabel(direction)}</td>
                           <td>{cells ? cells.deviceCount : "—"}</td>
                           <td>{cells ? cells.substrateCount : "—"}</td>
                           <td>{cells ? cells.measurementCount : "—"}</td>
@@ -237,7 +238,7 @@ export function CampaignAnalysisPanel({ campaignIds, experimentCampaignById, bat
                           <td>{cells ? formatMetricValue("ff", cells.ffMedian) : "—"}</td>
                           <td>
                             {cells && cells.substrateUnits > 0
-                              ? `${formatMetricValue("pce", cells.substrateMeanPce)} (${cells.substrateUnits} substrate units)`
+                              ? tr("campaignAnalysisPanel.valueNSubstrateUnits", { "value": formatMetricValue("pce", cells.substrateMeanPce), "n": cells.substrateUnits })
                               : "—"}
                           </td>
                         </tr>
@@ -250,34 +251,32 @@ export function CampaignAnalysisPanel({ campaignIds, experimentCampaignById, bat
           </Box>
 
           <Box sx={{ bgcolor: "#f5f5f7", borderRadius: "12px", p: 1.5, minWidth: 0 }}>
-            <SectionHeading hint="Each variant shows the effective value behind the statistics (the recorded actual value, the frozen-plan fallback marked 'planned', or '—' for a step the execution never performed) beside the frozen plan's reference value. '◆ deviates from plan' marks rows where the effective value differs from the plan.">
-              Actual process vs frozen plan
-            </SectionHeading>
+            <SectionHeading hint={tr("campaignAnalysisPanel.eachVariantShowsTheEffectiveValueBehindTheStatistics")}>
+              {tr("campaignAnalysisPanel.actualProcessVsFrozenPlan")}</SectionHeading>
             {analysis.conditions.every((condition) => condition.variants.length === 0) ? (
               <Typography sx={{ fontSize: 13, letterSpacing: "-0.12px", color: "rgba(0,0,0,.48)" }}>
-                No fabrication batches exist for this scope yet.
-              </Typography>
+                {tr("campaignAnalysisPanel.noFabricationBatchesExistForThisScopeYet")}</Typography>
             ) : (
-              <Box role="region" aria-label="Actual process comparison table" tabIndex={0} sx={{ overflowX: "auto", maxWidth: "100%" }}>
+              <Box role="region" aria-label={tr("campaignAnalysisPanel.actualProcessComparisonTable")} tabIndex={0} sx={{ overflowX: "auto", maxWidth: "100%" }}>
                 <table className="data-table" style={{ width: "100%", fontSize: 13, letterSpacing: "-0.12px" }}>
-                  <caption className="visually-hidden">Recorded actual process parameters beside the frozen plan reference per condition variant</caption>
+                  <caption className="visually-hidden">{tr("campaignAnalysisPanel.recordedActualProcessParametersBesideTheFrozenPlanReference")}</caption>
                   <thead>
                     <tr>
-                      <th scope="col" rowSpan={2} style={{ verticalAlign: "bottom" }}>Parameter</th>
+                      <th scope="col" rowSpan={2} style={{ verticalAlign: "bottom" }}>{tr("conditionComparison.parameter")}</th>
                       {variantColumns.map((column) => (
                         <th scope="col" colSpan={2} key={column.key}
                           style={{ minWidth: 200, whiteSpace: "normal", overflowWrap: "anywhere" }}>
                           {conditionLabel(directory.get(column.condition.batch_condition_id), column.condition.batch_condition_id)}
                           <br />
-                          Variant {column.variant.variant_index + 1} · {column.variant.feature_source}
+                          {tr("campaignAnalysisPanel.variant2")}{column.variant.variant_index + 1} · {column.variant.feature_source}
                         </th>
                       ))}
                     </tr>
                     <tr>
                       {variantColumns.map((column) => (
                         <Fragment key={column.key}>
-                          <th scope="col">Actual / effective</th>
-                          <th scope="col" style={{ color: "rgba(0,0,0,.48)" }}>Planned (frozen)</th>
+                          <th scope="col">{tr("campaignAnalysisPanel.actualEffective")}</th>
+                          <th scope="col" style={{ color: "rgba(0,0,0,.48)" }}>{tr("campaignAnalysisPanel.plannedFrozen")}</th>
                         </Fragment>
                       ))}
                     </tr>
@@ -286,12 +285,12 @@ export function CampaignAnalysisPanel({ campaignIds, experimentCampaignById, bat
                     {parameterRows.map((row) => (
                       <tr key={row.parameter}>
                         <th scope="row" style={{ whiteSpace: "normal", minWidth: 180 }}>
-                          {row.label}
+                          {localizeAppText(row.label ?? "")}
                           {row.differs ? (
-                            <span style={{ marginLeft: 6, fontSize: 10.5, fontWeight: 600, color: "#b66a00", letterSpacing: "-0.12px" }}>◆ differs</span>
+                            <span style={{ marginLeft: 6, fontSize: 10.5, fontWeight: 600, color: "#b66a00", letterSpacing: "-0.12px" }}>{tr("campaignAnalysisPanel.differs")}</span>
                           ) : null}
                           {row.deviatesFromPlan ? (
-                            <span style={{ marginLeft: 6, fontSize: 10.5, fontWeight: 600, color: "#0b57d0", letterSpacing: "-0.12px" }}>◆ deviates from plan</span>
+                            <span style={{ marginLeft: 6, fontSize: 10.5, fontWeight: 600, color: "#0b57d0", letterSpacing: "-0.12px" }}>{tr("campaignAnalysisPanel.deviatesFromPlan")}</span>
                           ) : null}
                         </th>
                         {row.cells.map((cell, index) => (
@@ -315,24 +314,23 @@ export function CampaignAnalysisPanel({ campaignIds, experimentCampaignById, bat
 
           {analysis.comparisons.length > 0 ? (
             <Box sx={{ bgcolor: "#f5f5f7", borderRadius: "12px", p: 1.5, minWidth: 0 }}>
-              <SectionHeading hint="Descriptive difference of equally weighted substrate means within one batch. No significance test is applied; percent change is undefined when the control mean is zero.">
-                Same-batch control vs target
-              </SectionHeading>
-              <Box role="region" aria-label="Control target comparison table" tabIndex={0} sx={{ overflowX: "auto", maxWidth: "100%" }}>
+              <SectionHeading hint={tr("campaignAnalysisPanel.descriptiveDifferenceOfEquallyWeightedSubstrateMeansWithinOne")}>
+                {tr("campaignAnalysisPanel.sameBatchControlVsTarget")}</SectionHeading>
+              <Box role="region" aria-label={tr("campaignAnalysisPanel.controlTargetComparisonTable")} tabIndex={0} sx={{ overflowX: "auto", maxWidth: "100%" }}>
                 <table className="data-table" style={{ width: "100%", fontSize: 13, letterSpacing: "-0.12px" }}>
-                  <caption className="visually-hidden">Descriptive control versus target comparisons per batch, direction, and metric</caption>
+                  <caption className="visually-hidden">{tr("campaignAnalysisPanel.descriptiveControlVersusTargetComparisonsPerBatchDirectionAnd")}</caption>
                   <thead>
                     <tr>
-                      <th scope="col">Batch</th>
-                      <th scope="col">Control</th>
-                      <th scope="col">Target</th>
-                      <th scope="col">Direction</th>
-                      <th scope="col">Metric</th>
-                      <th scope="col">Control mean</th>
-                      <th scope="col">Target mean</th>
-                      <th scope="col">Difference</th>
-                      <th scope="col">Change</th>
-                      <th scope="col">Units (control/target)</th>
+                      <th scope="col">{tr("campaignAnalysisPanel.batch")}</th>
+                      <th scope="col">{tr("campaignAnalysisPanel.control")}</th>
+                      <th scope="col">{tr("campaignAnalysisPanel.target")}</th>
+                      <th scope="col">{tr("deviceScanHistoryPanel.direction")}</th>
+                      <th scope="col">{tr("campaignAnalysisPanel.metric")}</th>
+                      <th scope="col">{tr("campaignAnalysisPanel.controlMean")}</th>
+                      <th scope="col">{tr("campaignAnalysisPanel.targetMean")}</th>
+                      <th scope="col">{tr("campaignAnalysisPanel.difference")}</th>
+                      <th scope="col">{tr("campaignAnalysisPanel.change")}</th>
+                      <th scope="col">{tr("campaignAnalysisPanel.unitsControlTarget")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -347,12 +345,12 @@ export function CampaignAnalysisPanel({ campaignIds, experimentCampaignById, bat
                         <td style={{ whiteSpace: "normal", overflowWrap: "anywhere" }}>
                           {conditionLabel(directory.get(comparison.target_batch_condition_id), comparison.target_batch_condition_id)}
                         </td>
-                        <td>{comparison.direction}</td>
+                        <td>{enumLabel(comparison.direction)}</td>
                         <td>{METRIC_LABELS[comparison.metric] ?? comparison.metric}</td>
                         <td>{formatMetricValue(comparison.metric, comparison.control_mean)}</td>
                         <td>{formatMetricValue(comparison.metric, comparison.target_mean)}</td>
                         <td>{formatMetricValue(comparison.metric, comparison.difference)}</td>
-                        <td>{comparison.percent_change === null ? "— (control mean is zero)" : `${comparison.percent_change.toFixed(1)}%`}</td>
+                        <td>{comparison.percent_change === null ? tr("campaignAnalysisPanel.controlMeanIsZero") : `${comparison.percent_change.toFixed(1)}%`}</td>
                         <td>{comparison.n_control_units}/{comparison.n_target_units}</td>
                       </tr>
                     ))}
@@ -364,15 +362,14 @@ export function CampaignAnalysisPanel({ campaignIds, experimentCampaignById, bat
 
           <Box sx={{ bgcolor: "#f5f5f7", borderRadius: "12px", p: 1.5, minWidth: 0 }}>
             <SectionHeading hint={analysis.coverage[0]?.note}>
-              Measurement coverage
-            </SectionHeading>
+              {tr("campaignAnalysisPanel.measurementCoverage")}</SectionHeading>
             <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
               {analysis.coverage.map((coverage) => {
                 const display = describeCoverage(coverage);
                 return (
                   <Tooltip key={coverage.batch_condition_id} title={display.title}>
                     <Typography sx={{ fontSize: 13, letterSpacing: "-0.12px", bgcolor: "#fff", borderRadius: "8px", px: 1, py: 0.5 }}>
-                      {conditionLabel(directory.get(coverage.batch_condition_id), coverage.batch_condition_id)}: {display.label}
+                      {conditionLabel(directory.get(coverage.batch_condition_id), coverage.batch_condition_id)}: {localizeAppText(display.label ?? "")}
                     </Typography>
                   </Tooltip>
                 );
@@ -381,20 +378,18 @@ export function CampaignAnalysisPanel({ campaignIds, experimentCampaignById, bat
           </Box>
 
           <Box sx={{ bgcolor: "#f5f5f7", borderRadius: "12px", p: 1.5, minWidth: 0 }}>
-            <SectionHeading hint="Every excluded or unresolvable record is listed here; nothing is silently dropped from the payload.">
-              Data quality
-            </SectionHeading>
+            <SectionHeading hint={tr("campaignAnalysisPanel.everyExcludedOrUnresolvableRecordIsListedHereNothing")}>
+              {tr("campaignAnalysisPanel.dataQuality")}</SectionHeading>
             {analysis.diagnostics.length === 0 ? (
               <Typography sx={{ fontSize: 13, letterSpacing: "-0.12px", color: "rgba(0,0,0,.48)" }}>
-                No exclusions, unbound devices, missing directions, or legacy records in this scope.
-              </Typography>
+                {tr("campaignAnalysisPanel.noExclusionsUnboundDevicesMissingDirectionsOrLegacyRecords")}</Typography>
             ) : (
               <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, letterSpacing: "-0.12px" }}>
                 {analysis.diagnostics.map((diagnostic, index) => (
                   <li key={`${diagnostic.code}:${index}`}>
-                    <span style={{ fontWeight: 600 }}>{diagnostic.code}</span>: {diagnostic.message}
+                    <span style={{ fontWeight: 600 }}>{diagnostic.code}</span>: {localizeAppText(diagnostic.message ?? "")}
                     {diagnostic.result_file_id !== null ? (
-                      <> <a href={`/app/results/${diagnostic.result_file_id}`}>Result {diagnostic.result_file_id}</a></>
+                      <> <a href={`/app/results/${diagnostic.result_file_id}`}>{tr("campaignAnalysisPanel.result")}{diagnostic.result_file_id}</a></>
                     ) : null}
                   </li>
                 ))}
@@ -404,7 +399,7 @@ export function CampaignAnalysisPanel({ campaignIds, experimentCampaignById, bat
               <Box sx={{ mt: 1, display: "flex", gap: 1, flexWrap: "wrap" }}>
                 {resultFileIds.map((fileId) => (
                   <a key={fileId} href={`/app/results/${fileId}`} style={{ fontSize: 12.5, letterSpacing: "-0.12px" }}>
-                    Source result {fileId}
+                    {tr("campaignAnalysisPanel.sourceResult")}{fileId}
                   </a>
                 ))}
               </Box>

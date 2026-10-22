@@ -1,3 +1,4 @@
+import { translate as tr, useLanguage as useUiLanguage, enumLabel } from "../../i18n";
 import { formatDateTime } from "../../lib/format";
 import type { LayerPreset } from "../../types/api";
 import { LibCardNote, LibFacts, LibRecord, LibTag, LibTags } from "../library/LibraryPrimitives";
@@ -33,6 +34,7 @@ export function PresetBrowseCard({
   onEdit,
   onPromote,
 }: PresetBrowseCardProps) {
+  useUiLanguage();
   const isPerovskite = preset.layer.layer_type === "perovskite";
   const gap = firstGapSummary(preset, vcdValves);
   const editable = !promoteOnly && canEdit && preset.status === "active";
@@ -45,8 +47,8 @@ export function PresetBrowseCard({
       <LibTags>
         <LibTag tone={preset.scope === "shared" ? "info" : undefined}>{roleLabel(preset.layer.role)}</LibTag>
         <LibTag>{layerTypeLabel(preset.layer.layer_type)}</LibTag>
-        <LibTag tone="scope">{preset.scope}</LibTag>
-        {preset.status !== "active" ? <LibTag tone="warn">{preset.status}</LibTag> : null}
+        <LibTag tone="scope">{enumLabel(preset.scope)}</LibTag>
+        {preset.status !== "active" ? <LibTag tone="warn">{enumLabel(preset.status, "catalog")}</LibTag> : null}
       </LibTags>
       <div className="lib-record__head">
         <div>
@@ -59,33 +61,28 @@ export function PresetBrowseCard({
       <LibFacts facts={facts} singleColumn={facts.length <= 1} />
       {isPerovskite && gap ? (
         <LibCardNote>
-          Incomplete template — missing: {gap}. Open the details to complete the deposition process.
-        </LibCardNote>
+          {tr("presetBrowseCard.incompleteTemplateMissing")}{gap}{tr("presetBrowseCard.openTheDetailsToCompleteTheDepositionProcess")}</LibCardNote>
       ) : null}
       {!isPerovskite && gap ? (
         <LibCardNote tone="info">
-          Partial template — missing: {gap}. Complete these values per experiment, or finish the template.
-        </LibCardNote>
+          {tr("presetBrowseCard.partialTemplateMissing")}{gap}{tr("presetBrowseCard.completeTheseValuesPerExperimentOrFinishTheTemplate")}</LibCardNote>
       ) : null}
       <div className="lib-card-foot">
-        <span className="lib-muted">r{preset.current_revision_number} · updated {formatDateTime(preset.updated_at)}</span>
+        <span className="lib-muted">r{preset.current_revision_number} {tr("presetBrowseCard.updated")}{formatDateTime(preset.updated_at)}</span>
         <div className="lib-actions">
           <button
             type="button"
             className="button button--secondary button--small"
             onClick={() => onOpenDetails(preset.id)}
           >
-            View details
-          </button>
+            {tr("presetBrowseCard.viewDetails")}</button>
           {editable ? (
             <button type="button" className="button button--secondary button--small" onClick={() => onEdit(preset.id)}>
-              Edit
-            </button>
+              {tr("presetBrowseCard.edit")}</button>
           ) : null}
           {onPromote ? (
             <button type="button" className="button button--secondary button--small" onClick={() => onPromote(preset)}>
-              Promote to shared
-            </button>
+              {tr("presetBrowseCard.promoteToShared")}</button>
           ) : null}
         </div>
       </div>

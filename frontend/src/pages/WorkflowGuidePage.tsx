@@ -1,99 +1,118 @@
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
+import { useState } from "react";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
 import { Link } from "react-router-dom";
 import { PageHeader } from "../components/PageHeader";
 import workflowPreview from "../assets/user-workflow-sop.svg";
+import workflowPreviewZh from "../assets/user-workflow-sop-zh.svg";
 
 export function WorkflowGuidePage() {
+  const { language } = useUiLanguage();
+  const preview = language === "zh" ? workflowPreviewZh : workflowPreview;
+  const [diagramOpen, setDiagramOpen] = useState(false);
   return (
     <div className="workflow-guide">
       <PageHeader
-        title="Workflow guide"
-        description="A short path from an experiment plan to J-V results and figures."
-        actions={<Link className="button button--primary" to="/experiments/new">Start an experiment</Link>}
+        title={tr("workflowGuidePage.workflowGuide")}
+        description={tr("workflowGuidePage.aShortPathFromAnExperimentPlanToJ")}
+        actions={<Link className="button button--primary" to="/experiments/new">{tr("workflowGuidePage.startAnExperiment")}</Link>}
       />
 
       <section className="workflow-guide__setup" aria-labelledby="workflow-setup-title">
         <div>
-          <span className="workflow-guide__eyebrow">Before you begin</span>
-          <h2 id="workflow-setup-title">Prepare the experiment context</h2>
-          <p>An active campaign and a device layout are required. Ask an instructor or administrator to prepare them if they are missing.</p>
+          <span className="workflow-guide__eyebrow">{tr("workflowGuidePage.beforeYouBegin")}</span>
+          <h2 id="workflow-setup-title">{tr("workflowGuidePage.prepareTheExperimentContext")}</h2>
+          <p>{tr("workflowGuidePage.anActiveCampaignAndADeviceLayoutAreRequired")}</p>
         </div>
         <div className="workflow-guide__setup-links">
-          <Link to="/campaigns">View campaigns</Link>
-          <Link to="/device-layouts">View device layouts</Link>
+          <Link to="/campaigns">{tr("overviewPage.viewCampaigns")}</Link>
+          <Link to="/device-layouts">{tr("workflowGuidePage.viewDeviceLayouts")}</Link>
         </div>
       </section>
 
       <section className="workflow-guide__overview" aria-labelledby="workflow-map-title">
         <div className="workflow-guide__section-heading">
           <div>
-            <span className="workflow-guide__eyebrow">Process map</span>
-            <h2 id="workflow-map-title">The full path at a glance</h2>
+            <span className="workflow-guide__eyebrow">{tr("workflowGuidePage.processMap")}</span>
+            <h2 id="workflow-map-title">{tr("workflowGuidePage.theFullPathAtAGlance")}</h2>
           </div>
-          <a href={workflowPreview} target="_blank" rel="noopener noreferrer">Enlarge diagram</a>
+          <button type="button" className="button button--link" onClick={() => setDiagramOpen(true)}>{tr("workflowGuidePage.enlargeDiagram")}</button>
         </div>
         <figure className="workflow-guide__figure">
           <img
-            src={workflowPreview}
-            alt="Archify workflow: create and submit an experiment, obtain instructor approval, release the plan, freeze and execute a fabrication batch, upload J-V data, then inspect curves or save assignments for group analysis."
+            src={preview}
+            alt={tr("workflowGuidePage.archifyWorkflowCreateAndSubmitAnExperimentObtainInstructor")}
             width="1112"
             height="660"
             decoding="async"
           />
-          <figcaption>Static overview. Use the linked steps below to continue in the application.</figcaption>
+          <figcaption>{tr("workflowGuidePage.staticOverviewUseTheLinkedStepsBelowToContinue")}</figcaption>
         </figure>
+        <Dialog open={diagramOpen} onClose={() => setDiagramOpen(false)} fullWidth maxWidth="xl" aria-labelledby="workflow-diagram-title">
+          <DialogTitle id="workflow-diagram-title">{tr("workflowGuidePage.theFullPathAtAGlance")}</DialogTitle>
+          <DialogContent>
+            <img className="workflow-guide__diagram-image" src={preview} alt={tr("workflowGuidePage.archifyWorkflowCreateAndSubmitAnExperimentObtainInstructor")} width="1112" height="660" />
+          </DialogContent>
+          <DialogActions>
+            <button type="button" className="button button--secondary" onClick={() => setDiagramOpen(false)}>{tr("common.close")}</button>
+          </DialogActions>
+        </Dialog>
       </section>
 
       <section aria-labelledby="workflow-steps-title">
         <div className="workflow-guide__section-heading">
           <div>
-            <span className="workflow-guide__eyebrow">Working SOP</span>
-            <h2 id="workflow-steps-title">Follow these steps</h2>
+            <span className="workflow-guide__eyebrow">{tr("workflowGuidePage.workingSOP")}</span>
+            <h2 id="workflow-steps-title">{tr("workflowGuidePage.followTheseSteps")}</h2>
           </div>
         </div>
         <ol className="workflow-guide__steps">
           <li className="workflow-guide__step">
             <span className="workflow-guide__number" aria-hidden="true">01</span>
             <div className="workflow-guide__step-body">
-              <span className="workflow-guide__phase">Plan · student</span>
-              <h3>Create and submit a plan</h3>
-              <p>Choose the campaign and device layout, define a control and target conditions, then review and save the complete recipe. Open the draft experiment and select <strong>Submit for approval</strong>.</p>
-              <Link className="workflow-guide__action" to="/experiments/new">Create experiment <span aria-hidden="true">→</span></Link>
+              <span className="workflow-guide__phase">{tr("workflowGuidePage.planStudent")}</span>
+              <h3>{tr("workflowGuidePage.createAndSubmitAPlan")}</h3>
+              <p>{tr("workflowGuidePage.chooseTheCampaignAndDeviceLayoutDefineAControl")}<strong>{tr("experimentDetailPage.submitForApproval")}</strong>.</p>
+              <Link className="workflow-guide__action" to="/experiments/new">{tr("workflowGuidePage.createExperiment")}<span aria-hidden="true">→</span></Link>
             </div>
           </li>
           <li className="workflow-guide__step">
             <span className="workflow-guide__number" aria-hidden="true">02</span>
             <div className="workflow-guide__step-body">
-              <span className="workflow-guide__phase">Review · instructor, then student</span>
-              <h3>Approve and release the plan</h3>
-              <p>An instructor or administrator reviews the conditions and selects <strong>Approve plan</strong>. The student then opens the approved experiment and selects <strong>Release approved plan</strong>.</p>
-              <Link className="workflow-guide__action" to="/experiments">Find the experiment <span aria-hidden="true">→</span></Link>
+              <span className="workflow-guide__phase">{tr("workflowGuidePage.reviewInstructorThenStudent")}</span>
+              <h3>{tr("workflowGuidePage.approveAndReleaseThePlan")}</h3>
+              <p>{tr("workflowGuidePage.anInstructorOrAdministratorReviewsTheConditionsAndSelects")}<strong>{tr("experimentDetailPage.approvePlan")}</strong>{tr("workflowGuidePage.theStudentThenOpensTheApprovedExperimentAndSelects")}<strong>{tr("experimentDetailPage.releaseApprovedPlan")}</strong>.</p>
+              <Link className="workflow-guide__action" to="/experiments">{tr("workflowGuidePage.findTheExperiment")}<span aria-hidden="true">→</span></Link>
             </div>
           </li>
           <li className="workflow-guide__step">
             <span className="workflow-guide__number" aria-hidden="true">03</span>
             <div className="workflow-guide__step-body">
-              <span className="workflow-guide__phase">Fabricate · student</span>
-              <h3>Freeze a batch and record the work</h3>
-              <p>On the experiment page, select <strong>Freeze fabrication batch</strong> before <strong>Start fabrication</strong>. In the batch run sheet, mark it ready, start execution, record actual preparations and processes, and complete the batch. Return to the experiment to complete fabrication when the work is finished.</p>
-              <Link className="workflow-guide__action" to="/fabrication-batches">Open fabrication batches <span aria-hidden="true">→</span></Link>
+              <span className="workflow-guide__phase">{tr("workflowGuidePage.fabricateStudent")}</span>
+              <h3>{tr("workflowGuidePage.freezeABatchAndRecordTheWork")}</h3>
+              <p>{tr("workflowGuidePage.onTheExperimentPageSelect")}<strong>{tr("experimentDetailPage.freezeFabricationBatch")}</strong> {tr("workflowGuidePage.before")}<strong>{tr("experimentDetailPage.startFabrication")}</strong>{tr("workflowGuidePage.inTheBatchRunSheetMarkItReadyStart")}</p>
+              <Link className="workflow-guide__action" to="/fabrication-batches">{tr("common.openBatches")} <span aria-hidden="true">→</span></Link>
             </div>
           </li>
           <li className="workflow-guide__step">
             <span className="workflow-guide__number" aria-hidden="true">04</span>
             <div className="workflow-guide__step-body">
-              <span className="workflow-guide__phase">Characterize · student</span>
-              <h3>Upload the J-V CSV</h3>
-              <p>Open the experiment&apos;s <strong>Characterization results</strong> section and select <strong>Upload results</strong>. Choose the batch that produced the devices, upload its CSV, and continue to the result. The batch must be in progress or completed.</p>
-              <Link className="workflow-guide__action" to="/experiments">Choose an experiment <span aria-hidden="true">→</span></Link>
+              <span className="workflow-guide__phase">{tr("workflowGuidePage.characterizeStudent")}</span>
+              <h3>{tr("workflowGuidePage.uploadTheJVCSV")}</h3>
+              <p>{tr("workflowGuidePage.openTheExperimentAposS")}<strong>{tr("experimentDetailPage.characterizationResults")}</strong> {tr("workflowGuidePage.sectionAndSelect")}<strong>{tr("experimentDetailPage.uploadResults")}</strong>{tr("workflowGuidePage.chooseTheBatchThatProducedTheDevicesUploadIts")}</p>
+              <Link className="workflow-guide__action" to="/experiments">{tr("workflowGuidePage.chooseAnExperiment")}<span aria-hidden="true">→</span></Link>
             </div>
           </li>
           <li className="workflow-guide__step workflow-guide__step--analysis">
             <span className="workflow-guide__number" aria-hidden="true">05</span>
             <div className="workflow-guide__step-body">
-              <span className="workflow-guide__phase">Analyze · result page</span>
-              <h3>Inspect curves, then compare groups</h3>
-              <p>J-V curves are available immediately after upload. Assign every substrate to its condition group and save assignments before group statistics and uniformity. Device exclusions are optional; review both all-device and filtered figures, with forward and reverse scans kept separate.</p>
-              <Link className="workflow-guide__action" to="/results">Open results <span aria-hidden="true">→</span></Link>
+              <span className="workflow-guide__phase">{tr("workflowGuidePage.analyzeResultPage")}</span>
+              <h3>{tr("workflowGuidePage.inspectCurvesThenCompareGroups")}</h3>
+              <p>{tr("workflowGuidePage.jVCurvesAreAvailableImmediatelyAfterUploadAssign")}</p>
+              <Link className="workflow-guide__action" to="/results">{tr("common.openResults")} <span aria-hidden="true">→</span></Link>
             </div>
           </li>
         </ol>

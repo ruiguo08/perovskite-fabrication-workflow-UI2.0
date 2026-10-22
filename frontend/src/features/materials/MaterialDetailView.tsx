@@ -1,3 +1,5 @@
+import { localizeAppText, enumLabel } from "../../i18n";
+import { translate as tr, useLanguage as useUiLanguage } from "../../i18n";
 import { useState, type FormEvent } from "react";
 import { FormField } from "../../components/FormField";
 import { InlineFormError } from "../../components/InlineFormError";
@@ -34,6 +36,7 @@ export function MaterialDetailView({
   onEdit: (materialId: number) => void;
   onBack: () => void;
 }) {
+  useUiLanguage();
   const titleId = `material-detail-title-${material.id}`;
   const scalarEntries = Object.entries(material.specification);
   const complexEntries = scalarEntries.filter(([, value]) => value !== null && typeof value === "object");
@@ -44,8 +47,7 @@ export function MaterialDetailView({
   return (
     <article aria-labelledby={titleId}>
       <button type="button" className="button button--secondary lib-back" onClick={onBack}>
-        ← Back to directory
-      </button>
+        {tr("materialDetailView.backToDirectory")}</button>
       <div className="lib-detail">
         <header className="lib-detail__head">
           <div>
@@ -57,30 +59,30 @@ export function MaterialDetailView({
             </LibTags>
           </div>
           <div className="lib-actions">
-            <StatusBadge status={material.status} />
+            <StatusBadge status={material.status} context="catalog" />
             {canManage ? (
-              <button type="button" className="button button--primary" onClick={() => onEdit(material.id)}>Edit material</button>
+              <button type="button" className="button button--primary" onClick={() => onEdit(material.id)}>{tr("materialDetailView.editMaterial")}</button>
             ) : null}
           </div>
         </header>
 
-        <LibSection title="Identity" labelledBy={`material-detail-identity-${material.id}`}>
+        <LibSection title={tr("presetDiffViewer.identity")} labelledBy={`material-detail-identity-${material.id}`}>
           <LibFacts singleColumn facts={[
-            { label: "Name", value: material.name },
-            { label: "Category", value: materialCategoryLabel(material.category) },
-            { label: "Formula", value: material.formula.trim() || "Not recorded" },
-            { label: "CAS number", value: material.cas_number.trim() || "Not recorded" },
-            { label: "Record status", value: material.status },
-            { label: "Updated", value: formatDateTime(material.updated_at) },
+            { label: tr("materialDetailView.name"), value: material.name },
+            { label: tr("runSheetTable.category"), value: materialCategoryLabel(material.category) },
+            { label: tr("materialDetailView.formula"), value: material.formula.trim() || "Not recorded" },
+            { label: tr("materialDetailView.casNumber"), value: material.cas_number.trim() || "Not recorded" },
+            { label: tr("materialDetailView.recordStatus"), value: material.status },
+            { label: tr("presetDetailView.updated"), value: formatDateTime(material.updated_at) },
           ]} />
         </LibSection>
 
         <LibSection
-          title="Specification"
+          title={tr("materialDetailView.specification")}
           labelledBy={`material-detail-specification-${material.id}`}
-          hint="Values recorded for this material. Missing optional values are not inferred."
+          hint={tr("materialDetailView.valuesRecordedForThisMaterialMissingOptionalValuesAre")}
         >
-          {scalarFacts.length > 0 ? <LibFacts facts={scalarFacts} /> : <p className="lib-muted">No scalar specification values recorded.</p>}
+          {scalarFacts.length > 0 ? <LibFacts facts={scalarFacts} /> : <p className="lib-muted">{tr("materialDetailView.noScalarSpecificationValuesRecorded")}</p>}
           {complexEntries.length > 0 ? (
             <dl className="lib-facts lib-facts--single">
               {complexEntries.map(([key, value]) => (
@@ -92,7 +94,7 @@ export function MaterialDetailView({
             </dl>
           ) : null}
           <details className="lib-provenance">
-            <summary>Raw specification (JSON)</summary>
+            <summary>{tr("materialDetailView.rawSpecificationJSON")}</summary>
             <pre className="snapshot-json">{JSON.stringify(material.specification, null, 2)}</pre>
           </details>
         </LibSection>
@@ -112,6 +114,7 @@ function SupplierProductsSection({
   canManage: boolean;
   onChanged: (material: Material) => void;
 }) {
+  useUiLanguage();
   const { show } = useToast();
   const [vendor, setVendor] = useState("");
   const [catalogNumber, setCatalogNumber] = useState("");
@@ -151,25 +154,25 @@ function SupplierProductsSection({
 
   return (
     <LibSection
-      title="Supplier products"
+      title={tr("materialDetailView.supplierProducts")}
       labelledBy={`material-detail-products-${material.id}`}
-      hint="Each product keeps its own vendor, catalog number, review status, and specification — independent of the material record's status."
+      hint={tr("materialDetailView.eachProductKeepsItsOwnVendorCatalogNumberReview")}
     >
       {material.products.length === 0 ? (
-        <p className="lib-muted">No supplier products have been recorded.</p>
+        <p className="lib-muted">{tr("materialDetailView.noSupplierProductsHaveBeenRecorded")}</p>
       ) : (
         material.products.map((product) => (
           <ProductRow key={product.id} material={material} product={product} canManage={canManage} onChanged={onChanged} />
         ))
       )}
       <details className="inline-editor inline-editor--product">
-        <summary>{canManage ? "Add supplier product" : "Propose supplier product"}</summary>
+        <summary>{canManage ? tr("materialDetailView.addSupplierProduct") : tr("materialDetailView.proposeSupplierProduct")}</summary>
         <form className="inline-editor__body" onSubmit={(event) => void createProduct(event)}>
           <div className="product-create-grid">
-            <FormField label={`New vendor for ${material.name}`} htmlFor={`new-product-vendor-${material.id}`} required>
+            <FormField label={tr("materialDetailView.newVendorForName", { "name": material.name })} htmlFor={`new-product-vendor-${material.id}`} required>
               <input id={`new-product-vendor-${material.id}`} className="text-input" required maxLength={160} value={vendor} onChange={(event) => setVendor(event.target.value)} />
             </FormField>
-            <FormField label={`New catalog number for ${material.name}`} htmlFor={`new-product-code-${material.id}`} required>
+            <FormField label={tr("materialDetailView.newCatalogNumberForName", { "name": material.name })} htmlFor={`new-product-code-${material.id}`} required>
               <input id={`new-product-code-${material.id}`} className="text-input mono" required maxLength={160} value={catalogNumber} onChange={(event) => setCatalogNumber(event.target.value)} />
             </FormField>
           </div>
@@ -179,9 +182,9 @@ function SupplierProductsSection({
             onChange={setSpecification}
             onValidityChange={setSpecificationValid}
           />
-          <InlineFormError message={error} />
+          <InlineFormError message={localizeAppText(error ?? "")} />
           <button className="button button--secondary" type="submit" disabled={submitting || !specificationValid}>
-            {canManage ? "Add product" : "Submit product for review"}
+            {canManage ? tr("materialDetailView.addProduct") : tr("materialDetailView.submitProductForReview")}
           </button>
         </form>
       </details>
@@ -200,6 +203,7 @@ function ProductRow({
   canManage: boolean;
   onChanged: (material: Material) => void;
 }) {
+  useUiLanguage();
   const { show } = useToast();
   const [vendor, setVendor] = useState(product.vendor);
   const [catalogNumber, setCatalogNumber] = useState(product.catalog_number);
@@ -241,7 +245,7 @@ function ProductRow({
       <div className="lib-product">
         <div className="lib-product__head">
           <span><strong>{product.vendor}</strong> · {product.catalog_number}</span>
-          <StatusBadge status={product.status} />
+          <StatusBadge status={product.status} context="catalog" />
         </div>
         {summaryFacts.length > 0 ? <LibFacts facts={summaryFacts} /> : null}
       </div>
@@ -252,22 +256,22 @@ function ProductRow({
     <div className="lib-product">
       <div className="lib-product__head">
         <span><strong>{product.vendor}</strong> · {product.catalog_number}</span>
-        <StatusBadge status={product.status} />
+        <StatusBadge status={product.status} context="catalog" />
       </div>
       {summaryFacts.length > 0 ? <LibFacts facts={summaryFacts} /> : null}
       <details className="inline-editor">
-        <summary>Edit product</summary>
+        <summary>{tr("materialDetailView.editProduct")}</summary>
         <form className="inline-editor__body" onSubmit={(event) => void updateProduct(event)}>
           <div className="product-create-grid">
-            <FormField label={`Vendor for ${product.catalog_number}`} htmlFor={`product-vendor-${product.id}`} required>
+            <FormField label={tr("materialDetailView.vendorForCatalog", { "catalog": product.catalog_number })} htmlFor={`product-vendor-${product.id}`} required>
               <input id={`product-vendor-${product.id}`} className="text-input" required maxLength={160} value={vendor} onChange={(event) => setVendor(event.target.value)} />
             </FormField>
-            <FormField label={`Catalog number for ${material.name} product ${product.id}`} htmlFor={`product-code-${product.id}`} required>
+            <FormField label={tr("materialDetailView.catalogNumberForMaterialProductId", { "material": material.name, "id": product.id })} htmlFor={`product-code-${product.id}`} required>
               <input id={`product-code-${product.id}`} className="text-input mono" required maxLength={160} value={catalogNumber} onChange={(event) => setCatalogNumber(event.target.value)} />
             </FormField>
-            <FormField label={`Status for ${product.vendor} ${product.catalog_number}`} htmlFor={`product-status-${product.id}`} required>
+            <FormField label={tr("materialDetailView.statusForVendorCatalog", { "vendor": product.vendor, "catalog": product.catalog_number })} htmlFor={`product-status-${product.id}`} required>
               <select id={`product-status-${product.id}`} className="text-input" value={status} onChange={(event) => setStatus(event.target.value)}>
-                {["pending", "active", "inactive"].map((value) => <option key={value} value={value}>{value}</option>)}
+                {["pending", "active", "inactive"].map((value) => <option key={value} value={value}>{enumLabel(value, "catalog")}</option>)}
               </select>
             </FormField>
           </div>
@@ -277,8 +281,8 @@ function ProductRow({
             onChange={setSpecification}
             onValidityChange={setSpecificationValid}
           />
-          <InlineFormError message={error} />
-          <button className="button button--secondary" type="submit" disabled={submitting || !specificationValid}>Save product</button>
+          <InlineFormError message={localizeAppText(error ?? "")} />
+          <button className="button button--secondary" type="submit" disabled={submitting || !specificationValid}>{tr("materialDetailView.saveProduct")}</button>
         </form>
       </details>
     </div>

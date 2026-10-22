@@ -1,3 +1,5 @@
+import { localizeAppText, enumLabel } from "../../i18n";
+import { translate as tr, useLanguage as useUiLanguage } from "../../i18n";
 import { useState, type FormEvent } from "react";
 import { useSession } from "../../auth/session";
 import { FormField } from "../../components/FormField";
@@ -32,6 +34,7 @@ export function MaterialWorkspace({
   onSaved: (material: Material) => void;
   onCancel: () => void;
 }) {
+  useUiLanguage();
   const { show } = useToast();
   const { user } = useSession();
   const canManage = user?.role === "instructor" || user?.role === "administrator";
@@ -109,43 +112,43 @@ export function MaterialWorkspace({
   return (
     <section className="lib-editor" aria-labelledby="material-workspace-title">
       <h2 className="lib-editor__title" id="material-workspace-title">
-        {existing ? `Edit ${existing.name}` : "New material"}
+        {existing ? tr("materialWorkspace.editName", { "name": existing.name }) : tr("materialWorkspace.newMaterial")}
       </h2>
       <p className="lib-editor__subtitle">
         {existing
-          ? `Category ${materialCategoryLabel(existing.category)} is fixed for an existing record. Saving updates this record in place.`
-          : "Students submit materials for review; instructors and administrators add them to the active directory directly."}
+          ? tr("materialWorkspace.categoryCategoryIsFixedForAnExistingRecordSaving", { "category": materialCategoryLabel(existing.category) })
+          : tr("materialWorkspace.studentsSubmitMaterialsForReviewInstructorsAndAdministratorsAdd")}
       </p>
       <form onSubmit={(event) => void save(event)}>
         <div className="lib-editor-grid">
           <div className="lib-editor__form">
-            <LibSection title="Identity" labelledBy="material-workspace-identity">
+            <LibSection title={tr("presetDiffViewer.identity")} labelledBy="material-workspace-identity">
               <div className="builder-fields builder-fields--two">
                 {existing ? (
                   <div className="form-field">
-                    <span className="form-field__label">Category</span>
-                    <input className="text-input" value={materialCategoryLabel(existing.category)} readOnly aria-label="Material category (fixed)" />
+                    <span className="form-field__label">{tr("runSheetTable.category")}</span>
+                    <input className="text-input" value={materialCategoryLabel(existing.category)} readOnly aria-label={tr("materialWorkspace.materialCategoryFixed")} />
                   </div>
                 ) : (
-                  <FormField label="Material category" htmlFor="material-category" required>
+                  <FormField label={tr("materialWorkspace.materialCategory")} htmlFor="material-category" required>
                     <select id="material-category" className="text-input" required value={category} onChange={(event) => setCategory(event.target.value as (typeof CATEGORIES)[number])}>
                       {CATEGORIES.map((value) => <option key={value} value={value}>{materialCategoryLabel(value)}</option>)}
                     </select>
                   </FormField>
                 )}
-                <FormField label="Material name" htmlFor="material-name" required>
+                <FormField label={tr("materialWorkspace.materialName")} htmlFor="material-name" required>
                   <input id="material-name" className="text-input" required maxLength={160} value={name} onChange={(event) => setName(event.target.value)} />
                 </FormField>
-                <FormField label="Formula" htmlFor="material-formula">
+                <FormField label={tr("materialDetailView.formula")} htmlFor="material-formula">
                   <input id="material-formula" className="text-input mono" maxLength={120} value={formula} onChange={(event) => setFormula(event.target.value)} />
                 </FormField>
-                <FormField label="CAS number" htmlFor="material-cas">
+                <FormField label={tr("materialDetailView.casNumber")} htmlFor="material-cas">
                   <input id="material-cas" className="text-input mono" maxLength={64} value={casNumber} onChange={(event) => setCasNumber(event.target.value)} />
                 </FormField>
                 {existing ? (
-                  <FormField label="Record status" htmlFor="material-status" required>
+                  <FormField label={tr("materialDetailView.recordStatus")} htmlFor="material-status" required>
                     <select id="material-status" className="text-input" value={status} onChange={(event) => setStatus(event.target.value)}>
-                      {STATUSES.map((value) => <option key={value} value={value}>{value}</option>)}
+                      {STATUSES.map((value) => <option key={value} value={value}>{enumLabel(value, "catalog")}</option>)}
                     </select>
                   </FormField>
                 ) : null}
@@ -153,9 +156,9 @@ export function MaterialWorkspace({
             </LibSection>
 
             <LibSection
-              title="Specification"
+              title={tr("materialDetailView.specification")}
               labelledBy="material-workspace-specification"
-              hint="Ordinary values use key/value rows. Lists and nested objects stay untouched in the record and are edited through the advanced editor — nothing is flattened or dropped."
+              hint={tr("materialWorkspace.ordinaryValuesUseKeyValueRowsListsAndNested")}
             >
               <SpecificationEditor
                 idPrefix="material-spec"
@@ -167,33 +170,32 @@ export function MaterialWorkspace({
 
             {existing ? (
               <LibSection
-                title="Supplier products"
+                title={tr("materialDetailView.supplierProducts")}
                 labelledBy="material-workspace-products"
-                hint="Supplier products are managed on the material's detail page, inside the parent material context."
+                hint={tr("materialWorkspace.supplierProductsAreManagedOnTheMaterialSDetail")}
               >
                 <p className="lib-muted">
-                  {existing.products.length} supplier product{existing.products.length === 1 ? "" : "s"} recorded. Open the detail view to add or edit products.
-                </p>
+                  {tr("summary.supplierProducts", { n: existing.products.length, s: existing.products.length === 1 ? "" : "s" })} {tr("materialWorkspace.recordedOpenTheDetailViewToAddOrEdit")}</p>
               </LibSection>
             ) : (
-              <LibSection title="Supplier products" labelledBy="material-workspace-products">
-                <p className="lib-muted">Save the material first — supplier products are added to an existing record from its detail page.</p>
+              <LibSection title={tr("materialDetailView.supplierProducts")} labelledBy="material-workspace-products">
+                <p className="lib-muted">{tr("materialWorkspace.saveTheMaterialFirstSupplierProductsAreAddedTo")}</p>
               </LibSection>
             )}
           </div>
 
-          <aside className="lib-preview" aria-label="Card preview">
-            <h3>Card preview</h3>
+          <aside className="lib-preview" aria-label={tr("materialWorkspace.cardPreview")}>
+            <h3>{tr("materialWorkspace.cardPreview")}</h3>
             <div className="lib-record">
               <LibTags>
                 <LibTag tone="info">{materialCategoryLabel(previewMaterial.category)}</LibTag>
-                <LibTag tone={previewMaterial.status === "pending" ? "warn" : undefined}>{previewMaterial.status}</LibTag>
+                <LibTag tone={previewMaterial.status === "pending" ? "warn" : undefined}>{enumLabel(previewMaterial.status, "catalog")}</LibTag>
               </LibTags>
               <div className="lib-record__head">
                 <div>
                   <h3 className="lib-record__title">{previewMaterial.name}</h3>
                   <p className="lib-record__subtitle">
-                    {previewMaterial.formula.trim() ? previewMaterial.formula.trim() : "No formula recorded"}
+                    {previewMaterial.formula.trim() ? previewMaterial.formula.trim() : tr("materialBrowseCard.noFormulaRecorded")}
                     {previewMaterial.cas_number.trim() ? ` · CAS ${previewMaterial.cas_number.trim()}` : ""}
                   </p>
                 </div>
@@ -209,21 +211,21 @@ export function MaterialWorkspace({
           </aside>
         </div>
 
-        <InlineFormError message={error} />
+        <InlineFormError message={localizeAppText(error ?? "")} />
         <div className="lib-savebar">
           <div className="lib-savebar__actions">
             <button className="button button--primary" type="submit" disabled={submitting || !specificationValid}>
               {submitting
-                ? "Saving…"
+                ? tr("runSheetTable.saving")
                 : existing
-                  ? "Save material"
+                  ? tr("materialWorkspace.saveMaterial")
                   : canManage
-                    ? "Add active material"
-                    : "Submit material for review"}
+                    ? tr("materialWorkspace.addActiveMaterial")
+                    : tr("materialWorkspace.submitMaterialForReview")}
             </button>
-            <button className="button button--secondary" type="button" onClick={onCancel}>Cancel</button>
+            <button className="button button--secondary" type="button" onClick={onCancel}>{tr("completeBatchDialog.cancel")}</button>
           </div>
-          <span className="lib-muted">Cancel discards the entered values without sending any request.</span>
+          <span className="lib-muted">{tr("blankPresetForm.cancelDiscardsTheEnteredValuesWithoutSendingAnyRequest")}</span>
         </div>
       </form>
     </section>

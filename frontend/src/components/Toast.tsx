@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useLanguage, localizeKnownError } from "../i18n";
 
 export type ToastTone = "info" | "success" | "error";
 
@@ -25,6 +26,7 @@ const AUTO_DISMISS_MS = 5000;
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const { t } = useLanguage();
   const [items, setItems] = useState<ToastItem[]>([]);
   const nextId = useRef(1);
   const timers = useRef(new Map<number, number>());
@@ -85,11 +87,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             onMouseEnter={() => pause(item.id)}
             onMouseLeave={() => resume(item)}
           >
-            {item.message}
+            {localizeKnownError(item.message)}
             <button
               type="button"
               className="toast__dismiss"
-              aria-label="Dismiss notification"
+              aria-label={t("common.dismiss")}
               onClick={() => dismiss(item.id)}
             >
               ×

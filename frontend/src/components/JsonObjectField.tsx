@@ -1,3 +1,4 @@
+import { localizeAppText, useLanguage as useBoundaryLanguage } from "../i18n";
 import { useState } from "react";
 import { FormField } from "./FormField";
 
@@ -39,6 +40,7 @@ export function JsonObjectField({
   onValidityChange,
   validateObject,
 }: JsonObjectFieldProps) {
+  useBoundaryLanguage();
   const [error, setError] = useState<string | null>(null);
 
   function handleChange(nextValue: string) {
@@ -55,7 +57,7 @@ export function JsonObjectField({
   }
 
   return (
-    <FormField label={label} htmlFor={id} error={error} hint={hint}>
+    <FormField label={label} htmlFor={id} error={localizeAppText(error ?? "")} hint={hint}>
       <textarea
         id={id}
         className="text-input json-object-field mono"

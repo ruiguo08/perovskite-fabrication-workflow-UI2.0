@@ -1,3 +1,5 @@
+import { enumLabel, localizeAppText } from "../../i18n";
+import { translate as tr, useLanguage as useUiLanguage } from "../../i18n";
 import { useState, type FormEvent } from "react";
 import { InlineFormError } from "../../components/InlineFormError";
 import { SnapshotEditor } from "../../components/SnapshotEditor";
@@ -33,6 +35,7 @@ interface PreparationSectionProps {
 }
 
 export function PreparationSection({ item, sheet, onSave, onSplit, onRequestMerge, disabled }: PreparationSectionProps) {
+  useUiLanguage();
   const { preparation, uses } = item;
   const editable = !["completed", "cancelled"].includes(sheet.batch.status) &&
     !["consumed", "discarded"].includes(preparation.status);
@@ -106,7 +109,7 @@ export function PreparationSection({ item, sheet, onSave, onSplit, onRequestMerg
   }
 
   return (
-    <article className="run-sheet-card" data-preparation={preparation.id} aria-label={`Solution preparation ${preparation.preparation_code}`}>
+    <article className="run-sheet-card" data-preparation={preparation.id} aria-label={tr("preparationSection.solutionPreparationCode", { "code": preparation.preparation_code })}>
       <div className="run-sheet-card__heading">
         <strong>{preparation.preparation_code}</strong>
         <StatusBadge status={preparation.status} />
@@ -121,11 +124,11 @@ export function PreparationSection({ item, sheet, onSave, onSplit, onRequestMerg
       {editable ? (
         <form className="run-sheet-form" onSubmit={(event) => void save(event)}>
           <label className="form-field">
-            <span className="form-field__label">Status</span>
+            <span className="form-field__label">{tr("presetFilters.status")}</span>
             <select className="text-input" data-prep-status="true" value={status} onChange={(event) => setStatus(event.target.value)}>
-              <option value="">Keep current</option>
+              <option value="">{tr("executionSection.keepCurrent")}</option>
               {preparationStatusOptions(preparation.status).map((option) => (
-                <option key={option} value={option}>{option.replace(/_/g, " ")}</option>
+                <option key={option} value={option}>{enumLabel(option)}</option>
               ))}
             </select>
           </label>
@@ -141,12 +144,11 @@ export function PreparationSection({ item, sheet, onSave, onSplit, onRequestMerg
             }
           />
           <label className="form-field">
-            <span className="form-field__label">Notes</span>
+            <span className="form-field__label">{tr("executionSection.notes")}</span>
             <input className="text-input" data-prep-notes="true" maxLength={2000} value={notes} onChange={(event) => setNotes(event.target.value)} />
           </label>
           <button className="button button--primary" type="submit" data-save-preparation={preparation.id} disabled={submitting || disabled}>
-            Save preparation
-          </button>
+            {tr("preparationSection.savePreparation")}</button>
         </form>
       ) : null}
 
@@ -158,7 +160,7 @@ export function PreparationSection({ item, sheet, onSave, onSplit, onRequestMerg
             aria-expanded={splitOpen}
             onClick={() => setSplitOpen(!splitOpen)}
           >
-            Split preparation {splitOpen ? "▲" : "▼"}
+            {tr("preparationSection.splitPreparation")}{splitOpen ? "▲" : "▼"}
           </button>
           {splitOpen ? (
             <div className="run-sheet-split__body">
@@ -176,7 +178,7 @@ export function PreparationSection({ item, sheet, onSave, onSplit, onRequestMerg
                       )
                     }
                   />
-                  condition {use.batch_condition_id}, layer {use.layer_ordinal}
+                  {tr("preparationSection.condition")}{use.batch_condition_id}{tr("executionSection.layer")}{use.layer_ordinal}
                 </label>
               ))}
               <button
@@ -186,8 +188,7 @@ export function PreparationSection({ item, sheet, onSave, onSplit, onRequestMerg
                 disabled={splitMembers.length === 0 || splitMembers.length >= uses.length || submitting}
                 onClick={() => void split()}
               >
-                Split
-              </button>
+                {tr("executionSection.split")}</button>
             </div>
           ) : null}
         </section>
@@ -196,9 +197,9 @@ export function PreparationSection({ item, sheet, onSave, onSplit, onRequestMerg
       {sheet.batch.status === "draft" && mergeCandidates.length > 0 ? (
         <section className="run-sheet-merge">
           <label className="form-field">
-            <span className="form-field__label">Merge into this preparation</span>
+            <span className="form-field__label">{tr("preparationSection.mergeIntoThisPreparation")}</span>
             <select className="text-input" data-merge-source={preparation.id} value={mergeSource} onChange={(event) => setMergeSource(event.target.value === "" ? "" : Number(event.target.value))}>
-              <option value="">Select a source preparation</option>
+              <option value="">{tr("preparationSection.selectASourcePreparation")}</option>
               {mergeCandidates.map((other) => (
                 <option key={other.preparation.id} value={other.preparation.id}>
                   {other.preparation.preparation_code}
@@ -213,11 +214,10 @@ export function PreparationSection({ item, sheet, onSave, onSplit, onRequestMerg
             disabled={mergeSource === "" || submitting}
             onClick={requestMerge}
           >
-            Merge
-          </button>
+            {tr("executionSection.merge")}</button>
         </section>
       ) : null}
-      <InlineFormError message={error} />
+      <InlineFormError message={localizeAppText(error ?? "")} />
     </article>
   );
 }

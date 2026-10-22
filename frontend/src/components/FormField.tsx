@@ -1,3 +1,4 @@
+import { localizeAppText, useLanguage as useBoundaryLanguage } from "../i18n";
 import type { ReactNode } from "react";
 
 interface FormFieldProps {
@@ -22,6 +23,7 @@ export function FormField({
   required,
   children,
 }: FormFieldProps) {
+  useBoundaryLanguage();
   return (
     <div className="form-field">
       <label className="form-field__label" htmlFor={htmlFor}>
@@ -31,12 +33,12 @@ export function FormField({
       {children}
       {error ? (
         <p className="form-field__error" id={`${htmlFor}-error`} role="alert">
-          {error}
+          {localizeAppText(error ?? "")}
         </p>
       ) : null}
       {hint && !error ? (
         <p className="form-field__hint" id={`${htmlFor}-hint`}>
-          {hint}
+          {localizeAppText(hint)}
         </p>
       ) : null}
     </div>

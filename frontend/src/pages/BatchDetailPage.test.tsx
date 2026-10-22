@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../components/Toast";
 import { BatchDetailPage } from "./BatchDetailPage";
+import { setLanguage } from "../i18n";
 import type { BatchRunSheet, Deviation, SolutionPreparation } from "../types/api";
 
 const apiFetchMock = vi.hoisted(() => vi.fn());
@@ -1168,7 +1169,9 @@ it("ignores an old-route preparation save that resolves after navigation", async
     expect(mutations.map(([, options]) => options.body)).toEqual([
       { status: "preparing" }, { status: "ready" }, { status: "consumed", actual_matches_planned: true },
     ]);
-    expect(screen.getByText("1 of 2 recorded")).toBeInTheDocument();
+    expect(screen.getByText("1 of 2 recorded").textContent).toBe("1 of 2 recorded");
+    act(() => setLanguage("zh"));
+    expect(screen.getByText("已记录 1 / 2").textContent).toBe("已记录 1 / 2");
   });
 
   it("preserves an entered preparation snapshot when the checklist consumes it", async () => {

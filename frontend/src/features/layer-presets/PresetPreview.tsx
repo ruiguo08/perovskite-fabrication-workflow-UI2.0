@@ -1,3 +1,4 @@
+import { translate as tr, useLanguage as useUiLanguage } from "../../i18n";
 import type { DeviceLayer, PerovskiteDepositionProcess } from "../../types/api";
 import { PresetSummaryCard } from "./PresetSummaryCard";
 import type { PresetSummaryInput } from "./presetSummary";
@@ -27,6 +28,7 @@ export function PresetPreview({
   /** `create` — a new independent preset; `revise` — the next revision of an existing preset. */
   action: "create" | "revise";
 }) {
+  useUiLanguage();
   const preview: PresetSummaryInput = {
     layer: values.layer,
     deposition_process: values.depositionProcess,
@@ -36,11 +38,11 @@ export function PresetPreview({
   };
   const subject = values.name.trim() || "(unnamed)";
   return (
-    <div className="preset-preview" role="note" aria-label="Preset preview">
+    <div className="preset-preview" role="note" aria-label={tr("presetPreview.presetPreview")}>
       <h4 className="preset-preview__title">
         {action === "create"
-          ? <>Preview — this creates the new independent preset <strong>{subject}</strong> ({values.scope})</>
-          : <>Preview — this saves revision <strong>r{values.nextRevision ?? "—"}</strong> of <strong>{subject}</strong> ({values.scope})</>}
+          ? <>{tr("presetPreview.previewThisCreatesTheNewIndependentPreset")}<strong>{subject}</strong> ({values.scope})</>
+          : <>{tr("presetPreview.previewThisSavesRevision")}<strong>r{values.nextRevision ?? "—"}</strong> {tr("runSheetTable.of")}<strong>{subject}</strong> ({values.scope})</>}
       </h4>
       <PresetSummaryCard preset={preview} vcdValves={vcdValves} />
     </div>

@@ -68,7 +68,8 @@
   overflow: hidden;
 }
 
-.workflow-guide__figure img {
+.workflow-guide__figure img,
+.workflow-guide__diagram-image {
   display: block;
   width: 100%;
   height: auto;

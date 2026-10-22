@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { setLanguage } from "../i18n";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../components/Toast";
 import { MaterialsPage } from "./MaterialsPage";
@@ -65,6 +66,20 @@ function renderPage() {
 }
 
 describe("MaterialsPage", () => {
+  it("updates category, status and plural counts without translating material data", async () => {
+    apiFetchMock.mockResolvedValue([{ ...activeMaterial, products: [...activeMaterial.products, ...activeMaterial.products] }, pendingMaterial]);
+    renderPage();
+    const card = await screen.findByRole("article", { name: "FTO glass" });
+    expect(within(card).getByText(/2 supplier products/)).toBeInTheDocument();
+    act(() => setLanguage("zh"));
+    expect(screen.getByRole("option", { name: "化学品与试剂" })).toHaveValue("chemical");
+    expect(within(card).getByText(/2 个供应商产品/).textContent).not.toContain("产品s");
+    expect(screen.getByRole("option", { name: "可用" })).toHaveValue("active");
+    expect(screen.getByRole("article", { name: "Phenethylammonium iodide" })).toHaveTextContent("待审核");
+    expect(screen.getByText("Phenethylammonium iodide")).toBeInTheDocument();
+    expect(within(card).getByText("7 ohm/sq")).toBeInTheDocument();
+  });
+
   beforeEach(() => {
     sessionState.role = "student";
     apiFetchMock.mockReset();

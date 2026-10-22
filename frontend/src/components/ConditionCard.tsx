@@ -1,3 +1,5 @@
+import { localizeAppText } from "../i18n";
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
 import { useState, type FormEvent } from "react";
 import { useSession } from "../auth/session";
 import { FormField } from "./FormField";
@@ -14,6 +16,7 @@ interface ConditionCardProps {
 }
 
 export function ConditionCard({ condition, exception, planStatus, onExceptionChange }: ConditionCardProps) {
+  useUiLanguage();
   const { user } = useSession();
   const canDecide = user?.role === "instructor" || user?.role === "administrator";
   const [reason, setReason] = useState("");
@@ -71,57 +74,57 @@ export function ConditionCard({ condition, exception, planStatus, onExceptionCha
           </div>
           <code>{condition.condition_code}</code>
         </div>
-        <span className="version-mark">schema {condition.recipe_schema_version}</span>
+        <span className="version-mark">{tr("conditionCard.schema")}{condition.recipe_schema_version}</span>
       </header>
       <dl className="condition-facts">
-        <div><dt>Layout</dt><dd>{condition.device_layout_code}</dd></div>
-        <div><dt>Substrates</dt><dd>{condition.planned_substrate_count}</dd></div>
-        <div><dt>Devices</dt><dd>{condition.expected_device_count} expected devices</dd></div>
-        <div><dt>Source</dt><dd>{condition.source_baseline_version_id ? `Baseline version ${condition.source_baseline_version_id}` : "Standalone snapshot"}</dd></div>
+        <div><dt>{tr("conditionCard.layout")}</dt><dd>{condition.device_layout_code}</dd></div>
+        <div><dt>{tr("conditionCard.substrates")}</dt><dd>{condition.planned_substrate_count}</dd></div>
+        <div><dt>{tr("conditionCard.devices")}</dt><dd>{condition.expected_device_count} {tr("conditionCard.expectedDevices")}</dd></div>
+        <div><dt>{tr("conditionCard.source")}</dt><dd>{condition.source_baseline_version_id ? tr("conditionCard.baselineVersionId", { "id": condition.source_baseline_version_id }) : tr("conditionCard.standaloneSnapshot")}</dd></div>
       </dl>
       <code className="catalog-hash">{condition.canonical_hash}</code>
 
       <details className="snapshot-disclosure condition-advanced">
-        <summary>Advanced: raw snapshots (JSON)</summary>
+        <summary>{tr("conditionCard.advancedRawSnapshotsJSON")}</summary>
         <details className="snapshot-disclosure condition-snapshot">
-          <summary>Complete condition snapshot</summary>
+          <summary>{tr("conditionCard.completeConditionSnapshot")}</summary>
           <pre className="snapshot-json">{JSON.stringify(condition.recipe_snapshot, null, 2)}</pre>
         </details>
         <details className="snapshot-disclosure">
-          <summary>Device layout snapshot</summary>
+          <summary>{tr("conditionCard.deviceLayoutSnapshot")}</summary>
           <pre className="snapshot-json">{JSON.stringify(condition.device_layout_snapshot, null, 2)}</pre>
         </details>
       </details>
 
       {condition.planned_substrate_count < 3 ? (
-        <section className="condition-exception" aria-label={`Substrate exception for ${condition.condition_name}`}>
-          <h4>Substrate exception</h4>
+        <section className="condition-exception" aria-label={tr("conditionCard.substrateExceptionForName", { "name": condition.condition_name })}>
+          <h4>{tr("conditionCard.substrateException")}</h4>
           {exception ? (
             <div className="exception-record">
               <StatusBadge status={exception.decision} />
               <p>{exception.reason}</p>
-              {exception.decision_note ? <p>Decision note: {exception.decision_note}</p> : null}
+              {exception.decision_note ? <p>{tr("conditionCard.decisionNote")}{exception.decision_note}</p> : null}
               {canDecide && exception.decision === "pending" ? (
                 <div className="exception-decision">
-                  <FormField label={`Decision note for ${condition.condition_name}`} htmlFor={`decision-note-${condition.id}`}>
+                  <FormField label={tr("conditionCard.decisionNoteForName", { "name": condition.condition_name })} htmlFor={`decision-note-${condition.id}`}>
                     <textarea id={`decision-note-${condition.id}`} className="text-input" maxLength={2000} value={decisionNote} onChange={(event) => setDecisionNote(event.target.value)} />
                   </FormField>
                   <div className="button-row">
-                    <button className="button button--primary button--small" type="button" disabled={submitting} onClick={() => void decide("approved")}>Approve exception</button>
-                    <button className="button button--danger button--small" type="button" disabled={submitting} onClick={() => void decide("rejected")}>Reject exception</button>
+                    <button className="button button--primary button--small" type="button" disabled={submitting} onClick={() => void decide("approved")}>{tr("conditionCard.approveException")}</button>
+                    <button className="button button--danger button--small" type="button" disabled={submitting} onClick={() => void decide("rejected")}>{tr("conditionCard.rejectException")}</button>
                   </div>
                 </div>
               ) : null}
             </div>
           ) : planStatus === "draft" ? (
             <form onSubmit={(event) => void requestException(event)}>
-              <FormField label={`Exception reason for ${condition.condition_name}`} htmlFor={`exception-reason-${condition.id}`} required>
+              <FormField label={tr("conditionCard.exceptionReasonForName", { "name": condition.condition_name })} htmlFor={`exception-reason-${condition.id}`} required>
                 <textarea id={`exception-reason-${condition.id}`} className="text-input" required maxLength={2000} value={reason} onChange={(event) => setReason(event.target.value)} />
               </FormField>
-              <button className="button button--secondary button--small" type="submit" disabled={submitting}>Request exception</button>
+              <button className="button button--secondary button--small" type="submit" disabled={submitting}>{tr("conditionCard.requestException")}</button>
             </form>
-          ) : <p>No active exception is recorded.</p>}
-          <InlineFormError message={error} />
+          ) : <p>{tr("conditionCard.noActiveExceptionIsRecorded")}</p>}
+          <InlineFormError message={localizeAppText(error ?? "")} />
         </section>
       ) : null}
     </article>

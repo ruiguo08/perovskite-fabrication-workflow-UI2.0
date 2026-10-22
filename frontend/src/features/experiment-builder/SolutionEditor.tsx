@@ -1,3 +1,4 @@
+import { translate as tr, useLanguage as useUiLanguage } from "../../i18n";
 import { NumberField } from "../../components/Field";
 import type { LayerSolution, Material } from "../../types/api";
 
@@ -19,13 +20,14 @@ function materialNames(materials: Material[], category: string): string[] {
 }
 
 export function SolutionEditor({ idPrefix, solution, materials, onChange }: SolutionEditorProps) {
+  useUiLanguage();
   const chemicalNames = materialNames(materials, "chemical");
   const solventNames = materialNames(materials, "solvent");
 
   if (solution === null) {
     return (
       <div className="builder-empty-editor">
-        <p>No solution formulation is recorded for this layer.</p>
+        <p>{tr("solutionEditor.noSolutionFormulationIsRecordedForThisLayer")}</p>
         <button
           type="button"
           className="button button--secondary button--small"
@@ -37,8 +39,7 @@ export function SolutionEditor({ idPrefix, solution, materials, onChange }: Solu
             solvents: [],
           })}
         >
-          Add solution formulation
-        </button>
+          {tr("solutionEditor.addSolutionFormulation")}</button>
       </div>
     );
   }
@@ -46,27 +47,26 @@ export function SolutionEditor({ idPrefix, solution, materials, onChange }: Solu
   return (
     <div className="builder-subeditor">
       <div className="builder-subeditor__heading">
-        <h4>Solution formulation</h4>
+        <h4>{tr("solutionEditor.solutionFormulation")}</h4>
         <button type="button" className="button button--secondary button--small" onClick={() => onChange(null)}>
-          Remove formulation
-        </button>
+          {tr("solutionEditor.removeFormulation")}</button>
       </div>
       <label className="builder-field">
-        <span>Formulation type</span>
+        <span>{tr("solutionEditor.formulationType")}</span>
         <select
           className="text-input"
           value={solution.formulation_type}
           onChange={(event) => onChange({ ...solution, formulation_type: event.target.value as LayerSolution["formulation_type"] })}
         >
-          <option value="weighed_solids">Weighed solids</option>
-          <option value="diluted_dispersion">Diluted dispersion</option>
+          <option value="weighed_solids">{tr("snapshotEditor.weighedSolids")}</option>
+          <option value="diluted_dispersion">{tr("snapshotEditor.dilutedDispersion")}</option>
         </select>
       </label>
 
       {solution.formulation_type === "diluted_dispersion" ? (
         <div className="builder-fields builder-fields--two">
           <label className="builder-field">
-            <span>Stock dispersion</span>
+            <span>{tr("solutionEditor.stockDispersion")}</span>
             <input
               className="text-input"
               list={`${idPrefix}-chemical-options`}
@@ -74,7 +74,7 @@ export function SolutionEditor({ idPrefix, solution, materials, onChange }: Solu
               onChange={(event) => onChange({ ...solution, stock_dispersion: event.target.value })}
             />
           </label>
-          <NumberField name="stock_volume_ml" label="Stock volume (mL)" value={solution.stock_volume_ml} onChange={(stock_volume_ml) => onChange({ ...solution, stock_volume_ml })} />
+          <NumberField name="stock_volume_ml" label={tr("solutionEditor.stockVolumeML")} value={solution.stock_volume_ml} onChange={(stock_volume_ml) => onChange({ ...solution, stock_volume_ml })} />
         </div>
       ) : null}
 
@@ -87,20 +87,19 @@ export function SolutionEditor({ idPrefix, solution, materials, onChange }: Solu
 
       <div className="builder-stage-group">
         <div className="builder-subeditor__heading">
-          <h4>Solid ingredients</h4>
+          <h4>{tr("solutionEditor.solidIngredients")}</h4>
           <button
             type="button"
             className="button button--secondary button--small"
             disabled={solution.solids.length >= 20}
             onClick={() => onChange({ ...solution, solids: [...solution.solids, { chemical: "", weight_mg: null }] })}
           >
-            Add solid
-          </button>
+            {tr("solutionEditor.addSolid")}</button>
         </div>
         {solution.solids.map((solid, index) => (
           <div className="builder-stage-row" key={`${idPrefix}-solid-${index}`}>
             <label className="builder-field">
-              <span>Chemical {index + 1}</span>
+              <span>{tr("solutionEditor.chemical")}{index + 1}</span>
               <input
                 className="text-input"
                 list={`${idPrefix}-chemical-options`}
@@ -111,38 +110,36 @@ export function SolutionEditor({ idPrefix, solution, materials, onChange }: Solu
                 })}
               />
             </label>
-            <NumberField name="weight_mg" label="Weight (mg)" value={solid.weight_mg} onChange={(weight_mg) => onChange({
+            <NumberField name="weight_mg" label={tr("solutionEditor.weightMg")} value={solid.weight_mg} onChange={(weight_mg) => onChange({
               ...solution,
               solids: solution.solids.map((item, itemIndex) => itemIndex === index ? { ...item, weight_mg } : item),
             })} />
             <button
               type="button"
               className="button button--secondary button--small builder-stage-row__remove"
-              aria-label={`Remove solid ${index + 1}`}
+              aria-label={tr("solutionEditor.removeSolidN", { "n": index + 1 })}
               onClick={() => onChange({ ...solution, solids: solution.solids.filter((_, itemIndex) => itemIndex !== index) })}
             >
-              Remove
-            </button>
+              {tr("snapshotEditor.remove")}</button>
           </div>
         ))}
       </div>
 
       <div className="builder-stage-group">
         <div className="builder-subeditor__heading">
-          <h4>Solvents</h4>
+          <h4>{tr("solutionEditor.solvents")}</h4>
           <button
             type="button"
             className="button button--secondary button--small"
             disabled={solution.solvents.length >= 10}
             onClick={() => onChange({ ...solution, solvents: [...solution.solvents, { solvent: "", volume_ml: null }] })}
           >
-            Add solvent
-          </button>
+            {tr("solutionEditor.addSolvent")}</button>
         </div>
         {solution.solvents.map((solvent, index) => (
           <div className="builder-stage-row" key={`${idPrefix}-solvent-${index}`}>
             <label className="builder-field">
-              <span>Solvent {index + 1}</span>
+              <span>{tr("solutionEditor.solvent")}{index + 1}</span>
               <input
                 className="text-input"
                 list={`${idPrefix}-solvent-options`}
@@ -153,18 +150,17 @@ export function SolutionEditor({ idPrefix, solution, materials, onChange }: Solu
                 })}
               />
             </label>
-            <NumberField name="volume_ml" label="Volume (mL)" value={solvent.volume_ml} onChange={(volume_ml) => onChange({
+            <NumberField name="volume_ml" label={tr("solutionEditor.volumeML")} value={solvent.volume_ml} onChange={(volume_ml) => onChange({
               ...solution,
               solvents: solution.solvents.map((item, itemIndex) => itemIndex === index ? { ...item, volume_ml } : item),
             })} />
             <button
               type="button"
               className="button button--secondary button--small builder-stage-row__remove"
-              aria-label={`Remove solvent ${index + 1}`}
+              aria-label={tr("solutionEditor.removeSolventN", { "n": index + 1 })}
               onClick={() => onChange({ ...solution, solvents: solution.solvents.filter((_, itemIndex) => itemIndex !== index) })}
             >
-              Remove
-            </button>
+              {tr("snapshotEditor.remove")}</button>
           </div>
         ))}
       </div>

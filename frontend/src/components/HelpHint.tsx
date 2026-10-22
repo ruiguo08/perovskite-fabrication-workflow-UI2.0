@@ -1,4 +1,5 @@
 import { useId, useState, type ReactNode } from "react";
+import { useLanguage } from "../i18n";
 
 interface HelpHintProps {
   /** Topic name used for the accessible label, e.g. "VCD program". */
@@ -13,6 +14,7 @@ interface HelpHintProps {
  * users can open it too. Pressing Escape closes a pinned panel.
  */
 export function HelpHint({ label, children }: HelpHintProps) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const panelId = useId();
   return (
@@ -20,7 +22,7 @@ export function HelpHint({ label, children }: HelpHintProps) {
       <button
         type="button"
         className="help-hint__trigger"
-        aria-label={`${label} help`}
+        aria-label={t("common.help", { label })}
         aria-expanded={open}
         aria-describedby={panelId}
         onClick={() => setOpen((value) => !value)}

@@ -1,4 +1,6 @@
-import { useCallback, useMemo, useState } from "react";
+import { useMemo } from "react";
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
+import { useCallback, useState } from "react";
 import { useSession } from "../auth/session";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { EmptyState } from "../components/EmptyState";
@@ -39,6 +41,7 @@ function sortedPresets(rows: LayerPreset[]): LayerPreset[] {
  * actions, with search/filter context preserved across the transitions.
  */
 export function LayerPresetsPage() {
+  useUiLanguage();
   const { user } = useSession();
   const { show } = useToast();
   const canCreateShared = user?.role === "instructor" || user?.role === "administrator";
@@ -109,23 +112,23 @@ export function LayerPresetsPage() {
   }
 
   if (resource.status === "loading" && resource.data === null) {
-    return <div className="page-loading" role="status">Loading layer presets…</div>;
+    return <div className="page-loading" role="status">{tr("layerPresetsPage.loadingLayerPresets")}</div>;
   }
   if (resource.status === "error" && resource.data === null) {
-    return <ErrorState message={resource.error ?? "Unable to load layer presets."} action={
-      <button type="button" className="button button--secondary" onClick={() => void resource.reload()}>Retry</button>
+    return <ErrorState message={resource.error ?? tr("layerPresetsPage.unableToLoadLayerPresets")} action={
+      <button type="button" className="button button--secondary" onClick={() => void resource.reload()}>{tr("versionHistory.retry")}</button>
     } />;
   }
 
   function renderBrowse() {
     const groups: { key: string; title: string; rows: LayerPreset[]; promoteOnly?: boolean }[] = [
-      { key: "shared", title: "Shared presets", rows: filteredRows.filter((preset) => preset.scope === "shared") },
-      { key: "personal", title: "My presets", rows: filteredRows.filter((preset) => preset.scope === "personal") },
+      { key: "shared", title: tr("layerPresetsPage.sharedPresets"), rows: filteredRows.filter((preset) => preset.scope === "shared") },
+      { key: "personal", title: tr("layerPresetsPage.myPresets"), rows: filteredRows.filter((preset) => preset.scope === "personal") },
     ];
     if (canCreateShared && promotableRows.length > 0) {
       groups.push({
         key: "promotable",
-        title: "Student personal presets — promote to shared",
+        title: tr("layerPresetsPage.studentPersonalPresetsPromoteToShared"),
         rows: promotableRows.filter((preset) => matchesPresetFilters(preset, filters)),
         promoteOnly: true,
       });
@@ -150,10 +153,10 @@ export function LayerPresetsPage() {
           <section className="catalog-group" key={group.key} aria-labelledby={`preset-group-${group.key}`}>
             <div className="catalog-group__heading">
               <h2 id={`preset-group-${group.key}`}>{group.title}</h2>
-              <span className="record-count">{group.rows.length} records</span>
+              <span className="record-count">{group.rows.length} {tr("presetFilters.records")}</span>
             </div>
             {group.rows.length === 0 ? (
-              <EmptyState title={`No ${group.title.toLowerCase()} match the current view.`} />
+              <EmptyState title={tr("layerPresetsPage.noGroupMatchTheCurrentView", { "group": group.title.toLowerCase() })} />
             ) : (
               <div className="lib-grid">
                 {group.rows.map((preset) => (
@@ -176,9 +179,9 @@ export function LayerPresetsPage() {
         ))}
         <ConfirmDialog
           open={promotingPreset !== null}
-          title="Promote layer preset to shared"
-          message={`Every student will be able to select ${promotingPreset?.name ?? "this preset"} as a starting point. Promotion is one-way: the preset cannot be made personal again.`}
-          confirmLabel="Promote to shared"
+          title={tr("presetDetailView.promoteLayerPresetToShared")}
+          message={tr("presetDetailView.everyStudentWillBeAbleToSelectNameAs", { "name": promotingPreset?.name ?? "this preset" })}
+          confirmLabel={tr("presetBrowseCard.promoteToShared")}
           onConfirm={() => void promoteSelected()}
           onCancel={() => setPromotingPreset(null)}
         />
@@ -194,8 +197,8 @@ export function LayerPresetsPage() {
     const promotableRow = ownRow ? undefined : promotableRows.find((row) => row.id === view.presetId);
     const preset = ownRow ?? promotableRow;
     if (!preset) {
-      return <ErrorState message="This preset is no longer in the visible library." action={
-        <button type="button" className="button button--secondary" onClick={() => setView({ mode: "browse" })}>Back to library</button>
+      return <ErrorState message={tr("layerPresetsPage.thisPresetIsNoLongerInTheVisibleLibrary")} action={
+        <button type="button" className="button button--secondary" onClick={() => setView({ mode: "browse" })}>{tr("layerPresetsPage.backToLibrary")}</button>
       } />;
     }
     if (promotableRow) {
@@ -241,12 +244,11 @@ export function LayerPresetsPage() {
   return (
     <>
       <PageHeader
-        title="Layer presets"
-        description="Reusable single-layer input templates. Selecting a preset copies its complete values into an editable experiment configuration."
+        title={tr("layerPresetsPage.layerPresets")}
+        description={tr("layerPresetsPage.reusableSingleLayerInputTemplatesSelectingAPresetCopies")}
         actions={view.mode === "browse" ? (
           <button type="button" className="button button--primary" onClick={() => setView({ mode: "create" })}>
-            New preset
-          </button>
+            {tr("presetWorkspace.newPreset")}</button>
         ) : undefined}
       />
       {view.mode === "browse" ? renderBrowse() : null}
@@ -280,8 +282,8 @@ export function LayerPresetsPage() {
             onCancel={() => setView({ mode: "browse" })}
           />
         ) : (
-          <ErrorState message="This preset is no longer in the visible library." action={
-            <button type="button" className="button button--secondary" onClick={() => setView({ mode: "browse" })}>Back to library</button>
+          <ErrorState message={tr("layerPresetsPage.thisPresetIsNoLongerInTheVisibleLibrary")} action={
+            <button type="button" className="button button--secondary" onClick={() => setView({ mode: "browse" })}>{tr("layerPresetsPage.backToLibrary")}</button>
           } />
         )
       ) : null}

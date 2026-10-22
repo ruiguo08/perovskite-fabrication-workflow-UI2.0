@@ -1,3 +1,5 @@
+import { localizeAppText } from "../i18n";
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useSession } from "../auth/session";
@@ -71,31 +73,32 @@ function stackSummary(experiment: Experiment): string {
  * builder with no explanation is worse than a visible reason.
  */
 function SetupChecklist({ role, layouts, campaigns }: { role: string; layouts: DeviceLayoutSummary[]; campaigns: Campaign[] }) {
+  useUiLanguage();
   const isStaff = role === "instructor" || role === "administrator";
   const missingLayout = layouts.length === 0;
   const missingCampaign = !campaigns.some((campaign) => campaign.status === "active");
   if (!missingLayout && !missingCampaign) return null;
   const items = [
     missingLayout && {
-      title: "No device layouts yet",
+      title: tr("overviewPage.noDeviceLayoutsYet"),
       detail: isStaff
-        ? "An administrator creates the first device layout (substrate size, devices per substrate) under Device layouts."
-        : "Ask an administrator to create the first device layout under Device layouts.",
+        ? tr("overviewPage.anAdministratorCreatesTheFirstDeviceLayoutSubstrateSize")
+        : tr("overviewPage.askAnAdministratorToCreateTheFirstDeviceLayout"),
       to: "/device-layouts",
-      linkLabel: "Open device layouts",
+      linkLabel: tr("overviewPage.openDeviceLayouts"),
     },
     missingCampaign && {
-      title: "No active campaign yet",
+      title: tr("overviewPage.noActiveCampaignYet"),
       detail: isStaff
-        ? "Every experiment belongs to a campaign. Create the first active campaign under Campaigns."
-        : "Ask an instructor to create the first active campaign under Campaigns.",
+        ? tr("overviewPage.everyExperimentBelongsToACampaignCreateTheFirst")
+        : tr("overviewPage.askAnInstructorToCreateTheFirstActiveCampaign"),
       to: "/campaigns",
-      linkLabel: "Open campaigns",
+      linkLabel: tr("overviewPage.openCampaigns"),
     },
   ].filter(Boolean) as { title: string; detail: string; to: string; linkLabel: string }[];
   return (
     <section className="panel panel--accent" aria-labelledby="setup-checklist-title">
-      <h2 className="panel__title" id="setup-checklist-title">Finish the first-use setup</h2>
+      <h2 className="panel__title" id="setup-checklist-title">{tr("overviewPage.finishTheFirstUseSetup")}</h2>
       <ul className="setup-checklist">
         {items.map((item) => (
           <li key={item.title} className="setup-checklist__item">
@@ -115,24 +118,24 @@ function SetupChecklist({ role, layouts, campaigns }: { role: string; layouts: D
 const COLUMNS: Column<Experiment>[] = [
   {
     key: "experiment_code",
-    header: "Experiment",
+    get header() { return tr("experimentsPage.experiment"); },
     render: (row) => <Link className="record-link mono" to={`/experiments/${row.id}`}>{row.experiment_code ?? row.id}</Link>,
   },
-  { key: "campaign_id", header: "Series" },
+  { key: "campaign_id", get header() { return tr("overviewPage.series"); } },
   {
     key: "plan_status",
-    header: "Plan",
+    get header() { return tr("experimentsPage.plan"); },
     render: (row) =>
       row.plan_status ? <StatusBadge status={row.plan_status} /> : "—",
   },
   {
     key: "status",
-    header: "Status",
+    get header() { return tr("presetFilters.status"); },
     render: (row) => <StatusBadge status={row.status} />,
   },
   {
     key: "device_stack",
-    header: "Device stack",
+    get header() { return tr("deviceStackRail.deviceStack"); },
     render: (row) => (
       <span className="stack-summary" title={stackSummary(row)}>
         {stackSummary(row)}
@@ -141,12 +144,13 @@ const COLUMNS: Column<Experiment>[] = [
   },
   {
     key: "updated_at",
-    header: "Updated",
+    get header() { return tr("presetDetailView.updated"); },
     render: (row) => formatRelativeTime(row.updated_at),
   },
 ];
 
 export function OverviewPage() {
+  useUiLanguage();
   const { user } = useSession();
   const [experiments, setExperiments] = useState<Experiment[] | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[] | null>(null);
@@ -189,11 +193,10 @@ export function OverviewPage() {
   if (error) {
     return (
       <ErrorState
-        message={error}
+        message={localizeAppText(error ?? "")}
         action={
           <button type="button" className="button button--secondary" onClick={() => void load()}>
-            Retry
-          </button>
+            {tr("versionHistory.retry")}</button>
         }
       />
     );
@@ -204,10 +207,9 @@ export function OverviewPage() {
       <div
         className="app-loading"
         role="status"
-        aria-label="Loading overview data"
+        aria-label={tr("overviewPage.loadingOverviewData")}
       >
-        Loading overview data…
-      </div>
+        {tr("overviewPage.loadingOverviewData2")}</div>
     );
   }
 
@@ -226,84 +228,83 @@ export function OverviewPage() {
 
   const nextActions: NextAction[] = [
     ...results.filter((result) => !result.group_assignment).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)).map((result) => ({
-      label: `Assign ${result.filename}`,
-      detail: "Assign substrate conditions to use this result in statistics and uniformity.",
+      label: tr("overviewPage.assignFilename", { "filename": result.filename }),
+      detail: tr("overviewPage.assignSubstrateConditionsToUseThisResultInStatistics"),
       to: `/results/${result.id}`,
     })),
     ...batches.filter((batch) => batch.status === "in_progress").sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at)).map((batch) => ({
-      label: `Continue ${batch.batch_code}`,
-      detail: "Record fabrication steps and complete the run sheet.",
+      label: tr("overviewPage.continueBatchCode", { "batch_code": batch.batch_code }),
+      detail: tr("overviewPage.recordFabricationStepsAndCompleteTheRunSheet"),
       to: `/experiments/${batch.experiment_id}/batches/${batch.id}`,
     })),
     ...batches.filter((batch) => batch.status === "ready").map((batch) => ({
-      label: `Start ${batch.batch_code}`,
-      detail: "The run sheet is ready for fabrication.",
+      label: tr("overviewPage.startBatchCode", { "batch_code": batch.batch_code }),
+      detail: tr("overviewPage.theRunSheetIsReadyForFabrication"),
       to: `/experiments/${batch.experiment_id}/batches/${batch.id}`,
     })),
     ...batches.filter((batch) => batch.status === "draft").map((batch) => ({
-      label: `Prepare ${batch.batch_code}`,
-      detail: "Finish the run sheet and mark the batch ready.",
+      label: tr("overviewPage.prepareBatchCode", { "batch_code": batch.batch_code }),
+      detail: tr("overviewPage.finishTheRunSheetAndMarkTheBatchReady"),
       to: `/experiments/${batch.experiment_id}/batches/${batch.id}`,
     })),
     ...batches.filter((batch) => batch.status === "completed" && !results.some((result) => result.fabrication_batch_id === batch.id)).map((batch) => ({
-      label: `Upload results for ${batch.batch_code}`,
-      detail: "Add the measurement CSV, then assign each substrate to its condition.",
+      label: tr("overviewPage.uploadResultsForBatchCode", { "batch_code": batch.batch_code }),
+      detail: tr("overviewPage.addTheMeasurementCSVThenAssignEachSubstrateTo"),
       to: `/experiments/${batch.experiment_id}/upload`,
     })),
     ...(user?.role === "instructor" || user?.role === "administrator" ? experiments.filter((experiment) => experiment.plan_status === "pending_approval").map((experiment) => ({
-      label: `Approve ${experiment.experiment_code ?? `experiment ${experiment.id}`}`,
-      detail: "Review the submitted plan before fabrication.",
+      label: tr("overviewPage.approveExperimentCode", { "experiment_code": experiment.experiment_code ?? `experiment ${experiment.id}` }),
+      detail: tr("overviewPage.reviewTheSubmittedPlanBeforeFabrication"),
       to: `/experiments/${experiment.id}`,
     })) : []),
     ...experiments.filter((experiment) => experiment.plan_status === "draft").map((experiment) => ({
-      label: `Continue ${experiment.experiment_code ?? `experiment ${experiment.id}`}`,
-      detail: "Finish and submit the draft plan.",
+      label: tr("overviewPage.continueBatchCode", { "batch_code": experiment.experiment_code ?? `experiment ${experiment.id}` }),
+      detail: tr("overviewPage.finishAndSubmitTheDraftPlan"),
       to: `/experiments/${experiment.id}`,
     })),
     ...experiments.filter((experiment) => experiment.plan_status === "approved").map((experiment) => ({
-      label: `Release ${experiment.experiment_code ?? `experiment ${experiment.id}`}`,
-      detail: "Release the approved plan before freezing a fabrication batch.",
+      label: tr("overviewPage.releaseExperimentCode", { "experiment_code": experiment.experiment_code ?? `experiment ${experiment.id}` }),
+      detail: tr("overviewPage.releaseTheApprovedPlanBeforeFreezingAFabricationBatch"),
       to: `/experiments/${experiment.id}`,
     })),
     ...experiments.filter((experiment) => experiment.plan_status === "released" && !batches.some((batch) => batch.experiment_id === experiment.id && batch.status !== "cancelled")).map((experiment) => ({
-      label: `Freeze a batch for ${experiment.experiment_code ?? `experiment ${experiment.id}`}`,
-      detail: "At least one active batch is required to start fabrication.",
+      label: tr("overviewPage.freezeABatchForExperimentCode", { "experiment_code": experiment.experiment_code ?? `experiment ${experiment.id}` }),
+      detail: tr("overviewPage.atLeastOneActiveBatchIsRequiredToStart"),
       to: `/experiments/${experiment.id}`,
     })),
     ...experiments.filter((experiment) => experiment.plan_status === "released" && batches.some((batch) => batch.experiment_id === experiment.id && batch.status !== "cancelled")).map((experiment) => ({
-      label: `Start fabrication for ${experiment.experiment_code ?? `experiment ${experiment.id}`}`,
-      detail: "The plan has a fabrication batch and can enter the in-progress stage.",
+      label: tr("overviewPage.startFabricationForExperimentCode", { "experiment_code": experiment.experiment_code ?? `experiment ${experiment.id}` }),
+      detail: tr("overviewPage.thePlanHasAFabricationBatchAndCanEnter"),
       to: `/experiments/${experiment.id}`,
     })),
     ...experiments.filter((experiment) => experiment.plan_status === "in_progress" &&
       batches.some((batch) => batch.experiment_id === experiment.id && batch.status === "completed") &&
       batches.filter((batch) => batch.experiment_id === experiment.id).every((batch) => batch.status === "completed" || batch.status === "cancelled")
     ).map((experiment) => ({
-      label: `Complete ${experiment.experiment_code ?? `experiment ${experiment.id}`}`,
-      detail: "All fabrication batches are terminal; finish the plan lifecycle.",
+      label: tr("overviewPage.completeExperimentCode", { "experiment_code": experiment.experiment_code ?? `experiment ${experiment.id}` }),
+      detail: tr("overviewPage.allFabricationBatchesAreTerminalFinishThePlanLifecycle"),
       to: `/experiments/${experiment.id}`,
     })),
     ...(user?.role === "student" ? experiments.filter((experiment) => experiment.plan_status === "pending_approval").map((experiment) => ({
-      label: experiment.experiment_code ?? `Experiment ${experiment.id}`,
-      detail: "Waiting for instructor approval before the plan can be released.",
+      label: experiment.experiment_code ?? tr("campaignWorkspacePage.experimentId", { "id": experiment.id }),
+      detail: tr("overviewPage.waitingForInstructorApprovalBeforeThePlanCanBe"),
       to: null,
     })) : []),
   ].slice(0, 5);
 
   return (
     <>
-      <PageHeader title="Overview" description="Laboratory activity at a glance." />
+      <PageHeader title={tr("overviewPage.overview")} description={tr("overviewPage.laboratoryActivityAtAGlance")} />
       <SetupChecklist role={user?.role ?? ""} layouts={layouts} campaigns={campaigns} />
       <section className="panel" aria-labelledby="portfolio-board-title" style={{ marginBottom: "var(--space-5)" }}>
         <h2 className="panel__title" id="portfolio-board-title" style={{ marginBottom: "var(--space-3)" }}>
-          Pipeline board
-        </h2>
+          {tr("overviewPage.pipelineBoard")}</h2>
         <PortfolioBoard experiments={experiments} batches={batches} results={results} />
       </section>
       <section className="panel next-actions" aria-labelledby="next-actions-title">
-        <h2 className="panel__title" id="next-actions-title">Next actions</h2>
+        <h2 className="panel__title" id="next-actions-title">{tr("overviewPage.nextActions")}</h2>
         {nextActions.length === 0 ? (
-          <p className="run-sheet-muted">No work needs attention right now.</p>
+          <p className="run-sheet-muted">{tr("overviewPage.noWorkNeedsAttentionRightNow")}</p>
         ) : (
           <ol className="next-actions__list">
             {nextActions.map((action) => (
@@ -316,32 +317,31 @@ export function OverviewPage() {
         )}
       </section>
       <div className="stat-tiles">
-        <Link className="stat-tile" to="/experiments" aria-label={`${experiments?.length ?? "…"} experiments, view all experiments`}>
+        <Link className="stat-tile" to="/experiments" aria-label={tr("overviewPage.nExperimentsViewAllExperiments", { "n": experiments?.length ?? "…" })}>
           <span className="stat-tile__value">{experiments?.length ?? "…"}</span>
-          <span className="stat-tile__label">Experiments</span>
+          <span className="stat-tile__label">{tr("experimentsPage.experiments")}</span>
         </Link>
-        <Link className="stat-tile" to="/campaigns" aria-label="View campaigns">
+        <Link className="stat-tile" to="/campaigns" aria-label={tr("overviewPage.viewCampaigns")}>
           <span className="stat-tile__value">
             {campaigns?.filter((campaign) => campaign.status === "active").length ?? "…"}
           </span>
-          <span className="stat-tile__label">Active campaigns</span>
+          <span className="stat-tile__label">{tr("overviewPage.activeCampaigns")}</span>
         </Link>
-        <Link className="stat-tile" to="/materials" aria-label={`${materials?.length ?? "…"} materials, view all materials`}>
+        <Link className="stat-tile" to="/materials" aria-label={tr("overviewPage.nMaterialsViewAllMaterials", { "n": materials?.length ?? "…" })}>
           <span className="stat-tile__value">{materials?.length ?? "…"}</span>
-          <span className="stat-tile__label">Materials</span>
+          <span className="stat-tile__label">{tr("overviewPage.materials")}</span>
         </Link>
       </div>
 
       <section className="panel">
-        <h2 className="panel__title">Plan status</h2>
+        <h2 className="panel__title">{tr("experimentsPage.planStatus")}</h2>
         {planStatusCounts.size === 0 ? (
           <EmptyState
-            title="No experiments yet."
-            description="Start by planning your first comparative deposition experiment."
+            title={tr("overviewPage.noExperimentsYet")}
+            description={tr("overviewPage.startByPlanningYourFirstComparativeDepositionExperiment")}
             action={
               <Link className="button button--primary" to="/experiments/new">
-                Plan an experiment
-              </Link>
+                {tr("overviewPage.planAnExperiment")}</Link>
             }
           />
         ) : (
@@ -358,17 +358,16 @@ export function OverviewPage() {
 
       <section className="panel">
         <div className="panel__heading">
-          <h2 className="panel__title">Recent experiments</h2>
+          <h2 className="panel__title">{tr("overviewPage.recentExperiments")}</h2>
           <Link className="button button--secondary button--small" to="/experiments">
-            View all
-          </Link>
+            {tr("overviewPage.viewAll")}</Link>
         </div>
         <DataTable
           columns={COLUMNS}
           rows={recent}
           rowKey={(row) => row.id}
-          ariaLabel="Recent experiments"
-          empty={<EmptyState title="No experiments yet." />}
+          ariaLabel={tr("overviewPage.recentExperiments")}
+          empty={<EmptyState title={tr("overviewPage.noExperimentsYet")} />}
         />
       </section>
     </>

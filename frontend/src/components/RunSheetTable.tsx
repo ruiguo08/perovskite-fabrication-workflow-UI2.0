@@ -1,4 +1,7 @@
-import { useMemo, useRef, useState } from "react";
+import { enumLabel, localizeAppText } from "../i18n";
+import { useMemo } from "react";
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
+import { useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -87,10 +90,11 @@ function dot(status: string) {
 }
 
 function statusLabel(status: string) {
-  return status.replace(/_/g, " ");
+  return enumLabel(status);
 }
 
 export function RunSheetTable({ rows, disabled, submitting, onCycle, onRecordAllAsPlanned, onSaveDeviation }: RunSheetTableProps) {
+  useUiLanguage();
   const [drawerRow, setDrawerRow] = useState<RunSheetRow | null>(null);
   const [category, setCategory] = useState("process");
   const [severity, setSeverity] = useState("warning");
@@ -172,7 +176,7 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onRecordAll
             </TableCell>
             <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
               {row.recorded ? null : (
-                <Chip size="small" label="not recorded" sx={{ bgcolor: "rgba(0,0,0,.05)", mr: 1, border: 0 }} />
+                <Chip size="small" label={tr("runSheetTable.notRecorded")} sx={{ bgcolor: "rgba(0,0,0,.05)", mr: 1, border: 0 }} />
               )}
               <Button
                 size="small"
@@ -188,8 +192,7 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onRecordAll
                   setError(null);
                 }}
               >
-                Deviation
-              </Button>
+                {tr("runSheetTable.deviation")}</Button>
             </TableCell>
           </TableRow>
         ))}
@@ -200,23 +203,21 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onRecordAll
     <Box data-runsheet-table="true">
       <Stack direction="row" spacing={2} sx={{ alignItems: "center", flexWrap: "wrap", bgcolor: "#f5f5f7", borderRadius: "12px", px: 2, py: 1.5, mb: 2 }}>
         <Typography sx={{ fontSize: 13.5, fontWeight: 600, letterSpacing: "-0.224px", whiteSpace: "nowrap" }}>
-          {done} of {rows.length} recorded
-        </Typography>
+          {tr("runSheetTable.recordingProgress", { done, total: rows.length })}</Typography>
         <LinearProgress variant="determinate" value={rows.length ? (done / rows.length) * 100 : 0} sx={{ flex: 1 }} />
         <Button variant="contained" data-runsheet-bulk="true" disabled={disabled || submitting || pending === 0}
           onClick={onRecordAllAsPlanned}
           sx={{ whiteSpace: "nowrap" }}>
-          Record all as planned
-        </Button>
+          {tr("runSheetTable.recordAllAsPlanned")}</Button>
       </Stack>
 
       <Box sx={{ overflowX: "auto" }}>
-        <Table size="small" aria-label="Run sheet checklist">
+        <Table size="small" aria-label={tr("runSheetTable.runSheetChecklist")}>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ width: 56 }}>Step</TableCell>
-              <TableCell>Detail</TableCell>
-              <TableCell sx={{ width: 170 }}>Status — click to cycle</TableCell>
+              <TableCell sx={{ width: 56 }}>{tr("runSheetTable.step")}</TableCell>
+              <TableCell>{tr("runSheetTable.detail")}</TableCell>
+              <TableCell sx={{ width: 170 }}>{tr("runSheetTable.statusClickToCycle")}</TableCell>
               <TableCell align="right" sx={{ width: 170 }} />
             </TableRow>
           </TableHead>
@@ -237,8 +238,7 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onRecordAll
         } }}
       >
         <Typography id="run-sheet-deviation-title" component="h2" sx={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.224px", mb: 0.5 }}>
-          Record deviation
-        </Typography>
+          {tr("runSheetTable.recordDeviation")}</Typography>
         <Typography sx={{ fontSize: 12.5, color: "rgba(0,0,0,.48)", mb: 2 }}>
           {drawerRow ? `${drawerRow.code} · ${drawerRow.title}` : ""}
         </Typography>
@@ -248,7 +248,7 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onRecordAll
             autoFocus
             disabled={savingDeviation}
             size="small"
-            label="Category"
+            label={tr("runSheetTable.category")}
             value={category}
             onChange={(event) => setCategory(event.target.value)}
           >
@@ -259,7 +259,7 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onRecordAll
           <TextField
             select
             size="small"
-            label="Severity"
+            label={tr("runSheetTable.severity")}
             disabled={savingDeviation}
             value={severity}
             onChange={(event) => setSeverity(event.target.value)}
@@ -269,20 +269,20 @@ export function RunSheetTable({ rows, disabled, submitting, onCycle, onRecordAll
             ))}
           </TextField>
           <TextField
-            label="What changed"
+            label={tr("runSheetTable.whatChanged")}
             disabled={savingDeviation}
             multiline
             minRows={3}
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            placeholder="e.g. spin speed 4000 rpm instead of 5000 rpm"
+            placeholder={tr("runSheetTable.eGSpinSpeedRpmInsteadOfRpm")}
           />
-          {error ? <Typography sx={{ fontSize: 13, color: "#b3261e" }}>{error}</Typography> : null}
+          {error ? <Typography sx={{ fontSize: 13, color: "#b3261e" }}>{localizeAppText(error ?? "")}</Typography> : null}
           <Stack direction="row" spacing={1.5}>
             <Button variant="contained" data-runsheet-deviation-save="true" disabled={disabled || submitting || savingDeviation} onClick={() => void saveDeviation()}>
-              {savingDeviation ? "Saving…" : "Save deviation"}
+              {savingDeviation ? tr("runSheetTable.saving") : tr("runSheetTable.saveDeviation")}
             </Button>
-            <Button color="inherit" disabled={savingDeviation} onClick={() => setDrawerRow(null)}>Cancel</Button>
+            <Button color="inherit" disabled={savingDeviation} onClick={() => setDrawerRow(null)}>{tr("completeBatchDialog.cancel")}</Button>
           </Stack>
         </Stack>
       </Drawer>

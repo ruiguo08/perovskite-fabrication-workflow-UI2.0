@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
+import { translate as tr, useLanguage as useUiLanguage } from "../../i18n";
+import { useEffect, useRef, useState } from "react";
 import { JsonObjectField } from "../../components/JsonObjectField";
 
 /**
@@ -157,6 +159,7 @@ export function SpecificationEditor({
   onChange: (value: Record<string, unknown>) => void;
   onValidityChange?: (valid: boolean) => void;
 }) {
+  useUiLanguage();
   const [rows, setRows] = useState<ScalarRow[]>(() => validateRows(rowsFromSpecification(specification), complexKeysOf(specification)));
   const [advancedOpen, setAdvancedOpen] = useState(false);
   // Draft text of the advanced editor; null means "no draft — mirror the
@@ -290,8 +293,7 @@ export function SpecificationEditor({
     <div>
       {advancedOpen ? (
         <p className="lib-muted" role="note">
-          Advanced editing is active — the key/value rows below are paused. Apply or discard the JSON draft to resume row editing.
-        </p>
+          {tr("specificationEditor.advancedEditingIsActiveTheKeyValueRowsBelow")}</p>
       ) : null}
       {rows.length > 0 ? (
         <div className="lib-spec-rows">
@@ -299,38 +301,38 @@ export function SpecificationEditor({
             <div key={row.id} className={`lib-spec-row${row.error ? " lib-spec-row--error" : ""}`}>
               <input
                 className="text-input"
-                aria-label={`Specification key ${row.id}`}
-                placeholder="Key"
+                aria-label={tr("specificationEditor.specificationKeyKey", { "key": row.id })}
+                placeholder={tr("specificationEditor.key")}
                 value={row.key}
                 disabled={advancedOpen}
                 onChange={(event) => updateRow(row.id, { key: event.target.value })}
               />
               <select
                 className="text-input"
-                aria-label={`Value type for ${row.key || row.id}`}
+                aria-label={tr("specificationEditor.valueTypeForKey", { "key": row.key || row.id })}
                 value={row.type}
                 disabled={advancedOpen}
                 onChange={(event) => updateRow(row.id, { type: event.target.value as ScalarType })}
               >
-                <option value="text">Text</option>
-                <option value="number">Number</option>
-                <option value="boolean">On/off</option>
+                <option value="text">{tr("specificationEditor.text")}</option>
+                <option value="number">{tr("specificationEditor.number")}</option>
+                <option value="boolean">{tr("specificationEditor.onOff")}</option>
               </select>
               {row.type === "boolean" ? (
                 <select
                   className="text-input lib-spec-row__value"
-                  aria-label={`Value for ${row.key || row.id}`}
+                  aria-label={tr("specificationEditor.valueForKey", { "key": row.key || row.id })}
                   value={row.booleanValue ? "true" : "false"}
                   disabled={advancedOpen}
                   onChange={(event) => updateRow(row.id, { booleanValue: event.target.value === "true" })}
                 >
-                  <option value="true">On</option>
-                  <option value="false">Off</option>
+                  <option value="true">{tr("specificationEditor.on")}</option>
+                  <option value="false">{tr("specificationEditor.off")}</option>
                 </select>
               ) : (
                 <input
                   className="text-input lib-spec-row__value"
-                  aria-label={`Value for ${row.key || row.id}`}
+                  aria-label={tr("specificationEditor.valueForKey", { "key": row.key || row.id })}
                   inputMode={row.type === "number" ? "decimal" : undefined}
                   placeholder={row.type === "number" ? "123" : "Value"}
                   value={row.text}
@@ -341,22 +343,21 @@ export function SpecificationEditor({
               <button
                 type="button"
                 className="button button--secondary button--small"
-                aria-label={`Remove specification row ${row.key || row.id}`}
+                aria-label={tr("specificationEditor.removeSpecificationRowKey", { "key": row.key || row.id })}
                 disabled={advancedOpen}
                 onClick={() => removeRow(row.id)}
               >
-                Remove
-              </button>
+                {tr("snapshotEditor.remove")}</button>
               {row.error ? <p className="form-field__error" role="alert">{row.error}</p> : null}
             </div>
           ))}
         </div>
       ) : (
-        <p className="builder-help">No structured specification values yet. Add a key/value row or use the advanced editor.</p>
+        <p className="builder-help">{tr("specificationEditor.noStructuredSpecificationValuesYetAddAKeyValue")}</p>
       )}
       {keptComplexKeys.length > 0 ? (
         <p className="lib-muted">
-          Kept without changes (edit in the advanced editor): {keptComplexKeys.join(", ")}.
+          {tr("specificationEditor.keptWithoutChangesEditInTheAdvancedEditor")}{keptComplexKeys.join(", ")}.
         </p>
       ) : null}
       <button
@@ -365,8 +366,7 @@ export function SpecificationEditor({
         disabled={advancedOpen}
         onClick={addRow}
       >
-        Add specification row
-      </button>
+        {tr("specificationEditor.addSpecificationRow")}</button>
 
       <div className="lib-spec-advanced">
         <button
@@ -375,20 +375,19 @@ export function SpecificationEditor({
           aria-expanded={advancedOpen}
           onClick={toggleAdvanced}
         >
-          {advancedOpen ? "Hide advanced specification editor" : "Advanced specification editor (JSON)"}
+          {advancedOpen ? tr("specificationEditor.hideAdvancedSpecificationEditor") : tr("specificationEditor.advancedSpecificationEditorJSON")}
         </button>
         {advancedOpen ? (
           <div>
             {advancedPending ? (
               <p className="lib-card-note" role="note">
-                Apply or discard the JSON draft before saving — the form cannot submit while an advanced edit is pending.
-              </p>
+                {tr("specificationEditor.applyOrDiscardTheJSONDraftBeforeSavingThe")}</p>
             ) : null}
             <JsonObjectField
               key={`${idPrefix}-advanced-${advancedResetCount}`}
               id={`${idPrefix}-advanced`}
-              label="Advanced specification (JSON)"
-              hint="Edits the complete specification, including lists and nested objects the rows cannot represent. Apply commits the draft; rows stay paused until then."
+              label={tr("specificationEditor.advancedSpecificationJSON")}
+              hint={tr("specificationEditor.editsTheCompleteSpecificationIncludingListsAndNestedObjects")}
               value={advancedText}
               onTextChange={handleAdvancedTextChange}
               onValidChange={() => undefined}
@@ -406,12 +405,10 @@ export function SpecificationEditor({
                   }
                 }}
               >
-                Apply JSON draft
-              </button>
+                {tr("specificationEditor.applyJSONDraft")}</button>
               {advancedDraft !== null ? (
                 <button type="button" className="button button--secondary button--small" onClick={discardAdvanced}>
-                  Discard draft
-                </button>
+                  {tr("baselineAuthoring.discardDraft")}</button>
               ) : null}
             </div>
           </div>

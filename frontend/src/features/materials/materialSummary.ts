@@ -1,4 +1,5 @@
 import { titleCase } from "../../lib/format";
+import { localizeAppText } from "../../i18n";
 import type { Material, MaterialProduct } from "../../types/api";
 
 /**
@@ -26,7 +27,7 @@ const CATEGORY_SPEC_PRIORITY: Record<string, string[]> = {
 };
 
 export function materialCategoryLabel(category: string): string {
-  return CATEGORY_LABELS[category] ?? titleCase(category);
+  return localizeAppText(CATEGORY_LABELS[category] ?? titleCase(category));
 }
 
 /** Readable display of a free-form specification key. */

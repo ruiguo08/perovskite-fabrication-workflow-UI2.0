@@ -1,3 +1,5 @@
+import { localizeAppText } from "../../i18n";
+import { enumLabel, translate as tr, useLanguage as useUiLanguage } from "../../i18n";
 import { useState, type FormEvent } from "react";
 import { FormField } from "../../components/FormField";
 import { InlineFormError } from "../../components/InlineFormError";
@@ -30,6 +32,7 @@ export function CreateFromSnapshotForm({
   onCreated: (preset: LayerPreset) => void;
   onCancel: () => void;
 }) {
+  useUiLanguage();
   const { show } = useToast();
   const [sourceId, setSourceId] = useState("");
   const [name, setName] = useState("");
@@ -80,33 +83,31 @@ export function CreateFromSnapshotForm({
   return (
     <form onSubmit={(event) => void createPreset(event)}>
       <p className="builder-help">
-        Copies the selected preset's complete values into a <strong>new independent preset</strong> with its own history — the source preset is unchanged. To record the next version of the same preset instead, use <strong>Edit preset</strong> and save a new revision.
-      </p>
+        {tr("createFromSnapshotForm.copiesTheSelectedPresetSCompleteValuesIntoA")}<strong>{tr("createFromSnapshotForm.newIndependentPreset")}</strong> {tr("createFromSnapshotForm.withItsOwnHistoryTheSourcePresetIsUnchanged")}<strong>{tr("createFromSnapshotForm.editPreset")}</strong> {tr("createFromSnapshotForm.andSaveANewRevision")}</p>
       <div className="preset-create-grid">
-        <FormField label="New preset name" htmlFor="new-preset-name" required>
+        <FormField label={tr("createFromSnapshotForm.newPresetName")} htmlFor="new-preset-name" required>
           <input id="new-preset-name" className="text-input" required maxLength={120} value={name} onChange={(event) => setName(event.target.value)} />
         </FormField>
-        <FormField label="Source preset" htmlFor="source-preset" required>
+        <FormField label={tr("createFromSnapshotForm.sourcePreset")} htmlFor="source-preset" required>
           <select id="source-preset" className="text-input" required value={selectedSource ? String(selectedSource.id) : sourceId} onChange={(event) => setSourceId(event.target.value)}>
             {sourceUnavailable ? (
-              <option value={sourceId}>Unavailable source preset</option>
+              <option value={sourceId}>{tr("createFromSnapshotForm.unavailableSourcePreset")}</option>
             ) : null}
-            {activeRows.map((preset) => <option key={preset.id} value={preset.id}>{preset.name} · {roleLabel(preset.layer.role)} · {preset.scope}</option>)}
+            {activeRows.map((preset) => <option key={preset.id} value={preset.id}>{preset.name} · {roleLabel(preset.layer.role)} · {enumLabel(preset.scope)}</option>)}
           </select>
         </FormField>
         {canCreateShared ? (
-          <FormField label="Preset scope" htmlFor="new-preset-scope" required>
+          <FormField label={tr("blankPresetForm.presetScope")} htmlFor="new-preset-scope" required>
             <select id="new-preset-scope" className="text-input" value={scope} onChange={(event) => setScope(event.target.value as "personal" | "shared")}>
-              <option value="shared">Shared directory</option>
-              <option value="personal">Personal</option>
+              <option value="shared">{tr("blankPresetForm.sharedDirectory")}</option>
+              <option value="personal">{tr("blankPresetForm.personal")}</option>
             </select>
           </FormField>
         ) : null}
       </div>
       {sourceUnavailable ? (
         <div className="inline-form-error" role="alert">
-          The selected source preset is no longer available (it may have been deactivated). Choose another source preset to continue.
-        </div>
+          {tr("createFromSnapshotForm.theSelectedSourcePresetIsNoLongerAvailableIt")}</div>
       ) : null}
       {selectedSource ? (
         <PresetPreview
@@ -120,15 +121,15 @@ export function CreateFromSnapshotForm({
           action="create"
         />
       ) : null}
-      <InlineFormError message={error} />
+      <InlineFormError message={localizeAppText(error ?? "")} />
       <div className="lib-savebar">
         <div className="lib-savebar__actions">
           <button className="button button--primary" type="submit" disabled={submitting || !selectedSource || sourceUnavailable}>
-            {submitting ? "Creating…" : canCreateShared && scope === "shared" ? "Create shared preset" : "Create personal preset"}
+            {submitting ? tr("blankPresetForm.creating") : canCreateShared && scope === "shared" ? tr("blankPresetForm.createSharedPreset") : tr("blankPresetForm.createPersonalPreset")}
           </button>
-          <button className="button button--secondary" type="button" onClick={onCancel}>Cancel</button>
+          <button className="button button--secondary" type="button" onClick={onCancel}>{tr("completeBatchDialog.cancel")}</button>
         </div>
-        <span className="lib-muted">Cancel discards the entered values without sending any request.</span>
+        <span className="lib-muted">{tr("blankPresetForm.cancelDiscardsTheEnteredValuesWithoutSendingAnyRequest")}</span>
       </div>
     </form>
   );

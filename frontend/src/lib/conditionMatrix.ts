@@ -1,8 +1,9 @@
 import type { Condition, ExperimentDetail } from "../types/api";
+import { enumLabel, localizeAppText } from "../i18n";
 
 export interface ConditionMatrix {
   columns: { key: string; experiment: string; condition: string; role: string }[];
-  rows: { parameter: string; values: (string | null)[]; differs: boolean }[];
+  rows: { parameter: string; label: string; values: (string | null)[]; differs: boolean }[];
 }
 
 const LABELS: Record<string, string> = {
@@ -30,14 +31,14 @@ const ARRAY_LABELS: Record<string, string> = {
   layers: "Layer", solids: "Solid", solvents: "Solvent", spin_steps: "Spin step", anneal_steps: "Anneal step",
   vcd_stages: "VCD stage", gas_backfill_stages: "Gas backfill",
 };
-const ENUM_FIELDS = new Set(["setup_mode", "junction_type", "perovskite_bandgap", "tandem_type", "layer_type", "role", "formulation_type", "method", "sputter_mode"]);
+const ENUM_FIELDS = new Set(["architecture", "setup_mode", "junction_type", "perovskite_bandgap", "tandem_type", "layer_type", "role", "formulation_type", "method", "sputter_mode"]);
 const METADATA_FIELDS = new Set(["schema_version", "version", "code", "canonical_hash", "preset_id"]);
 
 function label(key: string): string {
   return LABELS[key] ?? key.replace(/_/g, " ").replace(/^./, (character) => character.toUpperCase());
 }
 
-function scientificValues(condition: Condition): Map<string, string | null> {
+function scientificValues(condition: Condition, localized = false): Map<string, string | null> {
   const values = new Map<string, string | null>();
   function visit(value: unknown, path: string, key: string): void {
     if (METADATA_FIELDS.has(key) || key.endsWith("_id") || key.endsWith("_hash")) return;
@@ -45,7 +46,7 @@ function scientificValues(condition: Condition): Map<string, string | null> {
       if (key === "vcd_step_sequence") {
         const steps = value.map((step) => String(step).replace(/^vcd_stage(\d+)$/, "VCD stage $1")
           .replace(/^gas_backfill_stage(\d+)$/, "Gas backfill $1").replace(/^spin_step(\d+)$/, "Spin step $1"));
-        values.set(path, steps.length ? steps.join(" → ") : null);
+        values.set(path, steps.length ? steps.map((step) => localized ? localizeAppText(step) : step).join(" → ") : null);
       } else {
         const parent = path.slice(0, path.lastIndexOf(" › ") + 3);
         value.forEach((item, index) => visit(item, `${parent}${ARRAY_LABELS[key] ?? label(key)} ${index + 1}`, ""));
@@ -59,8 +60,8 @@ function scientificValues(condition: Condition): Map<string, string | null> {
       const present = value !== null && value !== undefined && value !== "";
       let text = present ? String(value) : null;
       if (text !== null && unit && Number.isFinite(Number(value))) text = `${Number(value)} ${unit}`;
-      else if (text !== null && ENUM_FIELDS.has(key)) text = text.replace(/_/g, " ");
-      else if (typeof value === "boolean") text = value ? "Yes" : "No";
+      else if (text !== null && ENUM_FIELDS.has(key)) text = localized ? enumLabel(text) : text.replace(/_/g, " ");
+      else if (typeof value === "boolean") text = localized ? localizeAppText(value ? "Yes" : "No") : value ? "Yes" : "No";
       values.set(path, text);
     }
   }
@@ -78,6 +79,7 @@ function scientificValues(condition: Condition): Map<string, string | null> {
 export function buildConditionMatrix(details: ExperimentDetail[]): ConditionMatrix {
   const columns: ConditionMatrix["columns"] = [];
   const snapshots: Map<string, string | null>[] = [];
+  const displayedSnapshots: Map<string, string | null>[] = [];
   const seen = new Set<string>();
   for (const detail of details) {
     for (const condition of detail.conditions) {
@@ -87,12 +89,15 @@ export function buildConditionMatrix(details: ExperimentDetail[]): ConditionMatr
       columns.push({ key, experiment: detail.experiment.experiment_code ?? "Unnamed experiment",
         condition: `${condition.condition_code} · ${condition.condition_name}`, role: condition.role });
       snapshots.push(scientificValues(condition));
+      displayedSnapshots.push(scientificValues(condition, true));
     }
   }
   const parameters = new Set(snapshots.flatMap((snapshot) => [...snapshot.keys()]));
   const rows = [...parameters].map((parameter) => {
-    const values = snapshots.map((snapshot) => snapshot.get(parameter) ?? null);
-    return { parameter, values, differs: new Set(values).size > 1 };
+    const rawValues = snapshots.map((snapshot) => snapshot.get(parameter) ?? null);
+    const values = displayedSnapshots.map((snapshot) => snapshot.get(parameter) ?? null);
+    const label = parameter.split(" › ").map(localizeAppText).join(" › ");
+    return { parameter, label, values, differs: new Set(rawValues).size > 1 };
   }).filter((row) => row.values.some((value) => value !== null));
   return { columns, rows };
 }

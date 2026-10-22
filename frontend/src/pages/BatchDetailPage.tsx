@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { enumLabel } from "../i18n";
+import { translate as tr, useLanguage as useUiLanguage, useLocalizedMemo } from "../i18n";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useSession } from "../auth/session";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -25,12 +27,13 @@ import type {
 } from "../types/api";
 
 const BATCH_NEXT_STATUS: Record<string, { status: string; label: string } | null> = {
-  draft: { status: "ready", label: "Mark ready" },
-  ready: { status: "in_progress", label: "Start execution" },
-  in_progress: { status: "completed", label: "Complete batch" },
+  draft: { status: "ready", get label() { return tr("batchDetailPage.markReady"); } },
+  ready: { status: "in_progress", get label() { return tr("batchDetailPage.startExecution"); } },
+  in_progress: { status: "completed", get label() { return tr("completeBatchDialog.completeBatch"); } },
 };
 
 export function BatchDetailPage() {
+  useUiLanguage();
   const { experimentId, batchId } = useParams();
   const experimentIdNumber = Number(experimentId);
   const id = Number(batchId);
@@ -180,7 +183,7 @@ export function BatchDetailPage() {
   // Detail text is summarized from the planned snapshots so the checklist
   // reads like the approved mock-up (materials / process parameters), not
   // placeholder labels.
-  const runSheetRows = useMemo<RunSheetRow[]>(() => {
+  const runSheetRows = useLocalizedMemo<RunSheetRow[]>(() => {
     if (!activeSheet) return [];
 
     function solutionSummary(snapshot: Record<string, unknown>): string {
@@ -259,7 +262,7 @@ export function BatchDetailPage() {
       }
       const method = snapshot?.method;
       if (typeof method === "string" && method !== "spin_coating" && method !== "") {
-        parts.push(method.replace(/_/g, " "));
+        parts.push(enumLabel(method));
       }
       return parts.join(" · ");
     }
@@ -269,7 +272,7 @@ export function BatchDetailPage() {
       id: preparation.id,
       code: preparation.preparation_code,
       title: solutionSummary(preparation.actual_solution_snapshot ?? preparation.planned_solution_snapshot) ||
-        "Solution preparation",
+        tr("batchDetailPage.solutionPreparation"),
       meta: "",
       status: preparation.status,
       recorded: preparation.actual_recording_mode !== null,
@@ -279,9 +282,9 @@ export function BatchDetailPage() {
       kind: "execution",
       id: execution.id,
       code: execution.execution_code,
-      title: `${execution.method.replace(/_/g, " ")} · ${execution.layer_name}`,
+      title: `${enumLabel(execution.method)} · ${execution.layer_name}`,
       meta: processSummary(execution.actual_process_snapshot ?? execution.planned_process_snapshot) ||
-        execution.layer_type.replace(/_/g, " "),
+        enumLabel(execution.layer_type),
       status: execution.status,
       recorded: execution.actual_recording_mode !== null,
       notes: execution.notes,
@@ -413,7 +416,7 @@ export function BatchDetailPage() {
     }
     setActionError(null);
     setPendingConfirm({
-      title: "Cancel batch",
+      title: tr("batchDetailPage.cancelBatch"),
       message: `Cancel batch ${activeSheet.batch.batch_code}? Cancellation is final and the run sheet cannot be reopened.`,
       run: async () => {
         await changeBatchStatus("cancelled");
@@ -427,7 +430,7 @@ export function BatchDetailPage() {
     }
     setActionError(null);
     setPendingConfirm({
-      title: "Record all as planned",
+      title: tr("runSheetTable.recordAllAsPlanned"),
       destructive: false,
       message: `Record all ${pendingRecordCount} unrecorded run-sheet items as matching the plan? Each item copies its planned parameters as the actual record; items you already adjusted are untouched.`,
       run: async () => {
@@ -472,7 +475,7 @@ export function BatchDetailPage() {
     const source = activeSheet.preparations.find((item) => item.preparation.id === sourceId)?.preparation;
     setActionError(null);
     setPendingConfirm({
-      title: "Merge preparation",
+      title: tr("batchDetailPage.mergePreparation"),
       message: `Merge ${source?.preparation_code ?? `preparation ${sourceId}`} into ${target?.preparation_code ?? `preparation ${preparationId}`}? The source preparation will be merged and deleted.`,
       run: async () => {
         try {
@@ -492,7 +495,7 @@ export function BatchDetailPage() {
     const source = activeSheet.executions.find((item) => item.execution.id === sourceId)?.execution;
     setActionError(null);
     setPendingConfirm({
-      title: "Merge execution",
+      title: tr("batchDetailPage.mergeExecution"),
       message: `Merge ${source?.execution_code ?? `execution ${sourceId}`} into ${target?.execution_code ?? `execution ${executionId}`}? The source execution will be merged and deleted.`,
       run: async () => {
         try {
@@ -607,15 +610,15 @@ export function BatchDetailPage() {
   }
 
   if (!Number.isInteger(experimentIdNumber) || experimentIdNumber <= 0 || !Number.isInteger(id) || id <= 0) {
-    return <ErrorState title="Invalid batch" message="The fabrication batch identifier is not valid." />;
+    return <ErrorState title={tr("batchDetailPage.invalidBatch")} message={tr("batchDetailPage.theFabricationBatchIdentifierIsNotValid")} />;
   }
   if (refreshFailed) {
     return (
       <ErrorState
-        title="Unable to refresh run sheet"
+        title={tr("batchDetailPage.unableToRefreshRunSheet")}
         message={
           actionError ??
-          "Unable to refresh the run sheet. The displayed data may be outdated; verify the current batch state before continuing."
+          tr("batchDetailPage.unableToRefreshTheRunSheetTheDisplayedData")
         }
         action={
           <button
@@ -625,25 +628,23 @@ export function BatchDetailPage() {
             // the success effect clears it when the fresh run sheet renders.
             onClick={() => void resource.reload()}
           >
-            Retry
-          </button>
+            {tr("versionHistory.retry")}</button>
         }
       />
     );
   }
   if (activeSheet === null) {
     if (resource.status === "loading") {
-      return <div className="page-loading" role="status">Loading run sheet…</div>;
+      return <div className="page-loading" role="status">{tr("batchDetailPage.loadingRunSheet")}</div>;
     }
     if (resource.status === "error") {
       return (
         <ErrorState
-          title="Unable to load run sheet"
-          message={resource.error ?? "The run sheet could not be loaded."}
+          title={tr("batchDetailPage.unableToLoadRunSheet")}
+          message={resource.error ?? tr("batchDetailPage.theRunSheetCouldNotBeLoaded")}
           action={
             <button type="button" className="button button--secondary" onClick={() => void resource.reload()}>
-              Retry
-            </button>
+              {tr("versionHistory.retry")}</button>
           }
         />
       );
@@ -655,8 +656,8 @@ export function BatchDetailPage() {
   if (experimentIdNumber !== planExperimentId) {
     return (
       <ErrorState
-        title="Batch not found"
-        message="The batch does not belong to the requested experiment."
+        title={tr("batchDetailPage.batchNotFound")}
+        message={tr("batchDetailPage.theBatchDoesNotBelongToTheRequestedExperiment")}
       />
     );
   }
@@ -732,28 +733,27 @@ export function BatchDetailPage() {
     <div data-run-sheet="true">
       <PageHeader
         title={batch.batch_code}
-        description={`Fabrication batch ${batch.batch_number} · frozen condition snapshot`}
+        description={tr("batchDetailPage.fabricationBatchNFrozenConditionSnapshot", { "n": batch.batch_number })}
         meta={`Created ${formatDateTime(batch.created_at)} · Updated ${formatDateTime(batch.updated_at)}`}
         actions={
           <>
-            <a className="button button--secondary" href={`/experiments/${planExperimentId}/batches/${id}/export.json`}>Export JSON</a>
-            <a className="button button--secondary" href={`/experiments/${planExperimentId}/batches/${id}/export.pdf`}>Export PDF</a>
-            <Link className="button button--secondary" to={`/experiments/${planExperimentId}`}>Back to plan</Link>
+            <a className="button button--secondary" href={`/experiments/${planExperimentId}/batches/${id}/export.json`}>{tr("batchDetailPage.exportJSON")}</a>
+            <a className="button button--secondary" href={`/experiments/${planExperimentId}/batches/${id}/export.pdf`}>{tr("batchDetailPage.exportPDF")}</a>
+            <Link className="button button--secondary" to={`/experiments/${planExperimentId}`}>{tr("batchDetailPage.backToPlan")}</Link>
           </>
         }
       />
 
       <section className="panel" aria-labelledby="batch-status-title">
         <div className="panel__heading">
-          <h2 className="panel__title" id="batch-status-title">Batch status</h2>
+          <h2 className="panel__title" id="batch-status-title">{tr("batchDetailPage.batchStatus")}</h2>
           <StatusBadge status={batch.status} />
         </div>
-        <p>{batch.notes || "No batch notes."}</p>
+        <p>{batch.notes || tr("batchDetailPage.noBatchNotes")}</p>
         <div className="status-row" data-recording-progress="true">
           <span>
-            Recorded {recordedPreparations}/{activeSheet.preparations.length} preparations ·{" "}
-            {recordedExecutions}/{activeSheet.executions.length} executions
-          </span>
+            {tr("batchDetailPage.recorded")}{recordedPreparations}/{activeSheet.preparations.length} {tr("batchDetailPage.preparations")}{" "}
+            {recordedExecutions}/{activeSheet.executions.length} {tr("batchDetailPage.executions")}</span>
           {!terminal && pendingRecordCount > 0 ? (
             <button
               type="button"
@@ -762,7 +762,7 @@ export function BatchDetailPage() {
               disabled={submitting}
               onClick={requestRecordAllAsPlanned}
             >
-              Record all as planned ({pendingRecordCount})
+              {tr("batchDetailPage.recordAllAsPlanned")}{pendingRecordCount})
             </button>
           ) : null}
         </div>
@@ -794,38 +794,37 @@ export function BatchDetailPage() {
                 disabled={submitting}
                 onClick={requestCancelBatch}
               >
-                Cancel batch
-              </button>
+                {tr("batchDetailPage.cancelBatch")}</button>
             ) : null}
           </div>
         ) : null}
         <InlineFormError message={actionError} />
       </section>
 
-      <nav className="run-sheet-jump" aria-label="Run sheet sections">
-        <span>Jump to</span>
-        <a href="#preparation-directory-title">Preparations ({recordedPreparations}/{activeSheet.preparations.length})</a>
-        <a href="#execution-directory-title">Executions ({recordedExecutions}/{activeSheet.executions.length})</a>
-        <a href="#deviation-directory-title">Deviations ({activeSheet.deviations.length})</a>
-        <a href="#frozen-conditions-title">Conditions</a>
-        <a href="#substrate-directory-title">Substrates</a>
+      <nav className="run-sheet-jump" aria-label={tr("batchDetailPage.runSheetSections")}>
+        <span>{tr("batchDetailPage.jumpTo")}</span>
+        <a href="#preparation-directory-title">{tr("batchDetailPage.preparations2")}{recordedPreparations}/{activeSheet.preparations.length})</a>
+        <a href="#execution-directory-title">{tr("batchDetailPage.executions2")}{recordedExecutions}/{activeSheet.executions.length})</a>
+        <a href="#deviation-directory-title">{tr("batchDetailPage.deviations")}{activeSheet.deviations.length})</a>
+        <a href="#frozen-conditions-title">{tr("batchDetailPage.conditions")}</a>
+        <a href="#substrate-directory-title">{tr("conditionCard.substrates")}</a>
       </nav>
 
       <section className="panel" aria-labelledby="frozen-conditions-title">
         <div className="panel__heading">
-          <h2 className="panel__title" id="frozen-conditions-title">Frozen conditions</h2>
-          <span className="record-count">{activeSheet.conditions.length} records</span>
+          <h2 className="panel__title" id="frozen-conditions-title">{tr("batchDetailPage.frozenConditions")}</h2>
+          <span className="record-count">{activeSheet.conditions.length} {tr("presetFilters.records")}</span>
         </div>
         <div className="table-scroll">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Code</th>
-                <th>Name</th>
-                <th>Role</th>
-                <th>Layout</th>
-                <th className="numeric-cell">Substrates</th>
-                <th className="numeric-cell">Devices</th>
+                <th>{tr("batchDetailPage.code")}</th>
+                <th>{tr("materialDetailView.name")}</th>
+                <th>{tr("reviewPanel.role")}</th>
+                <th>{tr("conditionCard.layout")}</th>
+                <th className="numeric-cell">{tr("conditionCard.substrates")}</th>
+                <th className="numeric-cell">{tr("conditionCard.devices")}</th>
               </tr>
             </thead>
             <tbody>
@@ -846,17 +845,17 @@ export function BatchDetailPage() {
 
       <section className="panel" aria-labelledby="substrate-directory-title">
         <div className="panel__heading">
-          <h2 className="panel__title" id="substrate-directory-title">Substrates &amp; devices</h2>
-          <span className="record-count">{activeSheet.substrates.length} substrates</span>
+          <h2 className="panel__title" id="substrate-directory-title">{tr("batchDetailPage.substratesDevices")}</h2>
+          <span className="record-count">{activeSheet.substrates.length} {tr("batchDetailPage.substrates")}</span>
         </div>
         <div className="table-scroll">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Mark</th>
-                <th>Substrate</th>
-                <th>Status</th>
-                <th>Devices</th>
+                <th>{tr("batchDetailPage.mark")}</th>
+                <th>{tr("deviceExclusionsPanel.substrate")}</th>
+                <th>{tr("presetFilters.status")}</th>
+                <th>{tr("conditionCard.devices")}</th>
               </tr>
             </thead>
             <tbody>
@@ -870,7 +869,7 @@ export function BatchDetailPage() {
                     <td><code>{substrate.substrate_mark}</code></td>
                     <td>{substrate.substrate_code}</td>
                     <td><StatusBadge status={substrate.status} /></td>
-                    <td>{marks.length > 0 ? marks.join(", ") : devices.length > 0 ? `${devices.length} devices` : "—"}</td>
+                    <td>{marks.length > 0 ? marks.join(", ") : devices.length > 0 ? tr("batchDetailPage.nDevices", { "n": devices.length }) : "—"}</td>
                   </tr>
                 );
               })}
@@ -881,13 +880,12 @@ export function BatchDetailPage() {
 
       <section className="panel" aria-labelledby="preparation-directory-title">
         <div className="panel__heading">
-          <h2 className="panel__title" id="preparation-directory-title">Run sheet</h2>
+          <h2 className="panel__title" id="preparation-directory-title">{tr("batchDetailPage.runSheet")}</h2>
           <span className="record-count">
-            {activeSheet.preparations.length} preparations · {activeSheet.executions.length} executions
-          </span>
+            {activeSheet.preparations.length} {tr("batchDetailPage.preparations3")}{activeSheet.executions.length} {tr("batchDetailPage.executions")}</span>
         </div>
         {activeSheet.preparations.length === 0 && activeSheet.executions.length === 0 ? (
-          <EmptyState title="Nothing to record on this run sheet yet." />
+          <EmptyState title={tr("batchDetailPage.nothingToRecordOnThisRunSheetYet")} />
         ) : (
           <RunSheetTable
             key={routeKey}
@@ -904,7 +902,7 @@ export function BatchDetailPage() {
           // and the full snapshot forms inside; the checklist stays the
           // primary surface for human scanning either way.
           <details className="snapshot-disclosure" open style={{ marginTop: 12 }}>
-            <summary>Advanced: split, merge, and full recording forms</summary>
+            <summary>{tr("batchDetailPage.advancedSplitMergeAndFullRecordingForms")}</summary>
             <div style={{ marginTop: 12 }}>
               {activeSheet.preparations.map((item) => (
                 <PreparationSection
@@ -935,25 +933,25 @@ export function BatchDetailPage() {
 
       <section className="panel" aria-labelledby="deviation-directory-title">
         <div className="panel__heading">
-          <h2 className="panel__title" id="deviation-directory-title">Deviations</h2>
-          <span className="record-count">{activeSheet.deviations.length} records</span>
+          <h2 className="panel__title" id="deviation-directory-title">{tr("batchDetailPage.deviations2")}</h2>
+          <span className="record-count">{activeSheet.deviations.length} {tr("presetFilters.records")}</span>
         </div>
         {batch.status !== "cancelled" ? (
           <DeviationSection sheet={activeSheet} onSubmit={addDeviation} disabled={submitting} />
         ) : null}
         {activeSheet.deviations.length === 0 ? (
-          <EmptyState title="No deviations recorded." />
+          <EmptyState title={tr("batchDetailPage.noDeviationsRecorded")} />
         ) : (
           <div className="table-scroll">
             <table className="data-table">
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>Category</th>
-                  <th>Type</th>
-                  <th>Severity</th>
-                  <th>Description</th>
-                  <th>Recorded</th>
+                  <th>{tr("runSheetTable.category")}</th>
+                  <th>{tr("deviationSection.type")}</th>
+                  <th>{tr("runSheetTable.severity")}</th>
+                  <th>{tr("deviationSection.description")}</th>
+                  <th>{tr("batchDetailPage.recorded2")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -988,7 +986,7 @@ export function BatchDetailPage() {
           open
           title={pendingConfirm.title}
           message={pendingConfirm.message}
-          confirmLabel="Confirm"
+          confirmLabel={tr("batchDetailPage.confirm")}
           destructive={pendingConfirm.destructive ?? true}
           onCancel={() => setPendingConfirm(null)}
           onConfirm={() => {

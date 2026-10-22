@@ -1,3 +1,4 @@
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
 import { useEffect, useState } from "react";
 
 type FigureKind = "jv" | "boxplot" | "uniformity";
@@ -69,12 +70,13 @@ export function PublicationFigure({
   scale?: FigureColorScale;
   downloadEnabled?: boolean;
 }) {
+  useUiLanguage();
   const [error, setError] = useState(false);
   const src = figureUrl(resultId, kind, "svg", metric, direction, deviceIds, excludedDeviceIds, flaggedDeviceIds, revision, false, palette, scale);
   useEffect(() => setError(false), [src]);
   return <figure className="publication-figure">
-    <div className="publication-figure__downloads" aria-label="Publication figure downloads">
-      <span>Download</span>
+    <div className="publication-figure__downloads" aria-label={tr("publicationFigure.publicationFigureDownloads")}>
+      <span>{tr("publicationFigure.download")}</span>
       {(["svg", "pdf", "tiff"] as const).map((format) =>
         downloadEnabled
           ? <a key={format} className="button button--secondary button--small"
@@ -82,13 +84,13 @@ export function PublicationFigure({
               {format.toUpperCase()}
             </a>
           : <button key={format} className="button button--secondary button--small" type="button" disabled
-              title="Save exclusion changes before downloading the filtered figure.">
+              title={tr("publicationFigure.saveExclusionChangesBeforeDownloadingTheFilteredFigure")}>
               {format.toUpperCase()}
             </button>)}
     </div>
     {error
-      ? <p role="alert">The publication figure could not be generated for this selection.</p>
+      ? <p role="alert">{tr("publicationFigure.thePublicationFigureCouldNotBeGeneratedForThis")}</p>
       : <img key={src} src={src} alt={alt} role="img" aria-label={alt} onError={() => setError(true)} />}
-    <figcaption>Python/Matplotlib preview. The downloaded SVG, PDF, and TIFF use the same data and layout.</figcaption>
+    <figcaption>{tr("publicationFigure.pythonMatplotlibPreviewTheDownloadedSVGPDFAndTIFF")}</figcaption>
   </figure>;
 }

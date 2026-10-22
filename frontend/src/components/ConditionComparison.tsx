@@ -1,4 +1,7 @@
-import { useMemo, useState } from "react";
+import { enumLabel, localizeAppText } from "../i18n";
+import { useLocalizedMemo as useMemo } from "../i18n";
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
+import { useState } from "react";
 import type {
   Condition,
   DeviceLayer,
@@ -63,7 +66,7 @@ function formatSolution(solution: LayerSolution | null): string | null {
   }
   if (solution.formulation_type === "diluted_dispersion") {
     const volume = nullable(solution.stock_volume_ml, (value) => ` · ${value} mL`);
-    return `Dispersion: ${solution.stock_dispersion}${volume ?? ""}`;
+    return `${tr("comparison.dispersion")}: ${solution.stock_dispersion}${volume ?? ""}`;
   }
   const solids = solution.solids
     .filter((solid) => solid.chemical)
@@ -72,8 +75,8 @@ function formatSolution(solution: LayerSolution | null): string | null {
     .filter((solvent) => solvent.solvent)
     .map((solvent) => (solvent.volume_ml !== null ? `${solvent.solvent} ${solvent.volume_ml} mL` : solvent.solvent));
   return [
-    solids.length > 0 ? `Solids: ${solids.join(" · ")}` : null,
-    solvents.length > 0 ? `Solvents: ${solvents.join(" · ")}` : null,
+    solids.length > 0 ? `${tr("comparison.solids")}: ${solids.join(" · ")}` : null,
+    solvents.length > 0 ? `${tr("comparison.solvents")}: ${solvents.join(" · ")}` : null,
   ]
     .filter(Boolean)
     .join("\n") || null;
@@ -82,10 +85,10 @@ function formatSolution(solution: LayerSolution | null): string | null {
 function formatLayerProcess(process: LayerProcess): string | null {
   const parts: string[] = [];
   if (process.spin_steps?.length) {
-    parts.push(`Spin: ${process.spin_steps.map((step) => formatSpinStep(step) ?? "?").join(" → ")}`);
+    parts.push(`${tr("comparison.spin")}: ${process.spin_steps.map((step) => formatSpinStep(step) ?? "?").join(" → ")}`);
   }
   if (process.anneal_steps?.length) {
-    parts.push(`Anneal: ${process.anneal_steps.map((step) => formatAnnealStep(step) ?? "?").join(" → ")}`);
+    parts.push(`${tr("comparison.anneal")}: ${process.anneal_steps.map((step) => formatAnnealStep(step) ?? "?").join(" → ")}`);
   }
   const scalars: [string, string | null][] = [
     ["Mode", process.sputter_mode ?? null],
@@ -111,10 +114,10 @@ function formatLayerProcess(process: LayerProcess): string | null {
   ];
   for (const [label, value] of scalars) {
     if (value !== null) {
-      parts.push(`${label}: ${value}`);
+      parts.push(`${localizeAppText(label)}: ${value}`);
     }
   }
-  return parts.length > 0 ? parts.join("\n") : process.method.replace(/_/g, " ");
+  return parts.length > 0 ? parts.join("\n") : enumLabel(process.method);
 }
 
 type DepositionProcess = PerovskiteDepositionProcess | null;
@@ -148,7 +151,7 @@ function perovskiteValue(process: DepositionProcess, label: string): string | nu
     return null;
   }
   if (label === "Method") {
-    return process.method.replace(/_/g, " ");
+    return enumLabel(process.method);
   }
   if (label === "VCD sequence") {
     return process.vcd_step_sequence?.length ? process.vcd_step_sequence.join(" → ") : null;
@@ -207,9 +210,9 @@ function deviceValue(snapshot: Condition["recipe_snapshot"], label: string): str
       return `${substrate.material} · ${substrate.vendor} · ${substrate.type_number}`;
     }
     case "Junction":
-      return device.junction_type.replace(/_/g, " ");
+      return enumLabel(device.junction_type);
     case "Bandgap":
-      return device.perovskite_bandgap?.replace(/_/g, " ") ?? null;
+      return enumLabel(device.perovskite_bandgap) ?? null;
     case "Layer sequence":
       return device.layers.map((layer) => layer.name).join(" → ") || null;
     default:
@@ -272,7 +275,7 @@ function buildGroups(conditions: Condition[]): { controlIndex: number; groups: C
         snapshots.map((snapshot) => {
           const layer = snapshot.device.layers[index] ?? null;
           return layer
-            ? `${layer.name} (${layer.role.replace(/_/g, " ")} · ${layer.layer_type})`
+            ? `${layer.name} (${enumLabel(layer.role)} · ${layer.layer_type})`
             : null;
         }),
       ),
@@ -303,7 +306,7 @@ function buildGroups(conditions: Condition[]): { controlIndex: number; groups: C
       finalize(
         `layer-${index}`,
         `${index + 1} · ${controlLayer?.name ?? "—"}`,
-        controlLayer ? controlLayer.role.replace(/_/g, " ") : null,
+        controlLayer ? enumLabel(controlLayer.role) : null,
         rows,
       ),
     );
@@ -313,14 +316,15 @@ function buildGroups(conditions: Condition[]): { controlIndex: number; groups: C
 }
 
 export function ConditionComparison({ conditions }: { conditions: Condition[] }) {
+  useUiLanguage();
   const [openOverrides, setOpenOverrides] = useState<Record<string, boolean>>({});
   const { controlIndex, groups } = useMemo(() => buildGroups(conditions), [conditions]);
 
   return (
     <section className="condition-comparison" aria-labelledby="condition-comparison-title">
       <div className="panel__heading">
-        <h3 className="panel__title" id="condition-comparison-title">Condition comparison</h3>
-        <span className="condition-comparison__legend">layers in fabrication order · identical layers collapsed</span>
+        <h3 className="panel__title" id="condition-comparison-title">{tr("conditionComparison.conditionComparison")}</h3>
+        <span className="condition-comparison__legend">{tr("conditionComparison.layersInFabricationOrderIdenticalLayersCollapsed")}</span>
       </div>
       {groups.map((group) => {
         const open = openOverrides[group.key] ?? group.hasDifference;
@@ -337,27 +341,27 @@ export function ConditionComparison({ conditions }: { conditions: Condition[] })
             }}
           >
             <summary>
-              {group.title}
+              {group.key === "device" ? tr("deviceExclusionsPanel.device") : group.title}
               {group.meta ? <span className="condition-comparison__role">{group.meta}</span> : null}
               {group.hasDifference ? (
                 <span className="condition-comparison__mark condition-comparison__mark--diff">
-                  {group.diffRowCount} {group.diffRowCount === 1 ? "difference" : "differences"}
+                  {tr("summary.differences", { n: group.diffRowCount, s: group.diffRowCount === 1 ? "" : "s" })}
                 </span>
               ) : (
-                <span className="condition-comparison__mark condition-comparison__mark--same">identical</span>
+                <span className="condition-comparison__mark condition-comparison__mark--same">{tr("conditionComparison.identical")}</span>
               )}
             </summary>
             <div className="table-scroll">
               <table className="data-table condition-comparison__table">
                 <thead>
                   <tr>
-                    <th scope="col">Parameter</th>
+                    <th scope="col">{tr("conditionComparison.parameter")}</th>
                     {conditions.map((condition, index) => (
                       <th scope="col" key={condition.id}>
                         {condition.condition_name}
                         <span className="condition-comparison__role">
-                          {condition.role}
-                          {index === controlIndex ? " · reference" : ""}
+                          {enumLabel(condition.role)}
+                          {index === controlIndex ? tr("conditionComparison.reference") : ""}
                         </span>
                       </th>
                     ))}
@@ -366,7 +370,7 @@ export function ConditionComparison({ conditions }: { conditions: Condition[] })
                 <tbody>
                   {group.rows.map((row) => (
                     <tr key={row.label}>
-                      <th scope="row">{row.label}</th>
+                      <th scope="row">{localizeAppText(row.label ?? "")}</th>
                       {conditions.map((condition, index) => {
                         const value = row.values[index] ?? null;
                         const controlValue = row.values[controlIndex] ?? null;

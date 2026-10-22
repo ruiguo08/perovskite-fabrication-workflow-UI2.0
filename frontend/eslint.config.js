@@ -16,6 +16,7 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      "react-hooks/exhaustive-deps": ["warn", { additionalHooks: "useLocalizedMemo" }],
       "@typescript-eslint/no-explicit-any": "off",
     },
   },

@@ -1,4 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { localizeAppText } from "../../i18n";
+import { useMemo } from "react";
+import { translate as tr, useLanguage as useUiLanguage } from "../../i18n";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "../../auth/session";
 import { ErrorState } from "../../components/ErrorState";
 import { FormField } from "../../components/FormField";
@@ -101,6 +104,7 @@ function baselineDeviceRecipe(draft: ExperimentDraft): DeviceRecipe {
  * requiring an existing source baseline or any raw JSON input.
  */
 export function BaselineAuthoring({ scope, onSubmit, initialValues }: BaselineAuthoringProps) {
+  useUiLanguage();
   const { user } = useSession();
   const [name, setName] = useState(initialValues?.name ?? "");
   const [draft, setDraft] = useState<ExperimentDraft>(() =>
@@ -161,17 +165,16 @@ export function BaselineAuthoring({ scope, onSubmit, initialValues }: BaselineAu
     && !submitting;
 
   if (catalogsResource.status === "loading" && catalogs === null) {
-    return <div className="page-loading" role="status">Loading authoring catalogs…</div>;
+    return <div className="page-loading" role="status">{tr("baselineAuthoring.loadingAuthoringCatalogs")}</div>;
   }
   if (catalogs === null) {
     return (
       <ErrorState
-        title="Unable to load authoring catalogs"
-        message={catalogError ?? "The materials, presets, or device layouts could not be loaded."}
+        title={tr("baselineAuthoring.unableToLoadAuthoringCatalogs")}
+        message={catalogError ?? tr("baselineAuthoring.theMaterialsPresetsOrDeviceLayoutsCouldNotBe")}
         action={
           <button type="button" className="button button--secondary" onClick={() => void catalogsResource.reload()}>
-            Retry
-          </button>
+            {tr("versionHistory.retry")}</button>
         }
       />
     );
@@ -204,18 +207,18 @@ export function BaselineAuthoring({ scope, onSubmit, initialValues }: BaselineAu
     >
       {restoredDraft && !initialValues ? (
         <div className="draft-restored-note" role="status">
-          <span>Draft restored from your last editing session. Your entered values are kept until you save or discard them.</span>
-          <button type="button" className="button button--secondary button--small" onClick={discardDraft}>Discard draft</button>
+          <span>{tr("baselineAuthoring.draftRestoredFromYourLastEditingSessionYourEntered")}</span>
+          <button type="button" className="button button--secondary button--small" onClick={discardDraft}>{tr("baselineAuthoring.discardDraft")}</button>
         </div>
       ) : null}
 
       <RequiredLegend />
 
       <div className="builder-fields builder-fields--two">
-        <FormField label={initialValues ? "Baseline name" : "New baseline name"} htmlFor="new-baseline-name" required>
+        <FormField label={initialValues ? tr("baselineAuthoring.baselineName") : tr("baselineAuthoring.newBaselineName")} htmlFor="new-baseline-name" required>
           <input id="new-baseline-name" className="text-input" required maxLength={240} value={name} onChange={(event) => setName(event.target.value)} />
         </FormField>
-        <FormField label="Baseline scope" htmlFor="new-baseline-scope" hint="The server fixes the scope from your role; the baseline cannot be changed to the other scope later.">
+        <FormField label={tr("baselineAuthoring.baselineScope")} htmlFor="new-baseline-scope" hint={tr("baselineAuthoring.theServerFixesTheScopeFromYourRoleThe")}>
           <input id="new-baseline-scope" className="text-input" readOnly value={scope === "shared" ? "Shared (lab-wide starting point)" : "Personal (visible only to you)"} />
         </FormField>
       </div>
@@ -245,19 +248,19 @@ export function BaselineAuthoring({ scope, onSubmit, initialValues }: BaselineAu
 
       <div className="builder-actions">
         <span>{issues.length === 0
-          ? "Complete recipe: each layer and the Perovskite deposition process snapshot are complete."
-          : `${issues.length} review items remain before this baseline can be saved.`}</span>
+          ? tr("baselineAuthoring.completeRecipeEachLayerAndThePerovskiteDepositionProcess")
+          : tr("baselineAuthoring.nReviewItemsRemainBeforeThisBaselineCanBe", { "n": issues.length })}</span>
         <button className="button button--primary" type="submit" disabled={!canSubmit}>
-          {submitting ? "Saving…" : initialValues ? "Save new revision" : scope === "shared" ? "Save shared baseline" : "Save personal baseline"}
+          {submitting ? tr("runSheetTable.saving") : initialValues ? tr("baselineAuthoring.saveNewRevision") : scope === "shared" ? tr("baselineAuthoring.saveSharedBaseline") : tr("baselineAuthoring.savePersonalBaseline")}
         </button>
       </div>
       {issues.length > 0 ? (
         <div className="builder-issue-summary" role="alert" aria-labelledby="baseline-issues-title">
-          <h3 id="baseline-issues-title">Complete these values before saving</h3>
-          <ul>{issues.map((issue, index) => <li key={`${issue.path}-${index}`}><code>{issue.path}</code> — {issue.message}</li>)}</ul>
+          <h3 id="baseline-issues-title">{tr("baselineAuthoring.completeTheseValuesBeforeSaving")}</h3>
+          <ul>{issues.map((issue, index) => <li key={`${issue.path}-${index}`}><code>{issue.path}</code> — {localizeAppText(issue.message ?? "")}</li>)}</ul>
         </div>
       ) : null}
-      <InlineFormError message={error} />
+      <InlineFormError message={localizeAppText(error ?? "")} />
     </form>
   );
 }

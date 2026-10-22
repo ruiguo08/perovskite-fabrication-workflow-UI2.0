@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { EmptyState } from "../components/EmptyState";
+import { useLanguage } from "../i18n";
 
 interface NotReadyProps {
   section: string;
@@ -11,13 +12,14 @@ interface NotReadyProps {
  * (docs/react-migration.md), so this only renders for unknown paths.
  */
 export function NotReady({ section }: NotReadyProps) {
+  const { t } = useLanguage();
   return (
     <EmptyState
-      title={`${section} is not part of the application`}
-      description="The address does not match any application section. Use the link below to return to the overview."
+      title={t("route.missingTitle", { section })}
+      description={t("route.missing")}
       action={
         <Link className="button button--secondary" to="/">
-          Back to overview
+          {t("route.back")}
         </Link>
       }
     />

@@ -1,3 +1,5 @@
+import { localizeAppText, enumLabel } from "../../i18n";
+import { translate as tr, useLanguage as useUiLanguage } from "../../i18n";
 import { useState } from "react";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { InlineFormError } from "../../components/InlineFormError";
@@ -55,6 +57,7 @@ export function PresetDetailView({
   onEdit: (presetId: number) => void;
   onBack: () => void;
 }) {
+  useUiLanguage();
   const { show } = useToast();
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -106,8 +109,7 @@ export function PresetDetailView({
   return (
     <article aria-labelledby={titleId}>
       <button type="button" className="button button--secondary lib-back" onClick={onBack}>
-        ← Back to library
-      </button>
+        {tr("presetDetailView.backToLibrary")}</button>
       <div className="lib-detail">
         <header className="lib-detail__head">
           <div>
@@ -115,26 +117,25 @@ export function PresetDetailView({
             <LibTags>
               <LibTag tone={preset.scope === "shared" ? "info" : undefined}>{roleLabel(preset.layer.role)}</LibTag>
               <LibTag>{layerTypeLabel(preset.layer.layer_type)}</LibTag>
-              <LibTag tone="scope">{preset.scope}</LibTag>
+              <LibTag tone="scope">{enumLabel(preset.scope)}</LibTag>
             </LibTags>
             <p className="lib-record__subtitle">
-              {preset.layer.name} · {isPerovskite ? "Spin coating + VCD" : layerMethodLabel(preset.layer.process?.method ?? "")}
+              {preset.layer.name} · {isPerovskite ? tr("presetDetailView.spinCoatingVCD") : layerMethodLabel(preset.layer.process?.method ?? "")}
             </p>
           </div>
           <div className="lib-actions">
-            <StatusBadge status={preset.status} />
+            <StatusBadge status={preset.status} context="catalog" />
             <LibTag tone="scope">r{preset.current_revision_number}</LibTag>
             {editable ? (
-              <button type="button" className="button button--primary" onClick={() => onEdit(preset.id)}>Edit preset</button>
+              <button type="button" className="button button--primary" onClick={() => onEdit(preset.id)}>{tr("createFromSnapshotForm.editPreset")}</button>
             ) : null}
             {promotableNow ? (
               <button type="button" className="button button--secondary" onClick={() => setConfirmingPromotion(true)}>
-                Promote to shared
-              </button>
+                {tr("presetBrowseCard.promoteToShared")}</button>
             ) : null}
             {canDeactivate && preset.status === "active" ? (
               <button type="button" className="button button--danger" onClick={() => setConfirming(true)}>
-                Deactivate {preset.name}
+                {tr("presetDetailView.deactivate")}{preset.name}
               </button>
             ) : null}
           </div>
@@ -142,54 +143,53 @@ export function PresetDetailView({
 
         {!completeness.experimentReady ? (
           <div className="lib-card-note" role="note">
-            Partial template — this preset is legal to keep and revise, but it is not a complete experiment layer yet. Missing values are listed per section below.
-          </div>
+            {tr("presetDetailView.partialTemplateThisPresetIsLegalToKeepAnd")}</div>
         ) : (
           <LibTags>
-            {isPerovskite && completeness.templateComplete ? <LibTag tone="ok">Template complete</LibTag> : null}
-            <LibTag tone="ok">Experiment-ready</LibTag>
+            {isPerovskite && completeness.templateComplete ? <LibTag tone="ok">{tr("presetDetailView.templateComplete")}</LibTag> : null}
+            <LibTag tone="ok">{tr("presetDetailView.experimentReady")}</LibTag>
           </LibTags>
         )}
 
-        <LibSection title="Layer and formulation" labelledBy={`preset-detail-formulation-${preset.id}`}>
+        <LibSection title={tr("presetDetailView.layerAndFormulation")} labelledBy={`preset-detail-formulation-${preset.id}`}>
           <LibFacts facts={[
             // Formulation values come solely from formulationFacts so every
             // ingredient is listed exactly once with its full reading.
             ...presetSummaryFacts(preset).filter((fact) => !["Formulation", "Solids", "Solvents", "Stock dispersion", "Stock volume", "Revision", "Scope"].includes(fact.label)),
             ...formulationFacts(preset.layer),
-            { label: "Revision", value: `r${preset.current_revision_number}` },
-            { label: "Scope", value: preset.scope },
+            { label: tr("presetDetailView.revision"), value: `r${preset.current_revision_number}` },
+            { label: tr("presetDetailView.scope"), value: preset.scope },
           ]} />
         </LibSection>
 
         <LibSection
-          title="Process in execution order"
+          title={tr("presetDetailView.processInExecutionOrder")}
           labelledBy={`preset-detail-process-${preset.id}`}
           hint={isPerovskite
-            ? "The perovskite program runs spin coating, then the vacuum/gas-backfill rows in their recorded order, then annealing."
-            : "Recorded process values for this layer type."}
+            ? tr("presetDetailView.thePerovskiteProgramRunsSpinCoatingThenTheVacuum")
+            : tr("presetDetailView.recordedProcessValuesForThisLayerType")}
         >
           {spinSteps.length > 0 ? (
             <>
-              <h4 className="lib-section-hint">Spin coating</h4>
+              <h4 className="lib-section-hint">{tr("presetDetailView.spinCoating")}</h4>
               <LibSteps steps={spinSteps.map((step, index) => ({
-                title: `Stage ${index + 1}`,
+                title: tr("presetDetailView.stageN", { "n": index + 1 }),
                 detail: `${step.rpm ?? "—"} rpm · ${step.seconds ?? "—"} s · ${step.acceleration_rpm_per_s ?? "—"} rpm/s`,
               }))} />
             </>
           ) : null}
           {isPerovskite && process ? (
             <>
-              <h4 className="lib-section-hint">Vacuum and gas-backfill program</h4>
+              <h4 className="lib-section-hint">{tr("presetDetailView.vacuumAndGasBackfillProgram")}</h4>
               <LibSteps steps={unifiedFromProcess(process).map((stage, index) => (
                 stage.kind === "evacuate"
                   ? {
-                      title: `Evacuate (stage ${index + 1})`,
+                      title: tr("presetDetailView.evacuateStageN", { "n": index + 1 }),
                       detail: `${stage.valve} · ${stage.pressure_pa ?? "—"} Pa · ${stage.seconds ?? "—"} s`,
                     }
                   : {
-                      title: `Gas backfill (stage ${index + 1})`,
-                      detail: `${stage.gas || "—"} · ${stage.flow_sccm ?? "—"} sccm → ${stage.target_pressure_pa ?? "—"} Pa · hold ${stage.hold_seconds ?? "—"} s`,
+                      title: tr("presetDetailView.gasBackfillStageN", { "n": index + 1 }),
+                      detail: tr("presetDetailView.gasFSccmPPaHoldSS", { "gas": stage.gas || "—", "f": stage.flow_sccm ?? "—", "p": stage.target_pressure_pa ?? "—", "s": stage.hold_seconds ?? "—" }),
                     }
               ))} />
             </>
@@ -197,23 +197,23 @@ export function PresetDetailView({
           {!isPerovskite && preset.layer.process ? <LayerProcessFacts preset={preset} /> : null}
           {annealSteps.length > 0 ? (
             <>
-              <h4 className="lib-section-hint">Annealing</h4>
+              <h4 className="lib-section-hint">{tr("presetDetailView.annealing")}</h4>
               <LibSteps steps={annealSteps.map((step, index) => ({
-                title: `Stage ${index + 1}`,
+                title: tr("presetDetailView.stageN", { "n": index + 1 }),
                 detail: `${step.temperature_c ?? "—"} °C · ${step.seconds ?? "—"} s`,
               }))} />
             </>
           ) : null}
           {(isPerovskite && !process) || (!isPerovskite && !preset.layer.process) ? (
-            <p className="lib-muted">No process recorded for this preset.</p>
+            <p className="lib-muted">{tr("presetDetailView.noProcessRecordedForThisPreset")}</p>
           ) : null}
         </LibSection>
 
         <LibSection
-          title="Version history and comparison"
+          title={tr("presetDetailView.versionHistoryAndComparison")}
           labelledBy={`preset-detail-versions-${preset.id}`}
           hint={promotable
-            ? "Version history and comparison become available after the preset is promoted to shared."
+            ? tr("presetDetailView.versionHistoryAndComparisonBecomeAvailableAfterThePreset")
             : undefined}
         >
           {!promotable ? (
@@ -227,34 +227,34 @@ export function PresetDetailView({
           ) : null}
         </LibSection>
 
-        <LibSection title="Technical provenance" labelledBy={`preset-detail-provenance-${preset.id}`}>
+        <LibSection title={tr("presetDetailView.technicalProvenance")} labelledBy={`preset-detail-provenance-${preset.id}`}>
           <details className="lib-provenance">
-            <summary>Canonical hash, source key, and schema</summary>
+            <summary>{tr("presetDetailView.canonicalHashSourceKeyAndSchema")}</summary>
             <LibFacts singleColumn facts={[
-              { label: "Canonical hash", value: preset.canonical_hash },
-              { label: "Preset key", value: preset.preset_key },
-              { label: "Created", value: formatDateTime(preset.created_at) },
-              { label: "Updated", value: formatDateTime(preset.updated_at) },
+              { label: tr("presetDetailView.canonicalHash"), value: preset.canonical_hash },
+              { label: tr("presetDetailView.presetKey"), value: preset.preset_key },
+              { label: tr("presetDetailView.created"), value: formatDateTime(preset.created_at) },
+              { label: tr("presetDetailView.updated"), value: formatDateTime(preset.updated_at) },
             ]} />
           </details>
         </LibSection>
 
-        <InlineFormError message={error} />
+        <InlineFormError message={localizeAppText(error ?? "")} />
       </div>
 
       <ConfirmDialog
         open={confirmingPromotion}
-        title="Promote layer preset to shared"
-        message={`Every student will be able to select ${preset.name} as a starting point. Promotion is one-way: the preset cannot be made personal again.`}
-        confirmLabel="Promote to shared"
+        title={tr("presetDetailView.promoteLayerPresetToShared")}
+        message={tr("presetDetailView.everyStudentWillBeAbleToSelectNameAs", { "name": preset.name })}
+        confirmLabel={tr("presetBrowseCard.promoteToShared")}
         onConfirm={() => void promote()}
         onCancel={() => setConfirmingPromotion(false)}
       />
       <ConfirmDialog
         open={confirming}
-        title="Deactivate layer preset"
-        message="Existing experiment snapshots remain unchanged. This preset will no longer be available for new selections."
-        confirmLabel="Deactivate preset"
+        title={tr("presetDetailView.deactivateLayerPreset")}
+        message={tr("presetDetailView.existingExperimentSnapshotsRemainUnchangedThisPresetWillNo")}
+        confirmLabel={tr("presetDetailView.deactivatePreset")}
         destructive
         onConfirm={() => void deactivate()}
         onCancel={() => setConfirming(false)}
@@ -264,6 +264,7 @@ export function PresetDetailView({
 }
 
 function LayerProcessFacts({ preset }: { preset: LayerPreset }) {
+  useUiLanguage();
   const facts = presetSummaryFacts(preset).filter((fact) =>
     ["Spin stages", "Annealing", "Process values"].includes(fact.label));
   return <LibFacts facts={facts} />;

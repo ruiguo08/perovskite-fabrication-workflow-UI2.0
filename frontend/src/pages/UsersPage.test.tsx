@@ -1,7 +1,8 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../components/Toast";
 import { UsersPage } from "./UsersPage";
+import { setLanguage } from "../i18n";
 
 const apiFetchMock = vi.hoisted(() => vi.fn());
 
@@ -85,6 +86,36 @@ describe("UsersPage", () => {
       },
     });
     expect(screen.getByLabelText(/^Temporary password/)).toHaveValue("");
+  });
+
+  it("keeps Chinese role choices as API enums and retains an unsaved form across language changes", async () => {
+    setLanguage("zh");
+    apiFetchMock.mockImplementation((path: string, options?: { method?: string }) => {
+      if (path === "/api/users" && options?.method === "POST") {
+        return Promise.resolve({ ...student, id: 3, username: "new-instructor", display_name: "Control NiOx", role: "instructor", is_active: true });
+      }
+      return Promise.resolve([administrator, student]);
+    });
+    renderPage();
+    await screen.findByText("Student One");
+    const username = screen.getByLabelText(/^用户名/);
+    fireEvent.change(username, { target: { value: "new-instructor" } });
+    fireEvent.change(screen.getByLabelText(/^显示名称/), { target: { value: "Control NiOx" } });
+    fireEvent.change(screen.getByLabelText(/^临时密码/), { target: { value: "Temporary password 2026" } });
+    const roleInput = screen.getByLabelText(/^角色/);
+    fireEvent.change(roleInput, { target: { value: "instructor" } });
+    const requestsBeforeSwitch = apiFetchMock.mock.calls.length;
+    act(() => setLanguage("en"));
+    expect(screen.getByLabelText(/^Username/)).toBe(username);
+    expect(roleInput).toHaveValue("instructor");
+    expect(apiFetchMock).toHaveBeenCalledTimes(requestsBeforeSwitch);
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+    await waitFor(() => expect(apiFetchMock).toHaveBeenCalledWith("/api/users", {
+      method: "POST", body: {
+        username: "new-instructor", display_name: "Control NiOx", password: "Temporary password 2026", role: "instructor",
+      },
+    }));
+    expect(await screen.findByText("Control NiOx")).toBeInTheDocument();
   });
 
   it("updates access and keeps self-deactivation errors inline", async () => {

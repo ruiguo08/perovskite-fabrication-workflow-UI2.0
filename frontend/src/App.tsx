@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { useLanguage, syncDocumentLanguage, localizeKnownError } from "./i18n";
 import {
   BrowserRouter,
   Navigate,
@@ -33,12 +35,13 @@ import { FabricationBatchesPage } from "./pages/FabricationBatchesPage";
 import { BatchDetailPage } from "./pages/BatchDetailPage";
 
 function RequireAuth() {
+  const { t } = useLanguage();
   const { status, error, refresh } = useSession();
   const location = useLocation();
   if (status === "loading") {
     return (
       <div className="app-loading" role="status">
-        Loading…
+        {t("common.loading")}
       </div>
     );
   }
@@ -61,15 +64,15 @@ function RequireAuth() {
     return (
       <div className="app-loading">
         <ErrorState
-          title="Unable to verify your session"
-          message={error ?? "The session service did not respond."}
+          title={t("auth.sessionTitle")}
+          message={error ? localizeKnownError(error) : t("auth.sessionTimeout")}
           action={
             <button
               type="button"
               className="button button--secondary"
               onClick={() => void refresh()}
             >
-              Retry
+              {t("common.retry")}
             </button>
           }
         />
@@ -86,12 +89,13 @@ const ROLE_RANK: Record<Role, number> = {
 };
 
 function RequireRole({ minimum }: { minimum: Role }) {
+  const { t } = useLanguage();
   const { user } = useSession();
   if (!user || ROLE_RANK[user.role] < ROLE_RANK[minimum]) {
     return (
       <ErrorState
-        title="Not authorized"
-        message="Your account does not have permission to view this page."
+        title={t("auth.deniedTitle")}
+        message={t("auth.denied")}
       />
     );
   }
@@ -99,6 +103,8 @@ function RequireRole({ minimum }: { minimum: Role }) {
 }
 
 export default function App() {
+  const { language, t } = useLanguage();
+  useEffect(syncDocumentLanguage, [language]);
   return (
     <BrowserRouter basename="/app">
       <SessionProvider>
@@ -173,7 +179,7 @@ export default function App() {
                 <Route element={<RequireRole minimum="administrator" />}>
                   <Route path="users" element={<UsersPage />} />
                 </Route>
-                <Route path="*" element={<NotReady section="This page" />} />
+                <Route path="*" element={<NotReady section={t("route.thisPage")} />} />
               </Route>
             </Route>
           </Routes>

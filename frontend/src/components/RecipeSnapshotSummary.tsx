@@ -1,3 +1,5 @@
+import { enumLabel } from "../i18n";
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
 import type { ConditionDeviceConfiguration, PerovskiteDepositionProcess } from "../types/api";
 import { DeviceStackRail } from "./DeviceStackRail";
 
@@ -12,6 +14,7 @@ export function RecipeSnapshotSummary({
   deviceRecipe,
   depositionProcess,
 }: RecipeSnapshotSummaryProps) {
+  useUiLanguage();
   const substrate = deviceRecipe.substrate;
   return (
     <div className="recipe-summary">
@@ -24,10 +27,10 @@ export function RecipeSnapshotSummary({
         }))}
       />
       <dl className="recipe-summary__metadata">
-        <div><dt>Junction</dt><dd>{deviceRecipe.junction_type.replace(/_/g, " ")}</dd></div>
-        <div><dt>Bandgap</dt><dd>{deviceRecipe.perovskite_bandgap?.replace(/_/g, " ") ?? "Not recorded"}</dd></div>
-        <div><dt>Recipe schema</dt><dd>{deviceRecipe.schema_version}</dd></div>
-        <div><dt>Perovskite process</dt><dd>{depositionProcess?.method.replace(/_/g, " ") ?? "Not recorded"}</dd></div>
+        <div><dt>{tr("recipeSnapshotSummary.junction")}</dt><dd>{enumLabel(deviceRecipe.junction_type)}</dd></div>
+        <div><dt>{tr("recipeSnapshotSummary.bandgap")}</dt><dd>{enumLabel(deviceRecipe.perovskite_bandgap) ?? tr("recipeSnapshotSummary.notRecorded")}</dd></div>
+        <div><dt>{tr("recipeSnapshotSummary.recipeSchema")}</dt><dd>{deviceRecipe.schema_version}</dd></div>
+        <div><dt>{tr("recipeSnapshotSummary.perovskiteProcess")}</dt><dd>{enumLabel(depositionProcess?.method) ?? tr("recipeSnapshotSummary.notRecorded")}</dd></div>
       </dl>
     </div>
   );

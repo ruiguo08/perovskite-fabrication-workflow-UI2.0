@@ -1,4 +1,7 @@
-import { useCallback, useMemo, useState } from "react";
+import { enumLabel, localizeAppText } from "../i18n";
+import { useMemo } from "react";
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
+import { useCallback, useState } from "react";
 import { useSession } from "../auth/session";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
@@ -68,6 +71,7 @@ function upsertMaterial(rows: Material[], replacement: Material): Material[] {
  * search/filter context preserved across the transitions.
  */
 export function MaterialsPage() {
+  useUiLanguage();
   const { user } = useSession();
   const canManage = user?.role === "instructor" || user?.role === "administrator";
   const loadMaterials = useCallback(() => apiFetch<Material[]>("/api/materials"), []);
@@ -87,11 +91,11 @@ export function MaterialsPage() {
   }
 
   if (resource.status === "loading" && resource.data === null) {
-    return <div className="page-loading" role="status">Loading materials…</div>;
+    return <div className="page-loading" role="status">{tr("materialsPage.loadingMaterials")}</div>;
   }
   if (resource.status === "error" && resource.data === null) {
-    return <ErrorState message={resource.error ?? "Unable to load materials."} action={
-      <button type="button" className="button button--secondary" onClick={() => void resource.reload()}>Retry</button>
+    return <ErrorState message={resource.error ?? tr("materialsPage.unableToLoadMaterials")} action={
+      <button type="button" className="button button--secondary" onClick={() => void resource.reload()}>{tr("versionHistory.retry")}</button>
     } />;
   }
 
@@ -104,53 +108,52 @@ export function MaterialsPage() {
   function renderBrowse() {
     return (
       <>
-        <section className="panel experiment-filters" aria-label="Material filters">
-          <FormField label="Search materials" htmlFor="material-filter-search">
+        <section className="panel experiment-filters" aria-label={tr("materialsPage.materialFilters")}>
+          <FormField label={tr("materialsPage.searchMaterials")} htmlFor="material-filter-search">
             <input
               id="material-filter-search"
               className="text-input"
               type="search"
               value={filters.query}
               onChange={(event) => setFilters({ ...filters, query: event.target.value })}
-              placeholder="Name, formula, CAS, or specification"
+              placeholder={tr("materialsPage.nameFormulaCASOrSpecification")}
             />
           </FormField>
-          <FormField label="Category" htmlFor="material-filter-category">
+          <FormField label={tr("runSheetTable.category")} htmlFor="material-filter-category">
             <select
               id="material-filter-category"
               className="text-input"
               value={filters.category}
               onChange={(event) => setFilters({ ...filters, category: event.target.value })}
             >
-              <option value="all">All categories</option>
-              {categories.map((value) => <option key={value} value={value}>{CATEGORY_LABELS[value] ?? value}</option>)}
+              <option value="all">{tr("materialsPage.allCategories")}</option>
+              {categories.map((value) => <option key={value} value={value}>{localizeAppText(CATEGORY_LABELS[value] ?? value)}</option>)}
             </select>
           </FormField>
-          <FormField label="Status" htmlFor="material-filter-status">
+          <FormField label={tr("presetFilters.status")} htmlFor="material-filter-status">
             <select
               id="material-filter-status"
               className="text-input"
               value={filters.status}
               onChange={(event) => setFilters({ ...filters, status: event.target.value })}
             >
-              <option value="all">All statuses</option>
-              {statuses.map((value) => <option key={value} value={value}>{value}</option>)}
+              <option value="all">{tr("presetFilters.allStatuses")}</option>
+              {statuses.map((value) => <option key={value} value={value}>{enumLabel(value, "catalog")}</option>)}
             </select>
           </FormField>
-          <span className="record-count experiment-filters__count">{filteredRows.length} of {rows.length} records</span>
+          <span className="record-count experiment-filters__count">{filteredRows.length} {tr("runSheetTable.of")}{rows.length} {tr("presetFilters.records")}</span>
           {hasActiveFilters ? (
             <button type="button" className="button button--secondary button--small" onClick={() => setFilters(INITIAL_FILTERS)}>
-              Clear filters
-            </button>
+              {tr("presetFilters.clearFilters")}</button>
           ) : null}
         </section>
         {rows.length === 0 ? (
           <EmptyState
-            title="No materials have been recorded."
-            description="Add the first reusable material to start the directory."
+            title={tr("materialsPage.noMaterialsHaveBeenRecorded")}
+            description={tr("materialsPage.addTheFirstReusableMaterialToStartTheDirectory")}
           />
         ) : filteredRows.length === 0 ? (
-          <EmptyState title="No materials match the current filters." />
+          <EmptyState title={tr("materialsPage.noMaterialsMatchTheCurrentFilters")} />
         ) : (
           <div className="lib-grid">
             {filteredRows.map((material) => (
@@ -172,8 +175,8 @@ export function MaterialsPage() {
     if (view.mode !== "detail") return null;
     const material = rows.find((row) => row.id === view.materialId);
     if (!material) {
-      return <ErrorState message="This material is no longer in the visible directory." action={
-        <button type="button" className="button button--secondary" onClick={() => setView({ mode: "browse" })}>Back to directory</button>
+      return <ErrorState message={tr("materialsPage.thisMaterialIsNoLongerInTheVisibleDirectory")} action={
+        <button type="button" className="button button--secondary" onClick={() => setView({ mode: "browse" })}>{tr("materialsPage.backToDirectory")}</button>
       } />;
     }
     return (
@@ -190,12 +193,11 @@ export function MaterialsPage() {
   return (
     <>
       <PageHeader
-        title="Material directory"
-        description="Reusable materials and supplier products for experiment planning. Student submissions remain pending until reviewed."
+        title={tr("materialsPage.materialDirectory")}
+        description={tr("materialsPage.reusableMaterialsAndSupplierProductsForExperimentPlanningStudent")}
         actions={view.mode === "browse" ? (
           <button type="button" className="button button--primary" onClick={() => setView({ mode: "create" })}>
-            New material
-          </button>
+            {tr("materialWorkspace.newMaterial")}</button>
         ) : undefined}
       />
       {view.mode === "browse" ? renderBrowse() : null}
@@ -221,8 +223,8 @@ export function MaterialsPage() {
             onCancel={() => setView({ mode: "browse" })}
           />
         ) : (
-          <ErrorState message="This material is no longer in the visible directory." action={
-            <button type="button" className="button button--secondary" onClick={() => setView({ mode: "browse" })}>Back to directory</button>
+          <ErrorState message={tr("materialsPage.thisMaterialIsNoLongerInTheVisibleDirectory")} action={
+            <button type="button" className="button button--secondary" onClick={() => setView({ mode: "browse" })}>{tr("materialsPage.backToDirectory")}</button>
           } />
         )
       ) : null}

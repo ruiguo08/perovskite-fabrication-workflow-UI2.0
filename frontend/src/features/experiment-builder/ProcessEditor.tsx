@@ -1,4 +1,7 @@
+import { localizeAppText } from "../../i18n";
 import { useMemo } from "react";
+import { translate as tr, useLanguage as useUiLanguage } from "../../i18n";
+
 import { HelpHint } from "../../components/HelpHint";
 import { NumberField, SelectField } from "../../components/Field";
 import { VCD_VALVES } from "../../lib/constraints";
@@ -17,9 +20,10 @@ import type {
 /** Marker shown next to a group heading: "required" groups block saving until
  * every stage is filled in; "optional" groups can be left empty. */
 function GroupMarker({ required }: { required: boolean }) {
+  useUiLanguage();
   return required
-    ? <span className="field-marker field-marker--required">required</span>
-    : <span className="field-marker">optional</span>;
+    ? <span className="field-marker field-marker--required">{tr("processEditor.required")}</span>
+    : <span className="field-marker">{tr("processEditor.optional")}</span>;
 }
 
 function updateAt<T>(items: T[], index: number, replacement: T): T[] {
@@ -50,27 +54,26 @@ interface SpinStagesProps {
 }
 
 function SpinStages({ stages, max, onChange }: SpinStagesProps) {
+  useUiLanguage();
   return (
     <div className="builder-stage-group">
       <div className="builder-subeditor__heading">
-        <h4>Spin stages <GroupMarker required /></h4>
+        <h4>{tr("processEditor.spinStages")}<GroupMarker required /></h4>
         <button
           type="button"
           className="button button--secondary button--small"
           disabled={stages.length >= max}
           onClick={() => onChange([...stages, { rpm: null, seconds: null, acceleration_rpm_per_s: null }])}
         >
-          Add spin stage
-        </button>
+          {tr("processEditor.addSpinStage")}</button>
       </div>
       {stages.map((stage, index) => (
         <div className="builder-stage-row builder-stage-row--four" key={`spin-${index}`}>
-          <NumberField label={`Stage ${index + 1} speed (rpm)`} value={stage.rpm} onChange={(value) => onChange(updateAt(stages, index, { ...stage, rpm: value }))} step="1" />
-          <NumberField label="Duration (s)" value={stage.seconds} onChange={(value) => onChange(updateAt(stages, index, { ...stage, seconds: value }))} step="1" />
-          <NumberField label="Acceleration (rpm/s)" value={stage.acceleration_rpm_per_s} onChange={(value) => onChange(updateAt(stages, index, { ...stage, acceleration_rpm_per_s: value }))} step="1" />
+          <NumberField label={tr("processEditor.stageNSpeedRpm", { "n": index + 1 })} value={stage.rpm} onChange={(value) => onChange(updateAt(stages, index, { ...stage, rpm: value }))} step="1" />
+          <NumberField label={tr("processEditor.durationS")} value={stage.seconds} onChange={(value) => onChange(updateAt(stages, index, { ...stage, seconds: value }))} step="1" />
+          <NumberField label={tr("processEditor.accelerationRpmS")} value={stage.acceleration_rpm_per_s} onChange={(value) => onChange(updateAt(stages, index, { ...stage, acceleration_rpm_per_s: value }))} step="1" />
           <button type="button" className="button button--secondary button--small builder-stage-row__remove" disabled={stages.length <= 1} onClick={() => onChange(removeAt(stages, index))}>
-            Remove
-          </button>
+            {tr("snapshotEditor.remove")}</button>
         </div>
       ))}
     </div>
@@ -84,26 +87,25 @@ interface AnnealStagesProps {
 }
 
 function AnnealStages({ stages, onChange, required = false }: AnnealStagesProps) {
+  useUiLanguage();
   return (
     <div className="builder-stage-group">
       <div className="builder-subeditor__heading">
-        <h4>Annealing stages {required ? <GroupMarker required /> : <GroupMarker required={false} />}</h4>
+        <h4>{tr("processEditor.annealingStages")}{required ? <GroupMarker required /> : <GroupMarker required={false} />}</h4>
         <button
           type="button"
           className="button button--secondary button--small"
           disabled={stages.length >= 2}
           onClick={() => onChange([...stages, { temperature_c: null, seconds: null }])}
         >
-          Add annealing stage
-        </button>
+          {tr("processEditor.addAnnealingStage")}</button>
       </div>
       {stages.map((stage, index) => (
         <div className="builder-stage-row" key={`anneal-${index}`}>
-          <NumberField label={`Stage ${index + 1} temperature (°C)`} value={stage.temperature_c} onChange={(value) => onChange(updateAt(stages, index, { ...stage, temperature_c: value }))} step="1" />
-          <NumberField label="Duration (s)" value={stage.seconds} onChange={(value) => onChange(updateAt(stages, index, { ...stage, seconds: value }))} step="1" />
+          <NumberField label={tr("processEditor.stageNTemperatureC", { "n": index + 1 })} value={stage.temperature_c} onChange={(value) => onChange(updateAt(stages, index, { ...stage, temperature_c: value }))} step="1" />
+          <NumberField label={tr("processEditor.durationS")} value={stage.seconds} onChange={(value) => onChange(updateAt(stages, index, { ...stage, seconds: value }))} step="1" />
           <button type="button" className="button button--secondary button--small builder-stage-row__remove" disabled={required && stages.length <= 1} onClick={() => onChange(removeAt(stages, index))}>
-            Remove
-          </button>
+            {tr("snapshotEditor.remove")}</button>
         </div>
       ))}
     </div>
@@ -133,6 +135,7 @@ function gasMaterialNames(materials: Material[]): string[] {
 }
 
 export function LayerProcessEditor({ layerType, process, materials, onChange }: LayerProcessEditorProps) {
+  useUiLanguage();
   const gasNames = gasMaterialNames(materials);
   const allowedMethods = ALLOWED_LAYER_METHODS[layerType] ?? [];
   const issues = useMemo(() => {
@@ -144,8 +147,8 @@ export function LayerProcessEditor({ layerType, process, materials, onChange }: 
   if (process === null) {
     return (
       <div className="builder-empty-editor">
-        <p>No layer process is recorded.</p>
-        <button type="button" className="button button--secondary button--small" disabled={allowedMethods.length === 0} onClick={() => onChange(defaultLayerProcess(allowedMethods[0]))}>Add process</button>
+        <p>{tr("processEditor.noLayerProcessIsRecorded")}</p>
+        <button type="button" className="button button--secondary button--small" disabled={allowedMethods.length === 0} onClick={() => onChange(defaultLayerProcess(allowedMethods[0]))}>{tr("processEditor.addProcess")}</button>
       </div>
     );
   }
@@ -153,22 +156,22 @@ export function LayerProcessEditor({ layerType, process, materials, onChange }: 
   return (
     <div className="builder-subeditor">
       <div className="builder-subeditor__heading">
-        <h4>Layer process</h4>
-        <button type="button" className="button button--secondary button--small" onClick={() => onChange(null)}>Remove process</button>
+        <h4>{tr("processEditor.layerProcess")}</h4>
+        <button type="button" className="button button--secondary button--small" onClick={() => onChange(null)}>{tr("processEditor.removeProcess")}</button>
       </div>
       {issues.length > 0 ? (
         <div className="builder-inline-warning" role="status">
-          <strong>This layer process is not complete yet.</strong>
+          <strong>{tr("processEditor.thisLayerProcessIsNotCompleteYet")}</strong>
           <ul>
-            {issues.map((issue, index) => <li key={`${issue.path}-${index}`}>{issue.message}</li>)}
+            {issues.map((issue, index) => <li key={`${issue.path}-${index}`}>{localizeAppText(issue.message ?? "")}</li>)}
           </ul>
-          <span>Fill in the missing values below — the save button unlocks once every stage is complete.</span>
+          <span>{tr("processEditor.fillInTheMissingValuesBelowTheSaveButton")}</span>
         </div>
       ) : null}
       <label className="builder-field">
-        <span>Method</span>
+        <span>{tr("processEditor.method")}</span>
         <select className="text-input" value={process.method} onChange={(event) => onChange(defaultLayerProcess(event.target.value))}>
-          {allowedMethods.map((method) => <option key={method} value={method}>{METHOD_LABELS[method]}</option>)}
+          {allowedMethods.map((method) => <option key={method} value={method}>{localizeAppText(METHOD_LABELS[method])}</option>)}
         </select>
       </label>
 
@@ -183,30 +186,30 @@ export function LayerProcessEditor({ layerType, process, materials, onChange }: 
         <>
           <datalist id="builder-gas-options">{gasNames.map((name) => <option key={name} value={name} />)}</datalist>
           <div className="builder-fields builder-fields--three">
-            <label className="builder-field"><span>Sputter mode</span><select className="text-input" value={process.sputter_mode ?? "rf"} onChange={(event) => onChange({ ...process, sputter_mode: event.target.value })}><option value="rf">RF</option><option value="dc">DC</option><option value="pulsed_dc">Pulsed DC</option></select></label>
-            <NumberField label="Power (W)" value={process.power_w} onChange={(power_w) => onChange({ ...process, power_w })} />
-            <NumberField label="Pressure (Pa)" value={process.pressure_pa} onChange={(pressure_pa) => onChange({ ...process, pressure_pa })} />
-            <label className="builder-field"><span>Gas 1</span><input className="text-input" list="builder-gas-options" value={process.gas1 ?? ""} onChange={(event) => onChange({ ...process, gas1: event.target.value })} /></label>
-            <NumberField label="Gas 1 flow (sccm)" value={process.gas1_flow_sccm} onChange={(gas1_flow_sccm) => onChange({ ...process, gas1_flow_sccm })} />
-            <label className="builder-field"><span>Gas 2 (optional)</span><input className="text-input" list="builder-gas-options" value={process.gas2 ?? ""} onChange={(event) => onChange({ ...process, gas2: event.target.value })} /></label>
-            <NumberField label="Gas 2 flow (sccm)" value={process.gas2_flow_sccm} onChange={(gas2_flow_sccm) => onChange({ ...process, gas2_flow_sccm })} />
-            <NumberField label="Duration (s)" value={process.duration_seconds} onChange={(duration_seconds) => onChange({ ...process, duration_seconds })} step="1" />
+            <label className="builder-field"><span>{tr("processEditor.sputterMode")}</span><select className="text-input" value={process.sputter_mode ?? "rf"} onChange={(event) => onChange({ ...process, sputter_mode: event.target.value })}><option value="rf">RF</option><option value="dc">DC</option><option value="pulsed_dc">{tr("processEditor.pulsedDC")}</option></select></label>
+            <NumberField label={tr("processEditor.powerW")} value={process.power_w} onChange={(power_w) => onChange({ ...process, power_w })} />
+            <NumberField label={tr("processEditor.pressurePa")} value={process.pressure_pa} onChange={(pressure_pa) => onChange({ ...process, pressure_pa })} />
+            <label className="builder-field"><span>{tr("processEditor.gas")}</span><input className="text-input" list="builder-gas-options" value={process.gas1 ?? ""} onChange={(event) => onChange({ ...process, gas1: event.target.value })} /></label>
+            <NumberField label={tr("processEditor.gasFlowSccm")} value={process.gas1_flow_sccm} onChange={(gas1_flow_sccm) => onChange({ ...process, gas1_flow_sccm })} />
+            <label className="builder-field"><span>{tr("processEditor.gasOptional")}</span><input className="text-input" list="builder-gas-options" value={process.gas2 ?? ""} onChange={(event) => onChange({ ...process, gas2: event.target.value })} /></label>
+            <NumberField label={tr("processEditor.gasFlowSccm2")} value={process.gas2_flow_sccm} onChange={(gas2_flow_sccm) => onChange({ ...process, gas2_flow_sccm })} />
+            <NumberField label={tr("processEditor.durationS")} value={process.duration_seconds} onChange={(duration_seconds) => onChange({ ...process, duration_seconds })} step="1" />
           </div>
         </>
       ) : null}
 
       {process.method === "thermal_evaporation" ? (
         <div className="builder-fields builder-fields--two">
-          <NumberField label="Thickness (nm)" value={process.thickness_nm} onChange={(thickness_nm) => onChange({ ...process, thickness_nm })} />
-          <NumberField label="Rate (Å/s)" value={process.rate_angstrom_per_s} onChange={(rate_angstrom_per_s) => onChange({ ...process, rate_angstrom_per_s })} />
+          <NumberField label={tr("processEditor.thicknessNm")} value={process.thickness_nm} onChange={(thickness_nm) => onChange({ ...process, thickness_nm })} />
+          <NumberField label={tr("processEditor.rateS")} value={process.rate_angstrom_per_s} onChange={(rate_angstrom_per_s) => onChange({ ...process, rate_angstrom_per_s })} />
         </div>
       ) : null}
 
       {process.method === "ald" ? (
         <div className="builder-fields builder-fields--three">
-          <NumberField label="Thickness (nm)" value={process.thickness_nm} onChange={(thickness_nm) => onChange({ ...process, thickness_nm })} />
-          <NumberField label="Substrate temperature (°C)" value={process.substrate_temperature_c} onChange={(substrate_temperature_c) => onChange({ ...process, substrate_temperature_c })} />
-          <NumberField label="Cycles" value={process.cycles} onChange={(cycles) => onChange({ ...process, cycles })} step="1" />
+          <NumberField label={tr("processEditor.thicknessNm")} value={process.thickness_nm} onChange={(thickness_nm) => onChange({ ...process, thickness_nm })} />
+          <NumberField label={tr("processEditor.substrateTemperatureC")} value={process.substrate_temperature_c} onChange={(substrate_temperature_c) => onChange({ ...process, substrate_temperature_c })} />
+          <NumberField label={tr("processEditor.cycles")} value={process.cycles} onChange={(cycles) => onChange({ ...process, cycles })} step="1" />
         </div>
       ) : null}
     </div>
@@ -295,6 +298,7 @@ interface PerovskiteProcessEditorProps {
 }
 
 export function PerovskiteProcessEditor({ process, materials, vcdValves, onChange }: PerovskiteProcessEditorProps) {
+  useUiLanguage();
   const gasNames = gasMaterialNames(materials);
   const valves = vcdValves ?? VCD_VALVES;
   const unified = useMemo(() => unifiedFromProcess(process), [process]);
@@ -317,15 +321,15 @@ export function PerovskiteProcessEditor({ process, materials, vcdValves, onChang
 
   return (
     <div className="builder-subeditor builder-subeditor--perovskite">
-      <h3>Perovskite deposition process</h3>
-      <p className="builder-help">The ordered spin, vacuum/gas-backfill, and annealing stages are stored as a complete snapshot.</p>
+      <h3>{tr("processEditor.perovskiteDepositionProcess")}</h3>
+      <p className="builder-help">{tr("processEditor.theOrderedSpinVacuumGasBackfillAndAnnealingStages")}</p>
       {issues.length > 0 ? (
         <div className="builder-inline-warning" role="status">
-          <strong>This perovskite process is not complete yet.</strong>
+          <strong>{tr("processEditor.thisPerovskiteProcessIsNotCompleteYet")}</strong>
           <ul>
-            {issues.map((issue, index) => <li key={`${issue.path}-${index}`}>{issue.message}</li>)}
+            {issues.map((issue, index) => <li key={`${issue.path}-${index}`}>{localizeAppText(issue.message ?? "")}</li>)}
           </ul>
-          <span>Fill in the highlighted stages below — the save button unlocks once every stage is complete.</span>
+          <span>{tr("processEditor.fillInTheHighlightedStagesBelowTheSaveButton")}</span>
         </div>
       ) : null}
       <SpinStages stages={process.spin_steps} max={4} onChange={(spin_steps) => onChange({ ...process, spin_steps })} />
@@ -333,15 +337,15 @@ export function PerovskiteProcessEditor({ process, materials, vcdValves, onChang
       <div className="builder-stage-group">
         <div className="builder-subeditor__heading">
           <h4>
-            Vacuum and gas-backfill program <GroupMarker required />
-            <HelpHint label="VCD program">
-              <strong>How to record the VCD program</strong>
+            {tr("processEditor.vacuumAndGasBackfillProgram")}<GroupMarker required />
+            <HelpHint label={tr("processEditor.vcdProgram")}>
+              <strong>{tr("processEditor.howToRecordTheVCDProgram")}</strong>
               <ul>
-                <li>Rows run in order. Up to five evacuate rows and five gas-backfill rows.</li>
-                <li><strong>Evacuate</strong> — valve, pressure (integer Pa), and hold time (whole seconds; 0&nbsp;s = reach the pressure and move on without holding).</li>
-                <li><strong>Pump to base vacuum</strong> (pressure not controlled) — set the pressure to 0 and record the total pump time.</li>
-                <li><strong>Multi-pressure holding</strong> — add one row per setpoint; the valve may change between rows (for example VV03 pumps fast and can overshoot a setpoint, so VV03 to reach it then VV06 to hold it).</li>
-                <li><strong>Gas backfill</strong> — gas, MFC flow (integer sccm), target pressure (Pa), and hold time (s; 0 = no hold). The fill time itself is not recorded.</li>
+                <li>{tr("processEditor.rowsRunInOrderUpToFiveEvacuateRows")}</li>
+                <li><strong>{tr("snapshotEditor.evacuate")}</strong> {tr("processEditor.valvePressureIntegerPaAndHoldTimeWholeSeconds")}</li>
+                <li><strong>{tr("processEditor.pumpToBaseVacuum")}</strong> {tr("processEditor.pressureNotControlledSetThePressureToAndRecord")}</li>
+                <li><strong>{tr("processEditor.multiPressureHolding")}</strong> {tr("processEditor.addOneRowPerSetpointTheValveMayChange")}</li>
+                <li><strong>{tr("snapshotEditor.gasBackfill")}</strong> {tr("processEditor.gasMFCFlowIntegerSccmTargetPressurePaAnd")}</li>
               </ul>
             </HelpHint>
           </h4>
@@ -350,33 +354,33 @@ export function PerovskiteProcessEditor({ process, materials, vcdValves, onChang
             className="button button--secondary button--small"
             disabled={unified.length >= 10 || evacuateCount >= 5}
             onClick={addRow}
-          >Add stage</button>
+          >{tr("processEditor.addStage")}</button>
         </div>
-        <p className="builder-help">At least one evacuation row is required. Gas-backfill rows are optional — add them only if your program includes a gas backfill.</p>
+        <p className="builder-help">{tr("processEditor.atLeastOneEvacuationRowIsRequiredGasBackfill")}</p>
         <datalist id="perovskite-gas-options">{gasNames.map((name) => <option key={name} value={name} />)}</datalist>
         {unified.map((stage, index) => (
           <div className="builder-stage-row builder-stage-row--sequence" key={index}>
-            <label className="builder-field builder-field--kind"><span>Stage {index + 1}</span>
+            <label className="builder-field builder-field--kind"><span>{tr("processEditor.stage")}{index + 1}</span>
               <select className="text-input" value={stage.kind} onChange={(event) => emit(updateAt(unified, index, { ...stage, kind: event.target.value as UnifiedStage["kind"] }))}>
-                <option value="evacuate" disabled={stage.kind === "gas_backfill" && evacuateCount >= 5}>Evacuate</option>
-                <option value="gas_backfill" disabled={stage.kind === "evacuate" && backfillCount >= 5}>Gas backfill</option>
+                <option value="evacuate" disabled={stage.kind === "gas_backfill" && evacuateCount >= 5}>{tr("snapshotEditor.evacuate")}</option>
+                <option value="gas_backfill" disabled={stage.kind === "evacuate" && backfillCount >= 5}>{tr("snapshotEditor.gasBackfill")}</option>
               </select>
             </label>
             {stage.kind === "evacuate" ? (
               <>
-                <SelectField name="valve" label="Valve" value={stage.valve} options={valves} onChange={(valve) => emit(updateAt(unified, index, { ...stage, valve }))} missingOptionLabel="— select a valve —" />
-                <NumberField name="pressure_pa" label="Pressure (Pa)" value={stage.pressure_pa} onChange={(pressure_pa) => emit(updateAt(unified, index, { ...stage, pressure_pa }))} />
-                <NumberField name="seconds" label="Duration (s)" value={stage.seconds} onChange={(seconds) => emit(updateAt(unified, index, { ...stage, seconds }))} />
+                <SelectField name="valve" label={tr("processEditor.valve")} value={stage.valve} options={valves} onChange={(valve) => emit(updateAt(unified, index, { ...stage, valve }))} missingOptionLabel="— select a valve —" />
+                <NumberField name="pressure_pa" label={tr("processEditor.pressurePa")} value={stage.pressure_pa} onChange={(pressure_pa) => emit(updateAt(unified, index, { ...stage, pressure_pa }))} />
+                <NumberField name="seconds" label={tr("processEditor.durationS")} value={stage.seconds} onChange={(seconds) => emit(updateAt(unified, index, { ...stage, seconds }))} />
               </>
             ) : (
               <>
-                <label className="builder-field"><span>Gas</span><input className="text-input" list="perovskite-gas-options" value={stage.gas} onChange={(event) => emit(updateAt(unified, index, { ...stage, gas: event.target.value }))} /></label>
-                <NumberField name="flow_sccm" label="Flow (sccm)" value={stage.flow_sccm} onChange={(flow_sccm) => emit(updateAt(unified, index, { ...stage, flow_sccm }))} />
-                <NumberField name="target_pressure_pa" label="Target pressure (Pa)" value={stage.target_pressure_pa} onChange={(target_pressure_pa) => emit(updateAt(unified, index, { ...stage, target_pressure_pa }))} />
-                <NumberField name="hold_seconds" label="Hold time (s)" value={stage.hold_seconds} onChange={(hold_seconds) => emit(updateAt(unified, index, { ...stage, hold_seconds }))} />
+                <label className="builder-field"><span>{tr("processEditor.gas2")}</span><input className="text-input" list="perovskite-gas-options" value={stage.gas} onChange={(event) => emit(updateAt(unified, index, { ...stage, gas: event.target.value }))} /></label>
+                <NumberField name="flow_sccm" label={tr("processEditor.flowSccm")} value={stage.flow_sccm} onChange={(flow_sccm) => emit(updateAt(unified, index, { ...stage, flow_sccm }))} />
+                <NumberField name="target_pressure_pa" label={tr("processEditor.targetPressurePa")} value={stage.target_pressure_pa} onChange={(target_pressure_pa) => emit(updateAt(unified, index, { ...stage, target_pressure_pa }))} />
+                <NumberField name="hold_seconds" label={tr("processEditor.holdTimeS")} value={stage.hold_seconds} onChange={(hold_seconds) => emit(updateAt(unified, index, { ...stage, hold_seconds }))} />
               </>
             )}
-            <button type="button" className="button button--secondary button--small builder-stage-row__remove" onClick={() => emit(removeAt(unified, index))}>Remove</button>
+            <button type="button" className="button button--secondary button--small builder-stage-row__remove" onClick={() => emit(removeAt(unified, index))}>{tr("snapshotEditor.remove")}</button>
           </div>
         ))}
       </div>

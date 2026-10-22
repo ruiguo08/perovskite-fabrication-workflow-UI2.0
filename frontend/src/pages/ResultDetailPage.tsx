@@ -1,4 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { localizeAppText } from "../i18n";
+import { useMemo } from "react";
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { DeviceExclusionsPanel } from "../components/DeviceExclusionsPanel";
 import { ErrorState } from "../components/ErrorState";
@@ -61,17 +64,18 @@ function FigureScopePair({ resultId, kind, metric, direction, excludedDeviceIds,
   scale?: FigureColorScale;
   filteredPreview?: boolean;
 }) {
+  useUiLanguage();
   return <div className="figure-scope-pair">
     {([
-      { label: "All devices", excludedIds: [] },
-      { label: `Exclude flagged devices (${excludedDeviceIds.length})`, excludedIds: excludedDeviceIds },
+      { label: tr("resultDetailPage.allDevices"), excludedIds: [] },
+      { label: tr("resultDetailPage.excludeFlaggedDevicesN", { "n": excludedDeviceIds.length }), excludedIds: excludedDeviceIds },
     ]).map(({ label, excludedIds }, index) =>
-      <div key={label} className="figure-scope-pair__item" role="group" aria-label={label}>
-        <h3>{label}{index === 1 && filteredPreview ? <span className="analysis-preview-label">Unsaved preview</span> : null}</h3>
+      <div key={index} className="figure-scope-pair__item" role="group" aria-label={localizeAppText(label)}>
+        <h3>{localizeAppText(label)}{index === 1 && filteredPreview ? <span className="analysis-preview-label">{tr("resultDetailPage.unsavedPreview")}</span> : null}</h3>
         <PublicationFigure resultId={resultId} kind={kind} metric={metric} direction={direction}
           excludedDeviceIds={excludedIds} revision={revision} palette={palette} scale={scale}
           flaggedDeviceIds={kind === "uniformity" && index === 0 ? excludedDeviceIds : []}
-          downloadEnabled={index === 0 || !filteredPreview} alt={`${alt} · ${label}`} />
+          downloadEnabled={index === 0 || !filteredPreview} alt={`${alt} · ${localizeAppText(label)}`} />
       </div>)}
   </div>;
 }
@@ -170,6 +174,7 @@ function AssignmentForm({
   onAssign,
   onSubmit,
 }: AssignmentFormProps) {
+  useUiLanguage();
   return (
     <form id="result-assignment-form" className="assignment-form" onSubmit={onSubmit}>
       {substrates.map((substrate) => (
@@ -178,11 +183,11 @@ function AssignmentForm({
             <span className="form-field__label">{substrate.substrate_id}</span>
             <select
               className="text-input"
-              aria-label={`Assign ${substrate.substrate_id} to`}
+              aria-label={tr("resultDetailPage.assignSubstrateIdTo", { "substrate_id": substrate.substrate_id })}
               value={assignments.get(substrate.substrate_id) ?? ""}
               onChange={(event) => onAssign(substrate.substrate_id, event.target.value)}
             >
-              <option value="">Choose a condition…</option>
+              <option value="">{tr("resultDetailPage.chooseACondition")}</option>
               {groups.map((group) => (
                 <option key={group.batch_condition_id} value={group.batch_condition_id}>
                   {group.name} ({group.kind})
@@ -192,20 +197,19 @@ function AssignmentForm({
           </label>
           {inconsistent.has(substrate.substrate_id) ? (
             <p className="inline-form-error" role="alert">
-              Inconsistent condition assignment: the device rows for this substrate disagree. Review the saved assignments.
-            </p>
+              {tr("resultDetailPage.inconsistentConditionAssignmentTheDeviceRowsForThisSubstrate")}</p>
           ) : null}
         </div>
       ))}
       {hasSavedAssignments && assignmentChangeCount > 0 ? <label className="form-field">
-        <span className="form-field__label">Correction reason</span>
-        <input className="text-input" aria-label="Assignment correction reason" required maxLength={500}
+        <span className="form-field__label">{tr("resultDetailPage.correctionReason")}</span>
+        <input className="text-input" aria-label={tr("resultDetailPage.assignmentCorrectionReason")} required maxLength={500}
           value={correctionReason} onChange={(event) => onCorrectionReasonChange(event.target.value)} />
       </label> : null}
       <button className="button button--primary assignment-form__save" type="submit" disabled={!allAssigned || submitting}>
-        {submitting ? "Saving…" : "Save assignments"}
+        {submitting ? tr("runSheetTable.saving") : tr("resultDetailPage.saveAssignments")}
       </button>
-      <InlineFormError message={error} />
+      <InlineFormError message={localizeAppText(error ?? "")} />
     </form>
   );
 }
@@ -216,6 +220,7 @@ interface DeviceInspectionTableProps {
 }
 
 function DeviceInspectionTable({ devices, groups }: DeviceInspectionTableProps) {
+  useUiLanguage();
   const groupNames = useMemo(
     () => new Map(groups.map((group) => [group.group_id, group.name])),
     [groups],
@@ -223,18 +228,18 @@ function DeviceInspectionTable({ devices, groups }: DeviceInspectionTableProps) 
   return (
     <section className="panel" aria-labelledby="device-inspection-title" data-device-inspection="true">
       <div className="panel__heading">
-        <h2 className="panel__title" id="device-inspection-title">Parsed devices</h2>
-        <span className="record-count">{devices.length} devices</span>
+        <h2 className="panel__title" id="device-inspection-title">{tr("resultDetailPage.parsedDevices")}</h2>
+        <span className="record-count">{devices.length} {tr("jvChart.devices")}</span>
       </div>
       <div className="table-scroll">
         <table className="data-table">
           <thead>
             <tr>
-              <th>Device</th>
-              <th>Substrate</th>
-              <th>Group</th>
-              <th>Traces</th>
-              <th>Scan</th>
+              <th>{tr("deviceExclusionsPanel.device")}</th>
+              <th>{tr("deviceExclusionsPanel.substrate")}</th>
+              <th>{tr("deviceExclusionsPanel.group")}</th>
+              <th>{tr("resultDetailPage.traces")}</th>
+              <th>{tr("jvChart.scan")}</th>
               <th>Voc</th>
               <th>Jsc</th>
               <th>FF</th>
@@ -248,16 +253,16 @@ function DeviceInspectionTable({ devices, groups }: DeviceInspectionTableProps) 
                 <tr key={`${device.device_id}-${direction}`}>
                   <td>{device.device_id}</td>
                   <td>{device.substrate_id}</td>
-                  <td>{groupNames.get(device.group_id) || "Unassigned"}</td>
+                  <td>{groupNames.get(device.group_id) || tr("deviceExclusionsPanel.unassigned")}</td>
                   <td>
                     {device.traces.map((trace) => (
                       <span key={trace.trace_id} className={`status-badge ${trace.valid ? "status-badge--success" : "status-badge--danger"}`}>
                         {trace.direction} {trace.valid ? "valid" : "invalid"}
                       </span>
                     ))}
-                    {validCount === 0 ? <span className="status-badge status-badge--danger">No valid trace</span> : null}
+                    {validCount === 0 ? <span className="status-badge status-badge--danger">{tr("resultDetailPage.noValidTrace")}</span> : null}
                   </td>
-                  <td>{direction === "forward" ? "Forward" : "Reverse"}</td>
+                  <td>{direction === "forward" ? tr("deviceScanHistoryPanel.forward") : tr("deviceScanHistoryPanel.reverse")}</td>
                   <td>{formatNumber(directionalMetric(device.metrics, direction, "voc"), 3)}</td>
                   <td>{formatNumber(directionalMetric(device.metrics, direction, "jsc"), 2)}</td>
                   <td>{formatNumber(scaleMetric("ff", directionalMetric(device.metrics, direction, "ff")), 2)}</td>
@@ -277,21 +282,22 @@ interface ProvenanceTableProps {
 }
 
 function ProvenanceTable({ rows }: ProvenanceTableProps) {
+  useUiLanguage();
   if (rows.length === 0) {
-    return <p className="run-sheet-muted">No saved assignment provenance rows.</p>;
+    return <p className="run-sheet-muted">{tr("resultDetailPage.noSavedAssignmentProvenanceRows")}</p>;
   }
   return (
     <div className="table-scroll">
       <table className="data-table">
         <thead>
           <tr>
-            <th>Analysis device</th>
-            <th>Analysis substrate</th>
-            <th>Instrument label</th>
-            <th>Fabrication device</th>
-            <th>Substrate</th>
-            <th>Condition</th>
-            <th>Batch condition</th>
+            <th>{tr("resultDetailPage.analysisDevice")}</th>
+            <th>{tr("resultDetailPage.analysisSubstrate")}</th>
+            <th>{tr("resultDetailPage.instrumentLabel")}</th>
+            <th>{tr("resultDetailPage.fabricationDevice")}</th>
+            <th>{tr("deviceExclusionsPanel.substrate")}</th>
+            <th>{tr("campaignAnalysisPanel.condition")}</th>
+            <th>{tr("resultDetailPage.batchCondition")}</th>
           </tr>
         </thead>
         <tbody>
@@ -313,6 +319,7 @@ function ProvenanceTable({ rows }: ProvenanceTableProps) {
 }
 
 export function ResultDetailPage() {
+  useUiLanguage();
   const { resultId } = useParams();
   const resultIdNumber = Number(resultId);
   const { show } = useToast();
@@ -635,20 +642,19 @@ export function ResultDetailPage() {
   }
 
   if (!Number.isInteger(resultIdNumber) || resultIdNumber <= 0) {
-    return <ErrorState title="Invalid result" message="The result identifier is not valid." />;
+    return <ErrorState title={tr("resultDetailPage.invalidResult")} message={tr("resultDetailPage.theResultIdentifierIsNotValid")} />;
   }
   if (resource.status === "loading" && activeDetail === null) {
-    return <div className="page-loading" role="status">Loading result…</div>;
+    return <div className="page-loading" role="status">{tr("resultDetailPage.loadingResult")}</div>;
   }
   if (resource.status === "error" && activeDetail === null) {
     return (
       <ErrorState
-        title="Unable to load result"
-        message={resource.error ?? "The result could not be loaded."}
+        title={tr("resultDetailPage.unableToLoadResult")}
+        message={resource.error ?? tr("resultDetailPage.theResultCouldNotBeLoaded")}
         action={
           <button type="button" className="button button--secondary" onClick={() => void resource.reload()}>
-            Retry
-          </button>
+            {tr("versionHistory.retry")}</button>
         }
       />
     );
@@ -661,11 +667,11 @@ export function ResultDetailPage() {
       <div data-result-detail="true">
         <PageHeader
           title={activeDetail.filename}
-          description={`Result file ${activeDetail.id} · ${activeDetail.content_type}`}
+          description={tr("resultDetailPage.resultFileIdContentType", { "id": activeDetail.id, "content_type": activeDetail.content_type })}
         />
         <ErrorState
-          title="Characterization analysis unavailable"
-          message="The characterization analysis for this result is not available in a readable form. Re-upload the result file or contact an instructor."
+          title={tr("resultDetailPage.characterizationAnalysisUnavailable")}
+          message={tr("resultDetailPage.theCharacterizationAnalysisForThisResultIsNotAvailable")}
         />
       </div>
     );
@@ -678,48 +684,48 @@ export function ResultDetailPage() {
     <div data-result-detail="true">
       <PageHeader
         title={activeDetail.filename}
-        description={`Result file ${activeDetail.id} · ${activeDetail.content_type}`}
-        meta={`Uploaded ${formatDateTime(activeDetail.created_at)}`}
+        description={tr("resultDetailPage.resultFileIdContentType", { "id": activeDetail.id, "content_type": activeDetail.content_type })}
+        meta={tr("time.uploadedDate", { time: formatDateTime(activeDetail.created_at) })}
         actions={
           <>
-            <Link className="button button--secondary" to={`/experiments/${experimentId}`}>Experiment</Link>
-            <Link className="button button--secondary" to={`/experiments/${experimentId}/batches/${activeDetail.fabrication_batch_id}`}>Batch</Link>
+            <Link className="button button--secondary" to={`/experiments/${experimentId}`}>{tr("experimentsPage.experiment")}</Link>
+            <Link className="button button--secondary" to={`/experiments/${experimentId}/batches/${activeDetail.fabrication_batch_id}`}>{tr("campaignAnalysisPanel.batch")}</Link>
           </>
         }
       />
-      {draftDirty ? <div className="analysis-preview-banner" role="status" aria-label="Unsaved analysis preview">
+      {draftDirty ? <div className="analysis-preview-banner" role="status" aria-label={tr("resultDetailPage.unsavedAnalysisPreview")}>
         <div>
-          <strong>Unsaved analysis preview</strong>
+          <strong>{tr("resultDetailPage.unsavedAnalysisPreview")}</strong>
           <span>{[
-            assignmentChangeCount ? `${assignmentChangeCount} assignment change${assignmentChangeCount === 1 ? "" : "s"}` : "",
-            exclusionChangeCount ? `${exclusionChangeCount} exclusion change${exclusionChangeCount === 1 ? "" : "s"}` : "",
+            assignmentChangeCount ? tr("summary.assignmentChanges", { n: assignmentChangeCount, s: assignmentChangeCount === 1 ? "" : "s" }) : "",
+            exclusionChangeCount ? tr("summary.exclusionChanges", { n: exclusionChangeCount, s: exclusionChangeCount === 1 ? "" : "s" }) : "",
           ].filter(Boolean).join(" · ")} · {exclusionChangeCount
-            ? "Statistics and filtered figures preview your exclusion selection."
-            : "Assignment changes take effect after saving."}{assignmentChangeCount && exclusionChangeCount
-            ? " Assignment changes take effect after saving."
+            ? tr("resultDetailPage.statisticsAndFilteredFiguresPreviewYourExclusionSelection")
+            : tr("resultDetailPage.assignmentChangesTakeEffectAfterSaving")}{assignmentChangeCount && exclusionChangeCount
+            ? tr("resultDetailPage.assignmentChangesTakeEffectAfterSaving2")
             : ""}</span>
         </div>
         <div className="button-row">
           {assignmentChangeCount > 0 ? <button className="button button--primary button--small" type="button" onClick={() => void saveAnalysis("assignments")} disabled={!allAssigned || submitting}>
-            {submitting ? "Saving…" : "Apply assignment changes"}
+            {submitting ? tr("runSheetTable.saving") : tr("resultDetailPage.applyAssignmentChanges")}
           </button> : null}
           {exclusionChangeCount > 0 ? <button className="button button--primary button--small" type="button" onClick={() => void saveAnalysis("manual")}
             disabled={savedAssignments.size !== substrates.length || submitting}>
-            {submitting ? "Saving…" : "Save manual exclusions"}
+            {submitting ? tr("runSheetTable.saving") : tr("resultDetailPage.saveManualExclusions")}
           </button> : null}
-          <button className="button button--secondary button--small" type="button" onClick={discardChanges}>Discard changes</button>
+          <button className="button button--secondary button--small" type="button" onClick={discardChanges}>{tr("resultDetailPage.discardChanges")}</button>
         </div>
       </div> : null}
-      {activeThresholds ? <div className="analysis-preview-banner" role="status" aria-label="Active threshold filter">
+      {activeThresholds ? <div className="analysis-preview-banner" role="status" aria-label={tr("resultDetailPage.activeThresholdFilter")}>
         <div>
-          <strong>Current analysis filter</strong>
-          <span>Voc &lt; {activeThresholds.voc ?? "off"} V · PCE &lt; {activeThresholds.pce ?? "off"}% · FF &lt; {activeThresholds.ff ?? "off"}% · {automaticExclusions.size} devices match. Thresholds are not saved.</span>
+          <strong>{tr("resultDetailPage.currentAnalysisFilter")}</strong>
+          <span>Voc &lt; {activeThresholds.voc ?? tr("resultDetailPage.off")} V · PCE &lt; {activeThresholds.pce ?? tr("resultDetailPage.off")}% · FF &lt; {activeThresholds.ff ?? tr("resultDetailPage.off")}% · {automaticExclusions.size} {tr("resultDetailPage.devicesMatchThresholdsAreNotSaved")}</span>
         </div>
       </div> : null}
 
       {analysisWarnings.length > 0 ? (
         <div className="analysis-warnings" role="alert">
-          <strong>Measurement quality warnings</strong>
+          <strong>{tr("resultDetailPage.measurementQualityWarnings")}</strong>
           <ul>
             {analysisWarnings.map((warning) => (
               <li key={warning}>{warning}</li>
@@ -731,31 +737,31 @@ export function ResultDetailPage() {
       <div className="stat-tiles" role="list">
         <div className="stat-tile" role="listitem">
           <span className="stat-tile__value">{substrates.length}</span>
-          <span className="stat-tile__label">Substrates</span>
+          <span className="stat-tile__label">{tr("conditionCard.substrates")}</span>
         </div>
         <div className="stat-tile" role="listitem">
           <span className="stat-tile__value">{devices.length}</span>
-          <span className="stat-tile__label">Devices</span>
+          <span className="stat-tile__label">{tr("conditionCard.devices")}</span>
         </div>
         <div className="stat-tile" role="listitem">
           <span className="stat-tile__value">
             {validTraceCount || "—"}{allTraces.length ? ` / ${allTraces.length}` : ""}
           </span>
-          <span className="stat-tile__label">Valid traces</span>
+          <span className="stat-tile__label">{tr("resultDetailPage.validTraces")}</span>
         </div>
         <div className="stat-tile" role="listitem">
           <span className="stat-tile__value">
             {formatNumber(bestForwardTrace?.metrics?.pce, 2)}
           </span>
-          <span className="stat-tile__label">Best forward PCE (%)</span>
+          <span className="stat-tile__label">{tr("resultDetailPage.bestForwardPCE")}</span>
         </div>
         <div className="stat-tile" role="listitem">
           <span className="stat-tile__value">{formatNumber(bestReverseTrace?.metrics?.pce, 2)}</span>
-          <span className="stat-tile__label">Best reverse PCE (%)</span>
+          <span className="stat-tile__label">{tr("resultDetailPage.bestReversePCE")}</span>
         </div>
       </div>
 
-      <nav className="result-section-nav" aria-label="Result sections">
+      <nav className="result-section-nav" aria-label={tr("resultDetailPage.resultSections")}>
         {([
           ["assignments", "Assignments"],
           ["statistics", "Statistics"],
@@ -771,7 +777,7 @@ export function ResultDetailPage() {
               if (section === "jv") setJvVisited(true);
               setActiveSection(section);
             }}>
-            {label}
+            {localizeAppText(label)}
             {section === "assignments" ? <span className="result-section-nav__count">{assignments.size}/{substrates.length}</span> : null}
           </button>
         ))}
@@ -780,14 +786,14 @@ export function ResultDetailPage() {
       {activeSection === "records" ? <>
       <section className="panel" aria-labelledby="result-meta-title">
         <div className="panel__heading">
-          <h2 className="panel__title" id="result-meta-title">Integrity &amp; provenance</h2>
+          <h2 className="panel__title" id="result-meta-title">{tr("resultDetailPage.integrityProvenance")}</h2>
         </div>
         <dl className="meta-grid">
-          <div><dt>Experiment</dt><dd>{experimentId}</dd></div>
-          <div><dt>Size</dt><dd>{activeDetail.size_bytes} bytes</dd></div>
+          <div><dt>{tr("experimentsPage.experiment")}</dt><dd>{experimentId}</dd></div>
+          <div><dt>{tr("resultDetailPage.size")}</dt><dd>{activeDetail.size_bytes} bytes</dd></div>
           <div><dt>SHA-256</dt><dd><code title={activeDetail.sha256}>{(activeDetail.sha256 ?? "").slice(0, 16)}…</code></dd></div>
-          <div><dt>Analysis schema</dt><dd>Schema v{activeDetail.analysis_schema_version}</dd></div>
-          <div><dt>Uploaded by</dt><dd>{activeDetail.created_by_id === null ? "Not available" : activeDetail.created_by_id}</dd></div>
+          <div><dt>{tr("resultDetailPage.analysisSchema")}</dt><dd>{tr("resultDetailPage.schemaV")}{activeDetail.analysis_schema_version}</dd></div>
+          <div><dt>{tr("resultDetailPage.uploadedBy")}</dt><dd>{activeDetail.created_by_id === null ? tr("resultDetailPage.notAvailable") : activeDetail.created_by_id}</dd></div>
         </dl>
       </section>
       </> : null}
@@ -795,9 +801,9 @@ export function ResultDetailPage() {
       {activeSection === "assignments" ? <>
       <section className="panel" aria-labelledby="assignment-title">
         <div className="panel__heading">
-          <h2 className="panel__title" id="assignment-title">Substrate condition assignment</h2>
+          <h2 className="panel__title" id="assignment-title">{tr("resultDetailPage.substrateConditionAssignment")}</h2>
           <div className="panel__heading-actions">
-            {statisticsPresent ? <span className="record-count">{statistics!.groups.length} groups</span> : null}
+            {statisticsPresent ? <span className="record-count">{statistics!.groups.length} {tr("resultDetailPage.groups")}</span> : null}
             {!assignmentExpanded ? (
               <button
                 type="button"
@@ -805,18 +811,14 @@ export function ResultDetailPage() {
                 aria-expanded="false"
                 onClick={() => setAssignmentExpanded(true)}
               >
-                Edit assignments
-              </button>
+                {tr("resultDetailPage.editAssignments")}</button>
             ) : null}
           </div>
         </div>
         <p className="run-sheet-muted">
-          Select exactly one experiment condition for each substrate name read from the measurement file.
-          Names do not set conditions automatically. If a name is not a physical laser mark, condition
-          statistics and figures remain available, while physical device linkage stays unresolved.
-        </p>
+          {tr("resultDetailPage.selectExactlyOneExperimentConditionForEachSubstrateName")}</p>
         {!statisticsPresent ? (
-          <p className="run-sheet-muted">All substrates must be assigned before statistics are calculated.</p>
+          <p className="run-sheet-muted">{tr("resultDetailPage.allSubstratesMustBeAssignedBeforeStatisticsAreCalculated")}</p>
         ) : null}
         {assignmentExpanded ? (
           <AssignmentForm
@@ -825,7 +827,7 @@ export function ResultDetailPage() {
             groups={groups}
             inconsistent={inconsistent}
             submitting={submitting}
-            error={error}
+            error={localizeAppText(error ?? "")}
             allAssigned={allAssigned}
             hasSavedAssignments={savedAssignments.size > 0}
             assignmentChangeCount={assignmentChangeCount}
@@ -835,12 +837,12 @@ export function ResultDetailPage() {
             onSubmit={submitAssignments}
           />
         ) : (
-          <p className="run-sheet-muted">Assignments saved for {substrates.length} substrates.</p>
+          <p className="run-sheet-muted">{tr("resultDetailPage.assignmentsSavedFor")}{substrates.length} {tr("resultDetailPage.substrates")}</p>
         )}
       </section>
 
       <details className="result-exclusions-details">
-        <summary>Device exclusions <span>{exclusions.size} selected</span></summary>
+        <summary>{tr("resultDetailPage.deviceExclusions")}<span>{exclusions.size} {tr("jvChart.selected")}</span></summary>
         <DeviceExclusionsPanel
           devices={devices}
           groups={groups}
@@ -860,21 +862,21 @@ export function ResultDetailPage() {
 
       {activeSection === "records" ? <>
       <details className="result-collapsible">
-        <summary>Device scan history <span>{effectiveProvenance.length} assignments</span></summary>
+        <summary>{tr("resultDetailPage.deviceScanHistory")}<span>{effectiveProvenance.length} {tr("resultDetailPage.assignments")}</span></summary>
       <DeviceScanHistoryPanel assignments={effectiveProvenance} />
       </details>
 
       <details className="result-collapsible">
-        <summary>Saved assignment provenance <span>{effectiveProvenance.length} rows</span></summary>
+        <summary>{tr("resultDetailPage.savedAssignmentProvenance")}<span>{effectiveProvenance.length} {tr("resultDetailPage.rows")}</span></summary>
       <section className="panel" aria-labelledby="provenance-title">
         <div className="panel__heading">
-          <h2 className="panel__title" id="provenance-title">Saved assignment provenance</h2>
+          <h2 className="panel__title" id="provenance-title">{tr("resultDetailPage.savedAssignmentProvenance2")}</h2>
         </div>
         <ProvenanceTable rows={effectiveProvenance} />
       </section>
       </details>
       <details className="result-collapsible">
-        <summary>Parsed devices <span>{devices.length} devices</span></summary>
+        <summary>{tr("resultDetailPage.parsedDevices2")}<span>{devices.length} {tr("jvChart.devices")}</span></summary>
       <DeviceInspectionTable devices={devices} groups={groups} />
       </details>
       </> : null}
@@ -885,72 +887,72 @@ export function ResultDetailPage() {
       {activeSection === "uniformity" && statisticsPresent ? (
       <section className="panel" aria-labelledby="uniformity-title">
         <div className="panel__heading">
-          <h2 className="panel__title" id="uniformity-title">Publication substrate uniformity</h2>
-          <label>Metric <select className="text-input" value={uniformityMetric}
+          <h2 className="panel__title" id="uniformity-title">{tr("resultDetailPage.publicationSubstrateUniformity")}</h2>
+          <label>{tr("resultDetailPage.metric")}<select className="text-input" value={uniformityMetric}
             onChange={(event) => {
               setUniformityMetric(event.target.value as typeof uniformityMetric);
               resetUniformityScale();
             }}>
             {METRIC_META.map((metric) => <option key={metric.name} value={metric.name}>{metric.label}</option>)}
           </select></label>
-          <label>Scan direction <select className="text-input" value={uniformityDirection}
+          <label>{tr("resultDetailPage.scanDirection")}<select className="text-input" value={uniformityDirection}
             onChange={(event) => setUniformityDirection(event.target.value as typeof uniformityDirection)}>
-            <option value="forward">Forward</option>
-            <option value="reverse">Reverse</option>
+            <option value="forward">{tr("deviceScanHistoryPanel.forward")}</option>
+            <option value="reverse">{tr("deviceScanHistoryPanel.reverse")}</option>
           </select></label>
-          <label>Color palette <select className="text-input" value={uniformityPalette}
+          <label>{tr("jvChart.colorPalette")}<select className="text-input" value={uniformityPalette}
             onChange={(event) => setUniformityPalette(event.target.value)}>
-            {GRADIENT_PALETTES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            {GRADIENT_PALETTES.map(([value, label]) => <option key={value} value={value}>{localizeAppText(label)}</option>)}
           </select></label>
         </div>
         <form className="figure-scale-controls" onSubmit={applyUniformityScale}>
           <div className="figure-scale-controls__fields">
-            <label>Color bar minimum <input className="text-input" type="number" step="any"
+            <label>{tr("resultDetailPage.colorBarMinimum")}<input className="text-input" type="number" step="any"
               value={uniformityScaleDraft.minimum}
               onChange={(event) => setUniformityScaleDraft((current) => ({ ...current, minimum: event.target.value }))} /></label>
-            <label>Color bar maximum <input className="text-input" type="number" step="any"
+            <label>{tr("resultDetailPage.colorBarMaximum")}<input className="text-input" type="number" step="any"
               value={uniformityScaleDraft.maximum}
               onChange={(event) => setUniformityScaleDraft((current) => ({ ...current, maximum: event.target.value }))} /></label>
-            <label>Problem threshold <input className="text-input" type="number" step="any"
+            <label>{tr("resultDetailPage.problemThreshold")}<input className="text-input" type="number" step="any"
               value={uniformityScaleDraft.threshold}
               onChange={(event) => setUniformityScaleDraft((current) => ({ ...current, threshold: event.target.value }))} /></label>
           </div>
           <div className="button-row">
-            <button className="button button--secondary button--small" type="submit">Apply color range</button>
-            <button className="button button--secondary button--small" type="button" onClick={resetUniformityScale}>Reset color range</button>
+            <button className="button button--secondary button--small" type="submit">{tr("resultDetailPage.applyColorRange")}</button>
+            <button className="button button--secondary button--small" type="button" onClick={resetUniformityScale}>{tr("resultDetailPage.resetColorRange")}</button>
           </div>
           <InlineFormError message={uniformityScaleError} />
         </form>
-        <p className="run-sheet-muted">Values use the selected metric's unit. Blank bounds use the automatic range. The threshold marks the color scale midpoint; with RdYlGn, values below it are red/yellow and values above it are green. Both device scopes share the scale. For diverging red-blue, white marks the threshold when set; otherwise it marks the all-device median if within range, or the selected range midpoint. Color bar ticks and cell numbers show the measured metric.</p>
+        <p className="run-sheet-muted">{tr("resultDetailPage.valuesUseTheSelectedMetricSUnitBlankBounds")}</p>
         <FigureScopePair resultId={resultIdNumber} kind="uniformity" metric={uniformityMetric} direction={uniformityDirection}
           excludedDeviceIds={[...effectiveExclusions.keys()]} revision={figureRevision} palette={uniformityPalette} scale={uniformityScale} filteredPreview={exclusionChangeCount > 0}
-          alt={`Publication substrate uniformity for ${uniformityMetric}, ${uniformityDirection} scan`} />
+          alt={tr("resultDetailPage.publicationSubstrateUniformityForMetricDirectionScan", { "metric": uniformityMetric, "direction": uniformityDirection })} />
       </section>
       ) : null}
 
       {statisticsPresent && activeSection === "statistics" ? (
           <section className="panel" aria-labelledby="stats-title">
             <div className="panel__heading">
-              <h2 className="panel__title" id="stats-title">Directional group statistics</h2>
+              <h2 className="panel__title" id="stats-title">{tr("resultDetailPage.directionalGroupStatistics")}</h2>
             </div>
-            <p className="run-sheet-muted">One representative scan per device and direction. Best and mean are calculated separately for forward and reverse scans. Both scopes use the current exclusion selection.</p>
+            <p className="run-sheet-muted">{tr("resultDetailPage.oneRepresentativeScanPerDeviceAndDirectionBestAnd")}</p>
             <div className="table-scroll">
-              <table className="data-table" aria-label="Directional group statistics">
+              <table className="data-table" aria-label={tr("resultDetailPage.directionalGroupStatistics")}>
                 <thead>
                   <tr>
-                    <th>Group</th>
-                    <th>Scope</th>
-                    <th>Scan</th>
-                    <th>Devices</th>
-                    {METRIC_META.map((m) => <th key={m.name}>{m.label}<br /><span className="run-sheet-muted">Best / mean</span></th>)}
+                    <th>{tr("deviceExclusionsPanel.group")}</th>
+                    <th>{tr("presetDetailView.scope")}</th>
+                    <th>{tr("jvChart.scan")}</th>
+                    <th>{tr("conditionCard.devices")}</th>
+                    {METRIC_META.map((m) => <th key={m.name}>{m.label}<br /><span className="run-sheet-muted">{tr("resultDetailPage.bestMean")}</span></th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {directionalStatistics.map((row) => (
                     <tr key={`${row.groupId}-${row.scope}-${row.direction}`}>
                       <td>{row.groupName}</td>
-                      <td>{row.scope === "all" ? "All devices" : "After exclusions"}</td>
-                      <td>{row.direction === "forward" ? "Forward" : "Reverse"}</td>
+                      <td>{row.scope === "all" ? tr("resultDetailPage.allDevices") : tr("resultDetailPage.afterExclusions")}</td>
+                      <td>{row.direction === "forward" ? tr("deviceScanHistoryPanel.forward") : tr("deviceScanHistoryPanel.reverse")}</td>
                       <td>{row.deviceCount}</td>
                       {METRIC_META.map((m) => {
                         const stat = row.metrics[m.name];
@@ -973,20 +975,20 @@ export function ResultDetailPage() {
       {statisticsPresent && activeSection === "statistics" ? (
           <section className="panel" aria-labelledby="boxplot-title">
             <div className="panel__heading">
-              <h2 className="panel__title" id="boxplot-title">Metric distributions</h2>
-              <label>Metric <select className="text-input" value={distributionMetric}
+              <h2 className="panel__title" id="boxplot-title">{tr("resultDetailPage.metricDistributions")}</h2>
+              <label>{tr("resultDetailPage.metric")}<select className="text-input" value={distributionMetric}
                 onChange={(event) => setDistributionMetric(event.target.value as typeof distributionMetric)}>
                 {METRIC_META.map((metric) => <option key={metric.name} value={metric.name}>{metric.label}</option>)}
               </select></label>
-              <label>Color palette <select className="text-input" value={distributionPalette}
+              <label>{tr("jvChart.colorPalette")}<select className="text-input" value={distributionPalette}
                 onChange={(event) => setDistributionPalette(event.target.value)}>
-                {CATEGORICAL_PALETTES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                {CATEGORICAL_PALETTES.map(([value, label]) => <option key={value} value={value}>{localizeAppText(label)}</option>)}
               </select></label>
             </div>
-            <p className="run-sheet-muted">Forward and reverse scans are separate (F/R). Both device scopes use the current exclusion selection.</p>
+            <p className="run-sheet-muted">{tr("resultDetailPage.forwardAndReverseScansAreSeparateFRBoth")}</p>
             <FigureScopePair resultId={resultIdNumber} kind="boxplot" metric={distributionMetric}
               excludedDeviceIds={[...effectiveExclusions.keys()]} revision={figureRevision} palette={distributionPalette} filteredPreview={exclusionChangeCount > 0}
-              alt={`${METRIC_META.find((metric) => metric.name === distributionMetric)?.label} publication box plot with device points, split by scan direction`}
+              alt={tr("resultDetailPage.metricPublicationBoxPlotWithDevicePointsSplitBy", { "metric": METRIC_META.find((metric) => metric.name === distributionMetric)?.label })}
             />
           </section>
       ) : null}

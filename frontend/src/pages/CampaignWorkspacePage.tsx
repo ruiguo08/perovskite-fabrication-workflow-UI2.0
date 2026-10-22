@@ -1,4 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { enumLabel, localizeAppText } from "../i18n";
+import { useMemo } from "react";
+import { translate as tr, useLanguage as useUiLanguage, useLocalizedMemo } from "../i18n";
+import { useEffect, useState } from "react";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -55,6 +58,7 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 function Dot({ status }: { status: string }) {
+  useUiLanguage();
   return (
     <Box
       component="span"
@@ -72,6 +76,7 @@ const STAGE_LABELS: Record<Stage, string> = {
 };
 
 export function CampaignWorkspacePage() {
+  useUiLanguage();
   const { code } = useParams();
   const [campaigns, setCampaigns] = useState<Campaign[] | null>(null);
   const [experiments, setExperiments] = useState<Experiment[] | null>(null);
@@ -115,7 +120,7 @@ export function CampaignWorkspacePage() {
 
   const campaign = campaigns?.find((row) => row.code === code) ?? null;
 
-  const records = useMemo<CampaignRecord[]>(() => {
+  const records = useLocalizedMemo<CampaignRecord[]>(() => {
     if (!experiments || !batches || !results || !code) {
       return [];
     }
@@ -129,27 +134,27 @@ export function CampaignWorkspacePage() {
         id: row.id,
         code: row.experiment_code ?? `Experiment ${row.id}`,
         status: row.plan_status ?? row.status ?? "unknown",
-        detail: `Plan ${row.plan_status ?? "—"} · updated ${formatRelativeTime(row.updated_at)}`,
+        detail: tr("campaignWorkspacePage.planStatusUpdatedTime", { "status": row.plan_status ?? "—", "time": formatRelativeTime(row.updated_at) }),
         linkTo: `/experiments/${row.id}`,
-        linkLabel: "Open experiment",
+        linkLabel: tr("campaignWorkspacePage.openExperiment"),
       })),
       ...campaignBatches.map((row) => ({
         stage: "fabrication" as Stage,
         id: row.id,
         code: row.batch_code,
         status: row.status,
-        detail: row.experiment_code ?? `Experiment ${row.experiment_id}`,
+        detail: row.experiment_code ?? tr("campaignWorkspacePage.experimentId", { "id": row.experiment_id }),
         linkTo: `/experiments/${row.experiment_id}/batches/${row.id}`,
-        linkLabel: "Open run sheet",
+        linkLabel: tr("campaignWorkspacePage.openRunSheet"),
       })),
       ...campaignResults.map((row) => ({
         stage: "characterization" as Stage,
         id: row.id,
         code: row.filename,
         status: row.group_assignment ? "assigned" : "unassigned",
-        detail: row.experiment_code ?? `Experiment ${row.experiment_id}`,
+        detail: row.experiment_code ?? tr("campaignWorkspacePage.experimentId", { "id": row.experiment_id }),
         linkTo: `/results/${row.id}`,
-        linkLabel: "Open result",
+        linkLabel: tr("campaignWorkspacePage.openResult"),
       })),
     ];
   }, [experiments, batches, results, code]);
@@ -160,15 +165,15 @@ export function CampaignWorkspacePage() {
   }, [selection, records]);
 
   if (error) {
-    return <ErrorState title="Unable to load the campaign workspace" message={error} />;
+    return <ErrorState title={tr("campaignWorkspacePage.unableToLoadTheCampaignWorkspace")} message={localizeAppText(error ?? "")} />;
   }
 
   const loading = campaigns === null || experiments === null || batches === null || results === null;
   if (loading) {
-    return <div className="page-loading" role="status">Loading campaign workspace…</div>;
+    return <div className="page-loading" role="status">{tr("campaignWorkspacePage.loadingCampaignWorkspace")}</div>;
   }
   if (!campaign) {
-    return <ErrorState title="Campaign not found" message={`No campaign with code "${code}".`} />;
+    return <ErrorState title={tr("campaignWorkspacePage.campaignNotFound")} message={tr("campaignWorkspacePage.noCampaignWithCodeCode", { "code": code })} />;
   }
 
   const byStage = (stage: Stage) => records.filter((row) => row.stage === stage);
@@ -215,7 +220,7 @@ export function CampaignWorkspacePage() {
                 <Typography component="span" sx={{ fontSize: 12, letterSpacing: "-0.12px", color: "rgba(0,0,0,.8)",
                   display: "inline-flex", alignItems: "center", gap: 0.75 }}>
                   <Dot status={record.status} />
-                  {record.status.replace(/_/g, " ")}
+                  {enumLabel(record.status)}
                 </Typography>
               </Box>
             </Box>
@@ -229,18 +234,18 @@ export function CampaignWorkspacePage() {
     <>
       <PageHeader
         title={campaign.display_name}
-        description={`${campaign.code} · ${campaign.status} · ${records.length} records in the pipeline`}
-        actions={<RouterLink className="button button--secondary button--small" to="/campaigns">All campaigns</RouterLink>}
+        description={tr("campaignWorkspacePage.codeStatusNRecordsInThePipeline", { "code": campaign.code, "status": campaign.status, "n": records.length })}
+        actions={<RouterLink className="button button--secondary button--small" to="/campaigns">{tr("campaignWorkspacePage.allCampaigns")}</RouterLink>}
       />
       {records.length === 0 ? (
         <EmptyState
-          title="Nothing in the pipeline for this campaign yet."
-          description="Experiments appear here once a plan is created under this campaign."
+          title={tr("campaignWorkspacePage.nothingInThePipelineForThisCampaignYet")}
+          description={tr("campaignWorkspacePage.experimentsAppearHereOnceAPlanIsCreatedUnder")}
         />
       ) : (
         <Box sx={{ display: "grid", gridTemplateColumns: "280px minmax(0, 1fr)", minWidth: 0, gap: 2.5, alignItems: "start",
           "@media (max-width: 720px)": { gridTemplateColumns: "minmax(0, 1fr)" } }}>
-          <Box component="nav" aria-label="Campaign records" sx={{ bgcolor: "#f5f5f7", borderRadius: "12px", p: 1.5, minWidth: 0 }}>
+          <Box component="nav" aria-label={tr("campaignWorkspacePage.campaignRecords")} sx={{ bgcolor: "#f5f5f7", borderRadius: "12px", p: 1.5, minWidth: 0 }}>
             {stageRail("planning", planning)}
             <Divider sx={{ borderColor: "rgba(0,0,0,.06)" }} />
             {stageRail("fabrication", fabrication)}
@@ -248,10 +253,10 @@ export function CampaignWorkspacePage() {
             {stageRail("characterization", characterization)}
           </Box>
 
-          <Box component="section" id="campaign-record-detail" aria-label="Record details"
+          <Box component="section" id="campaign-record-detail" aria-label={tr("campaignWorkspacePage.recordDetails")}
             sx={{ bgcolor: "#f5f5f7", borderRadius: "12px", p: 2.5, minHeight: 240, minWidth: 0, overflowWrap: "anywhere" }}>
             <Typography role="status" aria-atomic sx={{ fontSize: 12.5, color: "rgba(0,0,0,.48)", letterSpacing: "-0.12px", mb: selected ? 0.5 : 0 }}>
-              {selected ? `Campaign › ${STAGE_LABELS[selected.stage]} › ${selected.code}` : ""}
+              {selected ? tr("campaignWorkspacePage.campaignStageCode", { "Stage": STAGE_LABELS[selected.stage], "code": selected.code }) : ""}
             </Typography>
             {selected ? (
               <>
@@ -262,7 +267,7 @@ export function CampaignWorkspacePage() {
                   <Typography component="span" sx={{ fontSize: 13.5, fontWeight: 500, letterSpacing: "-0.12px",
                     display: "inline-flex", alignItems: "center", gap: 0.75 }}>
                     <Dot status={selected.status} />
-                    {selected.status.replace(/_/g, " ")}
+                    {enumLabel(selected.status)}
                   </Typography>
                   <Typography sx={{ fontSize: 13, letterSpacing: "-0.12px", color: "rgba(0,0,0,.48)", minWidth: 0 }}>· {selected.detail}</Typography>
                 </Box>
@@ -272,10 +277,9 @@ export function CampaignWorkspacePage() {
               </>
             ) : (
               <Stack sx={{ py: 4, alignItems: "center" }} spacing={1}>
-                <Typography sx={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.224px" }}>Select a record from the left rail</Typography>
+                <Typography sx={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.224px" }}>{tr("campaignWorkspacePage.selectARecordFromTheLeftRail")}</Typography>
                 <Typography sx={{ fontSize: 13, letterSpacing: "-0.12px", color: "rgba(0,0,0,.48)" }}>
-                  The pane shows its pipeline stage, status, and a link to the full page.
-                </Typography>
+                  {tr("campaignWorkspacePage.thePaneShowsItsPipelineStageStatusAndA")}</Typography>
               </Stack>
             )}
           </Box>

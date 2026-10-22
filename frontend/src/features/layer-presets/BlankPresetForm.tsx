@@ -1,4 +1,7 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { localizeAppText } from "../../i18n";
+import { useMemo } from "react";
+import { translate as tr, useLanguage as useUiLanguage } from "../../i18n";
+import { useState, type FormEvent } from "react";
 import { FormField } from "../../components/FormField";
 import { InlineFormError } from "../../components/InlineFormError";
 import { RequiredLegend } from "../../components/RequiredLegend";
@@ -41,6 +44,7 @@ export function BlankPresetForm({
   onCreated: (preset: LayerPreset) => void;
   onCancel: () => void;
 }) {
+  useUiLanguage();
   const { show } = useToast();
   const [layerType, setLayerType] = useState("");
   const [presetName, setPresetName] = useState("");
@@ -130,7 +134,7 @@ export function BlankPresetForm({
   return (
     <form onSubmit={(event) => void createFromBlank(event)}>
         <div className="builder-fields builder-fields--two">
-          <FormField label="Layer type" htmlFor="blank-preset-type" required>
+          <FormField label={tr("blankPresetForm.layerType")} htmlFor="blank-preset-type" required>
             <select
               id="blank-preset-type"
               className="text-input"
@@ -138,13 +142,13 @@ export function BlankPresetForm({
               value={layerType}
               onChange={(event) => selectLayerType(event.target.value)}
             >
-              <option value="">Choose a layer type…</option>
+              <option value="">{tr("layerStackEditor.chooseALayerType")}</option>
               {LAYER_TYPE_DEFS.map((item) => (
-                <option key={item.layerType} value={item.layerType}>{item.label} · {roleLabel(item.role)}</option>
+                <option key={item.layerType} value={item.layerType}>{localizeAppText(item.label ?? "")} · {roleLabel(item.role)}</option>
               ))}
             </select>
           </FormField>
-          <FormField label="Preset name" htmlFor="blank-preset-name" required>
+          <FormField label={tr("blankPresetForm.presetName")} htmlFor="blank-preset-name" required>
             <input
               id="blank-preset-name"
               className="text-input"
@@ -157,7 +161,7 @@ export function BlankPresetForm({
         </div>
         {definition ? (
           <>
-            <FormField label="Layer name" htmlFor="blank-preset-layer-name" required>
+            <FormField label={tr("conditionPlanner.layerName")} htmlFor="blank-preset-layer-name" required>
               <input
                 id="blank-preset-layer-name"
                 className="text-input"
@@ -167,7 +171,7 @@ export function BlankPresetForm({
                 onChange={(event) => setLayerName(event.target.value)}
               />
             </FormField>
-            <p className="builder-help">Role {roleLabel(definition.role)} — derived from the layer type and fixed for this preset.</p>
+            <p className="builder-help">{tr("blankPresetForm.role")}{roleLabel(definition.role)} {tr("blankPresetForm.derivedFromTheLayerTypeAndFixedForThis")}</p>
             <RequiredLegend />
             <SolutionEditor idPrefix="blank-preset" solution={solution} materials={materials} onChange={setSolution} />
             {isPerovskite ? (
@@ -180,15 +184,15 @@ export function BlankPresetForm({
           </>
         ) : null}
         {canCreateShared ? (
-          <FormField label="Preset scope" htmlFor="blank-preset-scope" required>
+          <FormField label={tr("blankPresetForm.presetScope")} htmlFor="blank-preset-scope" required>
             <select
               id="blank-preset-scope"
               className="text-input"
               value={scope}
               onChange={(event) => setScope(event.target.value as "personal" | "shared")}
             >
-              <option value="shared">Shared directory</option>
-              <option value="personal">Personal</option>
+              <option value="shared">{tr("blankPresetForm.sharedDirectory")}</option>
+              <option value="personal">{tr("blankPresetForm.personal")}</option>
             </select>
           </FormField>
         ) : null}
@@ -204,11 +208,11 @@ export function BlankPresetForm({
             action="create"
           />
         ) : null}
-        <InlineFormError message={error} />
+        <InlineFormError message={localizeAppText(error ?? "")} />
         {issues.length > 0 && layerType ? (
           <div className="builder-issue-summary" role="alert" aria-labelledby="blank-preset-issues-title">
-            <h3 id="blank-preset-issues-title">Complete these values before saving</h3>
-            <ul>{issues.map((issue, index) => <li key={`${issue.path}-${index}`}><code>{issue.path}</code> — {issue.message}</li>)}</ul>
+            <h3 id="blank-preset-issues-title">{tr("baselineAuthoring.completeTheseValuesBeforeSaving")}</h3>
+            <ul>{issues.map((issue, index) => <li key={`${issue.path}-${index}`}><code>{issue.path}</code> — {localizeAppText(issue.message ?? "")}</li>)}</ul>
           </div>
         ) : null}
         <div className="lib-savebar">
@@ -218,11 +222,11 @@ export function BlankPresetForm({
               type="submit"
               disabled={submitting || !definition || issues.length > 0}
             >
-              {submitting ? "Creating…" : canCreateShared && scope === "shared" ? "Create shared preset" : "Create personal preset"}
+              {submitting ? tr("blankPresetForm.creating") : canCreateShared && scope === "shared" ? tr("blankPresetForm.createSharedPreset") : tr("blankPresetForm.createPersonalPreset")}
             </button>
-            <button className="button button--secondary" type="button" onClick={onCancel}>Cancel</button>
+            <button className="button button--secondary" type="button" onClick={onCancel}>{tr("completeBatchDialog.cancel")}</button>
           </div>
-          <span className="lib-muted">Cancel discards the entered values without sending any request.</span>
+          <span className="lib-muted">{tr("blankPresetForm.cancelDiscardsTheEnteredValuesWithoutSendingAnyRequest")}</span>
         </div>
       </form>
   );

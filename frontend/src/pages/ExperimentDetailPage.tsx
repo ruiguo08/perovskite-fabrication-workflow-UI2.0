@@ -1,4 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { enumLabel } from "../i18n";
+import { useMemo } from "react";
+import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useSession } from "../auth/session";
 import { ConditionCard } from "../components/ConditionCard";
@@ -26,24 +29,25 @@ function primaryPlanAction(detail: ExperimentDetail, canApprove: boolean): PlanA
   if (status === "draft") {
     // Strict approval workflow: a draft can only be submitted for approval.
     // Releasing requires an explicit instructor approval step first.
-    return { status: "pending_approval", label: "Submit for approval", tone: "primary" };
+    return { status: "pending_approval", label: tr("experimentDetailPage.submitForApproval"), tone: "primary" };
   }
   if (status === "pending_approval" && canApprove) {
-    return { status: "approved", label: "Approve plan", tone: "primary" };
+    return { status: "approved", label: tr("experimentDetailPage.approvePlan"), tone: "primary" };
   }
   if (status === "approved") {
-    return { status: "released", label: "Release approved plan", tone: "primary" };
+    return { status: "released", label: tr("experimentDetailPage.releaseApprovedPlan"), tone: "primary" };
   }
   if (status === "released") {
-    return { status: "in_progress", label: "Start fabrication", tone: "primary" };
+    return { status: "in_progress", label: tr("experimentDetailPage.startFabrication"), tone: "primary" };
   }
   if (status === "in_progress") {
-    return { status: "completed", label: "Complete fabrication", tone: "primary" };
+    return { status: "completed", label: tr("experimentDetailPage.completeFabrication"), tone: "primary" };
   }
   return null;
 }
 
 export function ExperimentDetailPage() {
+  useUiLanguage();
   const { experimentId } = useParams();
   const id = Number(experimentId);
   const { user } = useSession();
@@ -184,14 +188,14 @@ export function ExperimentDetailPage() {
   }
 
   if (!Number.isInteger(id) || id <= 0) {
-    return <ErrorState title="Invalid experiment" message="The experiment identifier is not valid." />;
+    return <ErrorState title={tr("experimentDetailPage.invalidExperiment")} message={tr("experimentDetailPage.theExperimentIdentifierIsNotValid")} />;
   }
   if (resource.status === "loading" && resource.data === null) {
-    return <div className="page-loading" role="status">Loading experiment…</div>;
+    return <div className="page-loading" role="status">{tr("experimentDetailPage.loadingExperiment")}</div>;
   }
   if (resource.status === "error" && resource.data === null) {
-    return <ErrorState title="Unable to load experiment" message={resource.error ?? "The experiment could not be loaded."} action={
-      <button type="button" className="button button--secondary" onClick={() => void resource.reload()}>Retry</button>
+    return <ErrorState title={tr("experimentDetailPage.unableToLoadExperiment")} message={resource.error ?? tr("experimentDetailPage.theExperimentCouldNotBeLoaded")} action={
+      <button type="button" className="button button--secondary" onClick={() => void resource.reload()}>{tr("versionHistory.retry")}</button>
     } />;
   }
   if (!activeDetail) {
@@ -217,21 +221,21 @@ export function ExperimentDetailPage() {
   return (
     <>
       <PageHeader
-        title={experiment.experiment_code ?? `Experiment ${experiment.id}`}
-        description={`${experiment.plan_type?.replace(/_/g, " ") ?? "Unclassified"} plan in ${experiment.campaign_id ?? "unassigned Campaign"}.`}
+        title={experiment.experiment_code ?? tr("campaignWorkspacePage.experimentId", { "id": experiment.id })}
+        description={tr("experimentDetailPage.planTypePlanInCampaignId", { "plan_type": enumLabel(experiment.plan_type) ?? "Unclassified", "campaign_id": experiment.campaign_id ?? "unassigned Campaign" })}
         meta={`Updated ${formatDateTime(experiment.updated_at)}`}
         actions={
           <>
-            <a className="button button--secondary" href={`/experiments/${id}/export.json`}>Export JSON</a>
-            <a className="button button--secondary" href={`/experiments/${id}/export.pdf`}>Export PDF</a>
-            <Link className="button button--secondary" to="/experiments">Back to records</Link>
+            <a className="button button--secondary" href={`/experiments/${id}/export.json`}>{tr("batchDetailPage.exportJSON")}</a>
+            <a className="button button--secondary" href={`/experiments/${id}/export.pdf`}>{tr("batchDetailPage.exportPDF")}</a>
+            <Link className="button button--secondary" to="/experiments">{tr("experimentDetailPage.backToRecords")}</Link>
           </>
         }
       />
 
       <section className="panel experiment-summary" aria-labelledby="experiment-summary-title">
         <div className="panel__heading">
-          <h2 className="panel__title" id="experiment-summary-title">Plan summary</h2>
+          <h2 className="panel__title" id="experiment-summary-title">{tr("experimentDetailPage.planSummary")}</h2>
           <div className="status-row">
             <StatusBadge status={experiment.status} />
             {experiment.plan_status ? <StatusBadge status={experiment.plan_status} /> : null}
@@ -244,7 +248,7 @@ export function ExperimentDetailPage() {
 
       {!terminal ? (
         <section className="panel plan-actions" aria-labelledby="plan-actions-title">
-          <h2 className="panel__title" id="plan-actions-title">Plan actions</h2>
+          <h2 className="panel__title" id="plan-actions-title">{tr("experimentDetailPage.planActions")}</h2>
           <div className="button-row">
             {action ? (
               <button
@@ -256,27 +260,24 @@ export function ExperimentDetailPage() {
                 {action.label}
               </button>
             ) : null}
-            <button className="button button--danger" type="button" disabled={submitting} onClick={() => void changePlanStatus({ status: "cancelled", label: "Cancel plan", tone: "danger" })}>Cancel plan</button>
+            <button className="button button--danger" type="button" disabled={submitting} onClick={() => void changePlanStatus({ status: "cancelled", label: tr("experimentDetailPage.cancelPlan"), tone: "danger" })}>{tr("experimentDetailPage.cancelPlan")}</button>
           </div>
           {staleScope ? (
             <p className="inline-warning" role="alert">
-              Plan content changed after you loaded it. The latest version is shown below — review it again before approving.
-            </p>
+              {tr("experimentDetailPage.planContentChangedAfterYouLoadedItTheLatest")}</p>
           ) : null}
           <InlineFormError message={actionError} />
           {missingBatches ? (
             <p className="inline-warning" role="status">
-              No fabrication batches yet. Freeze at least one batch below before starting or
-              completing fabrication — characterization CSV uploads require a batch.
-            </p>
+              {tr("experimentDetailPage.noFabricationBatchesYetFreezeAtLeastOneBatch")}</p>
           ) : null}
         </section>
       ) : null}
 
       <section className="catalog-group" aria-labelledby="condition-directory-title">
         <div className="catalog-group__heading">
-          <h2 id="condition-directory-title">Conditions</h2>
-          <span className="record-count">{activeDetail.conditions.length} records</span>
+          <h2 id="condition-directory-title">{tr("batchDetailPage.conditions")}</h2>
+          <span className="record-count">{activeDetail.conditions.length} {tr("presetFilters.records")}</span>
         </div>
         {activeDetail.conditions.length > 0 ? <ConditionComparison conditions={activeDetail.conditions} /> : null}
         <div className="condition-list">
@@ -294,24 +295,24 @@ export function ExperimentDetailPage() {
 
       <section className="panel" aria-labelledby="batch-directory-title">
         <div className="panel__heading">
-          <h2 className="panel__title" id="batch-directory-title">Fabrication batches</h2>
-          <span className="record-count">{activeDetail.fabrication_batches.length} records</span>
+          <h2 className="panel__title" id="batch-directory-title">{tr("experimentDetailPage.fabricationBatches")}</h2>
+          <span className="record-count">{activeDetail.fabrication_batches.length} {tr("presetFilters.records")}</span>
         </div>
         {canFreezeBatches ? (
           <form className="batch-create-form" onSubmit={(event) => void createBatch(event)}>
-            <FormField label="Batch notes" htmlFor="batch-notes">
+            <FormField label={tr("experimentDetailPage.batchNotes")} htmlFor="batch-notes">
               <input id="batch-notes" className="text-input" maxLength={2000} value={batchNotes} onChange={(event) => setBatchNotes(event.target.value)} />
             </FormField>
-            <button className="button button--primary" type="submit" disabled={submitting}>Freeze fabrication batch</button>
+            <button className="button button--primary" type="submit" disabled={submitting}>{tr("experimentDetailPage.freezeFabricationBatch")}</button>
           </form>
         ) : null}
         {activeDetail.fabrication_batches.length === 0 ? (
           <EmptyState
-            title="No fabrication batches yet."
+            title={tr("experimentDetailPage.noFabricationBatchesYet")}
             description={
               canFreezeBatches
-                ? "Freeze a batch from the approved condition snapshots above — starting fabrication and CSV result uploads both require at least one batch."
-                : "Release the plan before freezing execution records."
+                ? tr("experimentDetailPage.freezeABatchFromTheApprovedConditionSnapshotsAbove")
+                : tr("experimentDetailPage.releaseThePlanBeforeFreezingExecutionRecords")
             }
           />
         ) : (
@@ -319,9 +320,9 @@ export function ExperimentDetailPage() {
             {activeDetail.fabrication_batches.map((batch) => (
               <article className="batch-summary-card" key={batch.id}>
                 <div><Link className="record-link" to={`/experiments/${id}/batches/${batch.id}`}>{batch.batch_code}</Link><StatusBadge status={batch.status} /></div>
-                <span>{batch.notes || "No notes"}</span>
+                <span>{batch.notes || tr("experimentDetailPage.noNotes")}</span>
                 <details className="provenance-disclosure">
-                  <summary>Provenance</summary>
+                  <summary>{tr("reviewPanel.provenance")}</summary>
                   <div className="provenance-disclosure__body">
                     <code title={batch.condition_set_hash}>{batch.condition_set_hash.slice(0, 16)}…</code>
                   </div>
@@ -334,15 +335,15 @@ export function ExperimentDetailPage() {
 
       <section className="panel" aria-labelledby="result-directory-title">
         <div className="panel__heading">
-          <h2 className="panel__title" id="result-directory-title">Characterization results</h2>
-          <Link className="button button--secondary button--small" to={`/experiments/${id}/upload`}>Upload results</Link>
+          <h2 className="panel__title" id="result-directory-title">{tr("experimentDetailPage.characterizationResults")}</h2>
+          <Link className="button button--secondary button--small" to={`/experiments/${id}/upload`}>{tr("experimentDetailPage.uploadResults")}</Link>
         </div>
-        {activeDetail.results.length === 0 ? <EmptyState title="No characterization results uploaded." /> : (
+        {activeDetail.results.length === 0 ? <EmptyState title={tr("experimentDetailPage.noCharacterizationResultsUploaded")} /> : (
           <div className="result-list">
             {activeDetail.results.map((result) => (
               <article className="result-summary-card" key={result.id} data-result-row={result.id}>
                 <Link className="record-link" to={`/results/${result.id}`}>{result.filename}</Link>
-                <Link className="record-link" to={`/results/${result.id}`}>View direction-specific statistics</Link>
+                <Link className="record-link" to={`/results/${result.id}`}>{tr("experimentDetailPage.viewDirectionSpecificStatistics")}</Link>
               </article>
             ))}
           </div>
