@@ -23,13 +23,12 @@ export const appTheme: Theme = createTheme({
     divider: "rgba(0, 0, 0, 0.08)",
   },
   typography: {
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, "PingFang SC", "Microsoft YaHei UI", sans-serif',
+    fontFamily: "var(--font-ui)",
     h1: { fontSize: "1.5rem", fontWeight: 600, letterSpacing: "-0.28px", lineHeight: 1.14 },
     h2: { fontSize: "1.25rem", fontWeight: 600, letterSpacing: "-0.28px", lineHeight: 1.19 },
     h3: { fontSize: "1rem", fontWeight: 600, letterSpacing: "-0.224px" },
-    body1: { fontSize: "0.875rem", letterSpacing: "-0.224px", lineHeight: 1.47 },
-    body2: { fontSize: "0.8125rem", letterSpacing: "-0.12px", lineHeight: 1.47 },
+    body1: { fontSize: "0.875rem", letterSpacing: "-0.224px", lineHeight: 1.55 },
+    body2: { fontSize: "0.8125rem", letterSpacing: "-0.12px", lineHeight: 1.55 },
     button: { textTransform: "none", fontWeight: 400, letterSpacing: "-0.12px" },
     caption: { fontSize: "0.75rem", letterSpacing: "-0.12px" },
   },

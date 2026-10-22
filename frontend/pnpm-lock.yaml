@@ -17,6 +17,9 @@ importers:
       '@emotion/styled':
         specifier: ^11.14.1
         version: 11.14.1(@emotion/react@11.14.0(@types/react@19.2.18)(react@19.2.8)(supports-color@7.2.0))(@types/react@19.2.18)(react@19.2.8)(supports-color@7.2.0)
+      '@fontsource-variable/noto-sans-sc':
+        specifier: 5.3.1
+        version: 5.3.1
       '@mui/material':
         specifier: ^9.4.0
         version: 9.4.0(@emotion/react@11.14.0(@types/react@19.2.18)(react@19.2.8)(supports-color@7.2.0))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.18)(react@19.2.8)(supports-color@7.2.0))(@types/react@19.2.18)(react@19.2.8)(supports-color@7.2.0))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -446,6 +449,9 @@ packages:
   '@eslint/plugin-kit@0.4.1':
     resolution: {integrity: sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@fontsource-variable/noto-sans-sc@5.3.1':
+    resolution: {integrity: sha512-UB96JJ17HyD5ehEU7Em0hDdh7fvTMB4B4Hzmq5c4QaNwwSLqTrdM2S+coySeBqCkXwh0DxqXT0b0wMrmzorFpQ==}
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -2154,6 +2160,8 @@ snapshots:
     dependencies:
       '@eslint/core': 0.17.0
       levn: 0.4.1
+
+  '@fontsource-variable/noto-sans-sc@5.3.1': {}
 
   '@humanfs/core@0.19.2':
     dependencies:

@@ -55,6 +55,9 @@ export default defineConfig({
   build: {
     outDir: "../src/web/static-app",
     emptyOutDir: true,
+    // Even tiny font subsets must remain files: font-src 'self' rejects data URLs.
+    assetsInlineLimit: (filePath) =>
+      /\.(?:woff2?|ttf|otf)$/i.test(filePath) ? false : undefined,
   },
   server: {
     port: 5173,
