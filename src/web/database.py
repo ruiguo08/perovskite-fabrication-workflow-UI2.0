@@ -29,6 +29,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 
+from .booking_schema_v1 import booking_tables
 from .condition_snapshot import CONDITION_RECIPE_SCHEMA_VERSION
 from .execution_snapshots import (
     PROCESS_SNAPSHOT_SCHEMA_VERSION,
@@ -1193,6 +1194,9 @@ device_layout_versions = Table(
     UniqueConstraint("code", "version", name="uq_device_layouts_code_version"),
 )
 Index("ix_device_layout_versions_code", device_layout_versions.c.code)
+
+
+BOOKING_TABLES = booking_tables(metadata, json_document)
 
 
 class Database:

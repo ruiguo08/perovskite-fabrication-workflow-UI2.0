@@ -18,6 +18,7 @@ from perovskite_bo import (
 from tests.layout_fixtures import seed_standard_layouts
 from tests.recipe_fixtures import FACTORY_LAYER_PRESETS as LAYER_PRESETS
 from tests.test_web_app import complete_guided_setup
+from tests.workflow_access_fixtures import grant_created_workflow_user
 from web import create_app
 from web.repository import UserRole
 
@@ -27,6 +28,8 @@ OWNER_USERNAME = "phase2-owner"
 OWNER_PASSWORD = "Phase 2 owner password 2026"
 OTHER_USERNAME = "phase2-other"
 OTHER_PASSWORD = "Phase 2 other password 2026"
+
+
 
 
 class Phase2ApiTests(unittest.TestCase):
@@ -89,6 +92,7 @@ class Phase2ApiTests(unittest.TestCase):
                 "role": role.value,
             },
         )
+        grant_created_workflow_user(self.client, response)
         self.assertEqual(response.status_code, 201, response.text)
 
     def create_student_experiment(self) -> tuple[int, int]:
@@ -535,6 +539,7 @@ class Phase2ApiTests(unittest.TestCase):
                 "role": "instructor",
             },
         )
+        grant_created_workflow_user(self.client, created)
         self.assertEqual(created.status_code, 201, created.text)
         account_id = int(created.json()["id"])
         updated = self.client.patch(

@@ -89,6 +89,7 @@ def parser() -> argparse.ArgumentParser:
     subcommands = command_parser.add_subparsers(dest="command", required=True)
     subcommands.add_parser("check-database", help="Check connectivity and migrations")
     subcommands.add_parser("list-users", help="List local users without password hashes")
+    subcommands.add_parser("seed-equipment", help="Idempotently initialize 20 closed equipment units")
     subcommands.add_parser(
         "cleanup-sessions", help="Delete expired sessions from the database"
     )
@@ -780,6 +781,11 @@ async def _run_import_catalog(
 
 async def run_command(args: argparse.Namespace, database: Database) -> None:
     repository = WebRepository(database)
+    if args.command == 'seed-equipment':
+        from .booking_catalog import seed_equipment
+        await seed_equipment(database)
+        print('Equipment catalogue initialized; assign active managers before opening reservations.')
+        return
     if args.command == "check-database":
         expected_head = _expected_migration_head()
         async with database.engine.connect() as connection:

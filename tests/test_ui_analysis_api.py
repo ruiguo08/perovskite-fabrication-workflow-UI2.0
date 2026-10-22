@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 from tests import test_device_scan_stats as scan_fixtures
 from tests.test_device_scan_stats import repeat_scan_csv
+from tests.workflow_access_fixtures import grant_created_workflow_user
 from web.publication_plots import CATEGORICAL_PALETTES, PlotUnavailableError
 
 
@@ -115,6 +116,7 @@ class AnalysisOverlayApiTests(unittest.TestCase):
                 "username": "overlay-peer", "display_name": "Overlay peer",
                 "password": "overlay peer password 2026", "role": "student",
             })
+            grant_created_workflow_user(self.client, created)
             self.assertEqual(created.status_code, 201, created.text)
             self.assertEqual(self.client.post("/api/auth/logout").status_code, 204)
             self.client.headers.pop("X-CSRF-Token", None)

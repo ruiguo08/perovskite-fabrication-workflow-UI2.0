@@ -25,6 +25,7 @@ from fastapi.testclient import TestClient
 
 from tests.test_fabrication_batches import _create_released_experiment_with_conditions
 from tests.test_jv_parser import instrument_named_csv, multi_device_csv
+from tests.workflow_access_fixtures import grant_created_workflow_user
 from web import create_app
 from web.repository import (
     BatchStatus,
@@ -41,6 +42,8 @@ OTHER_USERNAME = "campaign-analysis-other"
 OTHER_PASSWORD = "campaign analysis other password"
 
 CAMPAIGN = "campaign-analysis"
+
+
 
 
 def _utcnow() -> datetime:
@@ -95,6 +98,7 @@ class CampaignAnalysisApiTests(unittest.TestCase):
                 "role": UserRole.STUDENT.value,
             },
         )
+        grant_created_workflow_user(self.client, response)
         self.assertIn(response.status_code, (200, 201), response.text)
         listing = self.client.get("/api/users")
         self.assertEqual(listing.status_code, 200, listing.text)

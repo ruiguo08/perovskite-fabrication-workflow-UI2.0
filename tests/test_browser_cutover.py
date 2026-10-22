@@ -31,6 +31,7 @@ from tests.cdp_driver import (
 )
 from tests.layout_fixtures import seed_standard_layouts
 from tests.test_browser_builder import should_skip_browser_tests
+from tests.workflow_access_fixtures import grant_created_workflow_user
 from web import create_app
 from web.repository import UserRole
 
@@ -40,6 +41,8 @@ STUDENT_USERNAME = "cutover-student"
 STUDENT_PASSWORD = "Cutover student password 2026!"
 INSTRUCTOR_USERNAME = "cutover-instructor"
 INSTRUCTOR_PASSWORD = "Cutover instructor password 2026!"
+
+
 
 
 def available_port() -> int:
@@ -83,6 +86,7 @@ class CutoverBrowserTests(unittest.TestCase):
                     "/api/users",
                     json={"username": username, "display_name": display, "password": password, "role": role},
                 )
+                grant_created_workflow_user(client, created)
                 assert created.status_code == 201, created.text
 
             from tests.test_web_app import releasable_result_recipe

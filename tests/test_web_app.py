@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from perovskite_bo import deposition_recipe_from_process
 from tests.layout_fixtures import seed_standard_layouts
 from tests.recipe_fixtures import REFERENCE_DEPOSITION_PROCESS, REFERENCE_DEVICE_RECIPE
+from tests.workflow_access_fixtures import grant_created_workflow_user
 from web import create_app
 from web.repository import ExecutionStatus, PreparationStatus, UserRole
 from web.routes.common import MAX_RESULT_FILE_BYTES
@@ -37,6 +38,8 @@ FLAT_RECIPE_WITHOUT_DEVICE = {
     "anneal_stage1_temperature_c": 120,
     "anneal_stage1_seconds": 600,
 }
+
+
 
 
 def multi_device_csv(
@@ -1383,6 +1386,7 @@ class BaselinePermissionTests(unittest.TestCase):
             json={"username": username, "display_name": username.title(),
                   "password": password, "role": role.value},
         )
+        grant_created_workflow_user(self.client, response)
         self.assertEqual(response.status_code, 201, response.text)
 
     def _create_baseline(self, name: str) -> int:
@@ -1855,6 +1859,7 @@ class OperationContractRegressionTests(unittest.TestCase):
             json={"username": username, "display_name": username.title(),
                   "password": password, "role": role.value},
         )
+        grant_created_workflow_user(self.client, response)
         self.assertEqual(response.status_code, 201, response.text)
 
     def _create_valid_experiment(self) -> None:

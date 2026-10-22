@@ -356,6 +356,20 @@ class UsersMixin:
             if result.rowcount != 1:
                 raise KeyError(f"unknown user id: {user_id}")
             if not is_active:
+                # Lock the account before equipment assignments, matching the
+                # assignment operation. Pausing keeps existing history intact.
+                from ..database import BOOKING_TABLES
+                equipment = BOOKING_TABLES['equipment']
+                paused = await connection.execute(update(equipment).where(
+                    equipment.c.manager_id == user_id,
+                    equipment.c.bookable.is_(True),
+                ).values(bookable=False, updated_at=_utc_now()).returning(equipment.c.id))
+                for equipment_id in paused.scalars():
+                    await _add_audit_event(
+                        connection, actor_user_id=actor_user_id,
+                        action='equipment.pause', entity_type='equipment', entity_id=str(equipment_id),
+                        details={'reason': 'manager deactivated', 'manager_id': user_id}, client_ip=client_ip,
+                    )
                 await connection.execute(delete(sessions).where(sessions.c.user_id == user_id))
             await _add_audit_event(
                 connection,

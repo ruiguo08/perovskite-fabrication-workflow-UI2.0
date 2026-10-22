@@ -16,12 +16,15 @@ from fastapi.testclient import TestClient
 from layout_fixtures import fixture_layout, fixture_layouts, seed_standard_layouts
 from test_web_app import VALID_RECIPE
 
+from tests.workflow_access_fixtures import grant_created_workflow_user
 from web import create_app
 from web.device_layouts import expected_device_count
 from web.repository import UserRole
 
 TEST_USERNAME = "admin"
 TEST_PASSWORD = "Adm1n!password"
+
+
 
 
 def _layout(code: str):
@@ -148,6 +151,7 @@ class CampaignApiTests(unittest.TestCase):
                 "role": role.value,
             },
         )
+        grant_created_workflow_user(self.client, response)
         self.assertEqual(response.status_code, 201, response.text)
 
     def _logout(self) -> None:

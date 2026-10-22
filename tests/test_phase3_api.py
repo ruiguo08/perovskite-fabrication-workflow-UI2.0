@@ -31,6 +31,7 @@ from perovskite_bo import (
 from tests.layout_fixtures import seed_standard_layouts
 from tests.test_jv_parser import channel_labeled_csv, instrument_named_csv, multi_device_csv
 from tests.test_web_app import complete_guided_setup
+from tests.workflow_access_fixtures import grant_created_workflow_user
 from web import create_app
 from web.repository import ExecutionStatus, PreparationStatus, UserRole
 
@@ -47,6 +48,8 @@ RESULT_CSV = multi_device_csv(
     [-20.0, -20.0, -22.0, -18.0],
     device_labels=["A001 Channel 1", "A002 Channel 1"],
 )
+
+
 
 
 class Phase3ApiTests(unittest.TestCase):
@@ -119,6 +122,7 @@ class Phase3ApiTests(unittest.TestCase):
                 "role": role.value,
             },
         )
+        grant_created_workflow_user(self.client, response)
         self.assertEqual(response.status_code, 201, response.text)
 
     def _user_id(self, username: str) -> int:

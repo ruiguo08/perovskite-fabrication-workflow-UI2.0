@@ -30,6 +30,7 @@ from tests.cdp_driver import (
 )
 from tests.layout_fixtures import seed_standard_layouts
 from tests.test_browser_builder import should_skip_browser_tests
+from tests.workflow_access_fixtures import grant_created_workflow_user
 from web import create_app
 from web.repository import BatchStatus, ExecutionStatus, PreparationStatus, UserRole
 
@@ -39,6 +40,8 @@ STUDENT_USERNAME = "results-student"
 STUDENT_PASSWORD = "Results student password 2026!"
 OTHER_USERNAME = "results-other"
 OTHER_PASSWORD = "Results other password 2026!"
+
+
 
 
 def available_port() -> int:
@@ -190,6 +193,7 @@ class ResultBrowserTests(unittest.TestCase):
                         "role": role,
                     },
                 )
+                grant_created_workflow_user(client, created)
                 assert created.status_code == 201, created.text
 
             cls.experiment_id = owned_released_experiment(

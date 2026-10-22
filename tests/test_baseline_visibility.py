@@ -30,6 +30,7 @@ from sqlalchemy import select
 
 from tests.layout_fixtures import seed_standard_layouts
 from tests.test_web_app import FLAT_RECIPE_WITHOUT_DEVICE, complete_guided_setup
+from tests.workflow_access_fixtures import grant_created_workflow_user
 from web import create_app
 from web.database import audit_events
 from web.repository import UserRole
@@ -42,6 +43,8 @@ STUDENT_A_USERNAME = "visibility-student-a"
 STUDENT_A_PASSWORD = "Visibility student A password 2026"
 STUDENT_B_USERNAME = "visibility-student-b"
 STUDENT_B_PASSWORD = "Visibility student B password 2026"
+
+
 
 
 def baseline_payload(name: str) -> dict:
@@ -114,6 +117,7 @@ class BaselineVisibilityTests(unittest.TestCase):
                 "role": role.value,
             },
         )
+        grant_created_workflow_user(self.client, response)
         self.assertEqual(response.status_code, 201, response.text)
 
     def _user_id(self, username: str) -> int:

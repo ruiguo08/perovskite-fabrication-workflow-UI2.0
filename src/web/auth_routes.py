@@ -14,6 +14,7 @@ from .auth import (
     authenticate_credentials,
     clear_session_cookies,
     has_valid_login_csrf,
+    has_workflow_access,
     hash_password_async,
     issue_session,
     new_login_csrf_token,
@@ -68,6 +69,7 @@ def create_auth_router(repository: WebRepository) -> APIRouter:
             display_name=auth_context.user.display_name,
             role=auth_context.user.role.value,
             csrf_available=bool(auth_context.csrf_token),
+            workflow_access=await has_workflow_access(repository, auth_context.user.id),
         )
 
     @router.get("/api/auth/login-csrf", response_model=None)
@@ -135,6 +137,7 @@ def create_auth_router(repository: WebRepository) -> APIRouter:
                 "display_name": user.display_name,
                 "role": user.role.value,
                 "csrf_available": True,
+                "workflow_access": await has_workflow_access(repository, user.id),
             }
         )
         set_session_cookies(response, issued, settings)

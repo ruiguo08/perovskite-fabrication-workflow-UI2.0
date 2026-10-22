@@ -89,7 +89,7 @@ jobs:
       - run: uv run --no-sync alembic upgrade head
       - run: uv run --no-sync alembic check
       - name: PostgreSQL integration + release config + behind-head check
-        run: uv run --no-sync python -m unittest tests.test_postgresql_integration tests.test_release_config -v
+        run: uv run --no-sync python -m unittest tests.test_postgresql_integration tests.test_booking_postgresql tests.test_release_config -v
 
   frontend:
     runs-on: ubuntu-latest
