@@ -1470,6 +1470,60 @@
 
 | Key | English | 中文 |
 |---|---|---|
+| booking.manageDescription | Manage assigned equipment. Reasons and changes are audited. | 管理负责设备，操作原因及变更均记录审计。 |
+| booking.back | Back to calendar | 返回日历 |
+| booking.noManaged | No equipment is assigned to you. | 您尚未被指派负责设备。 |
+| booking.profile | Equipment profile | 设备档案 |
+| booking.reservations | Reservations and maintenance | 预约与维护 |
+| booking.teamLedger | Equipment usage records | 设备台账 |
+| booking.access | Fabrication workflow access | 工艺区访问授权 |
+| booking.name | Equipment name | 设备名称 |
+| booking.group | Group | 分组 |
+| booking.type | Equipment type | 设备类型 |
+| booking.location | Location | 位置 |
+| booking.manager | Equipment manager | 设备管理员 |
+| booking.unassigned | Unassigned | 未指派 |
+| booking.bookable | Open for reservations | 开放预约 |
+| booking.template | Usage template | 台账模板 |
+| booking.descriptionField | Description | 说明 |
+| booking.pressureUnit | Pressure unit | 压强单位 |
+| booking.thicknessUnit | Thickness unit | 厚度单位 |
+| booking.saveProfile | Save equipment profile | 保存设备档案 |
+| booking.newMaintenance | Create maintenance block | 创建维护封锁 |
+| booking.newNotice | Publish notice | 发布公告 |
+| booking.body | Notice body | 公告正文 |
+| booking.validFrom | Valid from (Shanghai time) | 生效时间（上海时间） |
+| booking.validUntil | Expires (Shanghai time) | 到期时间（上海时间） |
+| booking.notify | Notify users with upcoming reservations | 通知近期预约者 |
+| booking.notifyUntil | Reservations through (next 31 days) | 预约截止时间（未来 31 天内） |
+| booking.noticeHistory | All notices, including scheduled / expired / withdrawn | 全部公告（含待生效、已过期及已撤回） |
+| booking.withdraw | Withdraw | 撤回 |
+| booking.pin | Pin | 置顶 |
+| booking.unpin | Unpin | 取消置顶 |
+| booking.withdrawn | Withdrawn | 已撤回 |
+| booking.expired | Expired | 已过期 |
+| booking.scheduled | Scheduled | 待生效 |
+| booking.active | Active | 有效 |
+| booking.cancelOther | Cancel with reason | 填写原因并取消 |
+| booking.markNoShow | Mark no-show | 标记爽约 |
+| booking.forceEnd | End use on behalf of owner | 代为结束使用 |
+| booking.release | Release maintenance | 解除维护封锁 |
+| booking.managerAction | Manager action | 管理员操作 |
+| booking.action | Action | 操作 |
+| booking.managerHint | Cancelling another user’s future booking notifies them. Ending on behalf of an owner preserves their ledger. | 取消他人未来预约将通知预约人。代为结束保留原使用者台账。 |
+| booking.accessHint | New accounts have booking access only. Global role and equipment management do not grant fabrication access. | 新增账号默认仅有预约权限。全局角色及设备管理员身份不会授予工艺访问权。 |
+| booking.grant | Grant fabrication access | 授予工艺访问权 |
+| booking.revoke | Revoke fabrication access | 撤销工艺访问权 |
+| booking.granted | Granted | 已授权 |
+| booking.notGranted | Not granted | 未授权 |
+| booking.account | Account | 账号 |
+| booking.auditAccess | Last grant / revocation | 最近授权／撤销 |
+| booking.equipmentClosedHint | Assign an active manager before opening reservations. Deactivating a manager pauses their equipment. | 开放预约前须指派有效管理员。停用管理员账号会暂停其设备预约。 |
+| booking.rangeStart | Range start | 查询开始日期 |
+| booking.rangeEnd | Range end (exclusive) | 查询结束日期（不含） |
+| booking.search | Load records | 查询记录 |
+| booking.userNumber | User {id} | 用户 {id} |
+| booking.overrun | Equipment remains in use. Contact the current user or equipment manager before starting. | 设备仍在使用中，请联系当前使用者或设备管理员后再开始。 |
 | booking.title | Equipment booking | 设备预约 |
 | booking.description | Shared laboratory calendar · Asia/Shanghai (UTC+08:00) | 共享实验室日历 · 上海时区（UTC+08:00） |
 | booking.day | Day | 日 |
@@ -1549,7 +1603,7 @@
 | booking.private | Usage details are visible only to the owner, equipment manager and system administrator. | 详细台账仅本人、对应设备管理员及系统管理员可见。 |
 | booking.noInbox | No notifications. | 暂无通知。 |
 | booking.refresh | Refresh calendar | 刷新日历 |
-| booking.occupied | {n} reservations | {n} 条预约 |
+| booking.occupied | Reservations: {n} | {n} 条预约 |
 | booking.hours | {n} occupied h | 占用 {n} 小时 |
 | booking.loadError | Unable to load booking data. Retry to refresh. | 无法加载预约数据，请重试刷新。 |
 | booking.conflict | This action conflicts with the current equipment state or another reservation. Refresh and review the time or status before retrying. | 操作与设备当前状态或其他预约冲突。请刷新并核对时段或状态后重试。 |

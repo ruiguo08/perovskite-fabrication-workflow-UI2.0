@@ -190,12 +190,16 @@ completion occupancy, operation retries and unique usage rows. A disposable
 schema runs the real Alembic chain with legacy accounts of every role, then
 creates new accounts and repeats `upgrade head` to verify no new grants.
 
-PR-2 remains: day/week/month calendar, equipment filters, owner lifecycle and
-dynamic usage forms, announcements/inbox, `booking.*` resources in the existing
-i18n system, and navigation that uses `workflow_access` and defaults booking-only
-users to booking. Reuse Noto Sans SC and the existing terminology guide.
+The React calendar and management interfaces are documented in
+[equipment-booking-ui.md](equipment-booking-ui.md). The complete acceptance map
+is in [equipment-booking-acceptance.md](equipment-booking-acceptance.md).
 
-PR-3 remains: equipment/manager, notice/maintenance, no-show/cancellation and
-emergency-use management screens, pending-ledger views, workflow-grant management
-UI and end-to-end group acceptance. The backend permissions above already apply.
-Both final-commit Ubuntu and Windows workflows must pass before merge.
+Management also supports `GET notices?history=true` (only managed equipment,
+or all equipment for a system administrator), `GET notices/{id}` (current notices
+for all active users; historical notices only for their manager, administrator or
+notified recipient), and `GET workflow-access?offset=...`. Ordinary notice lists
+still show only current, unwithdrawn notices. Historical access never exposes
+other recipients or usage data.
+
+Both final-commit Ubuntu and Windows workflows must pass before integration.
+No full-group rollout or production account/data changes are part of these PRs.

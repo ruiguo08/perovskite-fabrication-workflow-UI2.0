@@ -36,9 +36,24 @@ refresh/retry path. Language changes use `booking.*` resources in the existing
 store and preserve mounted form values. Equipment names, materials, notes and
 notices remain in their authored language. No experimental provenance links exist.
 
-The inbox persists server notifications and read state. Management, notice history
-and complete browser acceptance are delivered in the next independent PR. This
-feature is not a production rollout or an invitation to the full laboratory group.
+The inbox persists server notifications and read state, including opening an
+expired or withdrawn notice sent to the recipient. A historical notice list is
+restricted to the manager's equipment or the system administrator.
+
+`/app/booking/manage` offers equipment profiles, maintenance, reasoned lifecycle
+actions, notice publication/pinning/withdrawal, equipment ledgers and pending
+records. Ordinary equipment managers see only their assigned units. Only system
+administrators can assign managers or grant/revoke independent fabrication access.
+Manager actions never write another owner's usage fields. A force-ended record
+remains available for its owner to complete later. Deactivated managers' equipment
+is paused by the backend and does not reopen automatically after reactivation.
+
+Dialog language controls use the same application preference and preserve entered
+values. Short adjacent events keep their actual duration on the timeline. Profile
+configuration changes apply only to new usage snapshots. Equipment codes remain
+stable; group, type, location and template remain independent.
+
+This feature is not a production rollout or an invitation to the laboratory group.
 
 ## PR-2 verification
 
@@ -51,3 +66,15 @@ feature is not a production rollout or an invitation to the full laboratory grou
 - Synthetic demo review at `/app/booking` records before/after screenshots in
   ignored `.run/booking-before.png` and `.run/booking-pr2-*.png`. No real identities,
   data or user mockups are committed.
+
+## PR-3 verification
+
+Local TypeScript, ESLint and all 425 frontend tests passed. The booking backend
+regression includes two additional notice-history/recipient authorization checks.
+Real Chrome acceptance covers booking-only landing/navigation, all calendar views,
+equipment filters, 320px overflow, language/form persistence, real CSRF writes,
+owner start/end/pending/submission, scoped manager cancellation/no-show/force-end,
+maintenance creation/release, notice pin/withdraw, notification read idempotency,
+and administrator grants/revocations against an already logged-in instructor.
+The production CSP is enforced during these tests. See the acceptance document
+for evidence boundaries and CI requirements.

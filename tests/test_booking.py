@@ -328,6 +328,44 @@ class BookingTests(unittest.IsolatedAsyncioTestCase):
         await self.manager.update_notice(notice["id"], NoticeUpdate(withdraw=True))
         self.assertEqual(await self.owner.list_notices(), [])
 
+    async def test_notice_history_is_scoped_and_scheduled_notices_remain_manageable(self):
+        payload = NoticeCreate(
+            equipment_id=self.eq,
+            body="Synthetic future notice",
+            valid_from=self.now + timedelta(days=1),
+            valid_until=self.now + timedelta(days=2),
+            request_key=uuid4().hex,
+        )
+        notice = await self.manager.create_notice(payload)
+        self.assertEqual(await self.owner.list_notices(), [])
+        self.assertEqual((await self.manager.list_notices(history=True))[0]["id"], notice["id"])
+        self.assertEqual(await self.teacher.list_notices(history=True), [])
+        with self.assertRaises(AccessDenied):
+            await self.owner.list_notices(history=True)
+        with self.assertRaises(AccessDenied):
+            await self.teacher.list_notices(self.eq, history=True)
+        with self.assertRaises(AccessDenied):
+            await self.owner.notice_detail(notice["id"])
+        self.assertEqual((await self.manager.notice_detail(notice["id"]))["body"], payload.body)
+        self.assertEqual(len(await self.admin.list_notices(history=True)), 1)
+        await self.manager.update_notice(notice["id"], NoticeUpdate(withdraw=True))
+        self.assertIsNotNone((await self.manager.list_notices(history=True))[0]["withdrawn_at"])
+
+    async def test_notified_recipient_can_read_original_notice_after_withdrawal(self):
+        await self.book()
+        notice = await self.manager.create_notice(NoticeCreate(
+            equipment_id=self.eq, body="Original synthetic outage message",
+            valid_from=self.now, valid_until=self.now + timedelta(days=2),
+            notify_until=self.now + timedelta(days=1), request_key=uuid4().hex,
+        ))
+        await self.manager.update_notice(notice["id"], NoticeUpdate(withdraw=True))
+        self.assertEqual(await self.owner.list_notices(), [])
+        self.assertEqual((await self.owner.notice_detail(notice["id"]))["body"], notice["body"])
+        with self.assertRaises(AccessDenied):
+            await self.teacher.notice_detail(notice["id"])
+        with self.assertRaises(AccessDenied):
+            await self.owner.list_notices(history=True)
+
     async def test_manager_deactivation_pauses_equipment(self):
         await WebRepository(self.db).update_user(
             self.accounts["manager"].id,
