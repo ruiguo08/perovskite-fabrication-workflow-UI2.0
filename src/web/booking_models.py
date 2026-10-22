@@ -47,6 +47,21 @@ class BookingModel(ApiModel):
             raise ValueError("timestamps require a timezone")
         return value
 
+    @field_validator(
+        "starts_at",
+        "ends_at",
+        "valid_from",
+        "valid_until",
+        "notify_until",
+        mode="after",
+        check_fields=False,
+    )
+    @classmethod
+    def utc_datetime(cls, value):
+        # SQLite's DateTime adapter drops offsets instead of converting them.
+        # Normalize before persistence so both databases store the same instant.
+        return as_utc(value) if value is not None else None
+
 
 class Interval(BookingModel):
     starts_at: AwareDatetime

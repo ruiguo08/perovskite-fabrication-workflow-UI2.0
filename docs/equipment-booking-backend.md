@@ -88,8 +88,9 @@ Maintenance conflicts are rejected; managers must explicitly resolve bookings.
 All endpoints below require an active existing login. Every POST, PUT and PATCH
 also requires the existing `X-CSRF-Token` header and same-origin protection.
 The prefix is `/api/booking`. Request/response schemas are in OpenAPI when the
-deployment enables documentation. Dates use timezone-bearing ISO 8601; responses
-normalize SQLite dates to UTC too. The later UI displays the laboratory calendar
+deployment enables documentation. Dates use timezone-bearing ISO 8601. Inputs
+and calendar bounds normalize to UTC before storage/query, preserving offsets
+even with SQLite's timezone-naive adapter; responses also return UTC. The later UI displays the laboratory calendar
 in `Asia/Shanghai`.
 
 | Method / suffix | Behavior and permission |

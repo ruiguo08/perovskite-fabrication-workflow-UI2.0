@@ -2,7 +2,7 @@
 
 import tempfile
 import unittest
-from datetime import timedelta
+from datetime import timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 from uuid import uuid4
@@ -253,6 +253,23 @@ class BookingTests(unittest.IsolatedAsyncioTestCase):
             )
             result = await self.owner.action(next_row["id"], ReservationAction(action="start"))
             self.assertEqual(result["status"], "in_use")
+
+    async def test_timezone_offset_round_trip_and_calendar(self):
+        zone = timezone(timedelta(hours=8))
+        start = (self.now + timedelta(hours=1)).astimezone(zone)
+        end = (self.now + timedelta(hours=2)).astimezone(zone)
+        row = await self.owner.create_reservation(
+            ReservationCreate(
+                equipment_id=self.eq,
+                starts_at=start.isoformat(),
+                ends_at=end.isoformat(),
+                request_key=uuid4().hex,
+            )
+        )
+        self.assertEqual(row["starts_at"], start)
+        self.assertEqual(row["ends_at"], end)
+        rows = await self.owner.calendar(start, end)
+        self.assertEqual([item["id"] for item in rows], [row["id"]])
 
     async def test_snapshot_survives_configuration_change(self):
         row = await self.book()

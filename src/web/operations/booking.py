@@ -463,6 +463,7 @@ class BookingOperations:
             return await store.ledger(self.actor_id, admin, equipment_id, pending, offset)
 
     async def calendar(self, starts_at, ends_at, equipment_id=None, history=False, offset=0):
+        starts_at, ends_at = as_utc(starts_at), as_utc(ends_at)
         if ends_at <= starts_at or ends_at - starts_at > timedelta(days=93):
             raise InvalidInput("calendar range must be positive and at most 93 days")
         async with self.transaction() as (store, _):
