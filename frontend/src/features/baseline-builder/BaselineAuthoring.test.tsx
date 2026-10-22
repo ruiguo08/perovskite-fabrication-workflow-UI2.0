@@ -11,6 +11,7 @@ const sessionUser = vi.hoisted(() => ({
   display_name: "Student One",
   role: "student" as "student" | "instructor" | "administrator",
   csrf_available: true,
+  workflow_access: true,
 }));
 vi.mock("../../auth/session", () => ({
   useSession: () => ({ user: sessionUser, status: "authenticated", error: null }),

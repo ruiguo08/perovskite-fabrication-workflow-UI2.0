@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const sessionState = vi.hoisted(() => ({
   status: "authenticated" as "authenticated" | "unauthenticated",
   role: "student" as "student" | "instructor" | "administrator",
+  workflow: true,
 }));
 
 vi.mock("./auth/session", () => ({
@@ -16,6 +17,7 @@ vi.mock("./auth/session", () => ({
       display_name: "Student One",
       role: sessionState.role,
       csrf_available: true,
+      workflow_access: sessionState.workflow,
     },
     status: sessionState.status,
     login: vi.fn().mockImplementation(async () => {
@@ -38,7 +40,19 @@ describe("application route authorization", () => {
   beforeEach(() => {
     sessionState.status = "authenticated";
     sessionState.role = "student";
+    sessionState.workflow = true;
     window.history.replaceState({}, "", "/app/users");
+  });
+
+  it.each(['student', 'instructor', 'administrator'] as const)('sends a booking-only %s away from fabrication routes', async role => {
+    sessionState.workflow=false;
+    sessionState.role=role;
+    window.history.replaceState({},'', '/app/analysis');
+    render(<App />);
+    expect(await screen.findByRole('heading',{name:'Equipment booking',level:1})).toBeInTheDocument();
+    expect(screen.queryByRole('link',{name:'Experiments'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('link',{name:'Analysis workbench'})).not.toBeInTheDocument();
+    expect(window.location.pathname).toBe('/app/booking');
   });
 
   it("does not render administrator routes for a student", async () => {

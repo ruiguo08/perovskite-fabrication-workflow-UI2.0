@@ -33,6 +33,17 @@ import { ResultDetailPage } from "./pages/ResultDetailPage";
 import { ResultsPage } from "./pages/ResultsPage";
 import { FabricationBatchesPage } from "./pages/FabricationBatchesPage";
 import { BatchDetailPage } from "./pages/BatchDetailPage";
+import { BookingPage } from './pages/BookingPage';
+
+function RequireWorkflow() {
+  const {user} = useSession();
+  return user?.workflow_access ? <Outlet /> : <Navigate to="/booking" replace />;
+}
+
+function Home() {
+  const {user} = useSession();
+  return user?.workflow_access ? <OverviewPage /> : <Navigate to="/booking" replace />;
+}
 
 function RequireAuth() {
   const { t } = useLanguage();
@@ -114,7 +125,9 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route element={<RequireAuth />}>
               <Route element={<AppShell />}>
-                <Route index element={<OverviewPage />} />
+                <Route index element={<Home />} />
+                <Route path="booking" element={<BookingPage />} />
+                <Route element={<RequireWorkflow />}>
                 <Route path="workflow" element={<WorkflowGuidePage />} />
                 <Route
                   path="experiments"
@@ -176,6 +189,7 @@ export default function App() {
                   path="campaigns/:code"
                   element={<CampaignWorkspacePage />}
                 />
+                </Route>
                 <Route element={<RequireRole minimum="administrator" />}>
                   <Route path="users" element={<UsersPage />} />
                 </Route>

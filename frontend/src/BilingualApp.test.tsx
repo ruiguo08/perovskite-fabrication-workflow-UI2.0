@@ -8,7 +8,7 @@ import { formatDateTime } from "./lib/format";
 vi.mock("./auth/session", () => ({
   SessionProvider: ({ children }: { children: React.ReactNode }) => children,
   useSession: () => ({
-    user: { id: 1, username: "student", display_name: "SAM English Name", role: "student" },
+    user: { id: 1, username: "student", display_name: "SAM English Name", role: "student", workflow_access: true },
     status: "authenticated", logout: vi.fn(), refresh: vi.fn(),
   }),
 }));

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useSession, type Role } from "../auth/session";
 import { PipelineHeader } from "./PipelineHeader";
@@ -23,9 +23,11 @@ interface NavItemDef {
   minRole?: Role;
   /** Marked until a React route (or legacy page) exists for it. */
   disabled?: boolean;
+  workflow?: boolean;
 }
 
 const NAV_GROUPS: { label: MessageKey; items: NavItemDef[] }[] = [
+  { label: 'booking.equipment', items: [{label:'booking.title',path:'/booking'}] },
   {
     label: "nav.laboratory",
     items: [
@@ -62,8 +64,9 @@ function canSee(item: NavItemDef, role: Role): boolean {
 
 export function AppShell() {
   const { t } = useLanguage();
-  const { user } = useSession();
+  const { user, refresh } = useSession();
   const location = useLocation();
+  useEffect(() => { void refresh(); }, [location.pathname, refresh]);
   const { show: showToast } = useToast();
   if (!user) {
     return null;
@@ -80,12 +83,12 @@ export function AppShell() {
           <span className="shell__brand-subtitle">{t("app.subtitle")}</span>
         </Link>
         <nav aria-label={t("nav.primary")}>
-          {NAV_GROUPS.map((group) => (
+          {NAV_GROUPS.filter(group => user.workflow_access || group.label === 'booking.equipment' || (group.label === 'nav.management' && user.role === 'administrator')).map((group) => (
             <div key={group.label} className="nav-group">
               <h2 className="nav-group__label">{t(group.label)}</h2>
               <ul className="nav-group__list">
                 {group.items
-                  .filter((item) => canSee(item, user.role))
+                  .filter((item) => canSee(item, user.role) && (user.workflow_access || item.path === '/booking' || item.path === '/users'))
                   .map((item) => {
                     // A nav item is active when the current path's first
                     // segment matches the item's path, so /experiments/6/batches/1
@@ -159,7 +162,7 @@ export function AppShell() {
           <span className="topbar__user">{user.display_name}</span>
           <LogoutButton />
         </header>
-        <PipelineHeader />
+        {user.workflow_access && <PipelineHeader />}
         <main id="main-content" className="shell__content" tabIndex={-1}>
           <Outlet />
         </main>

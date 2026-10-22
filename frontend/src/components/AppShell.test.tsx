@@ -20,6 +20,7 @@ vi.mock("../auth/session", () => ({
       display_name: "Student One",
       role: "student",
       csrf_available: true,
+      workflow_access: true,
     },
     status: "authenticated",
     login: vi.fn(),
