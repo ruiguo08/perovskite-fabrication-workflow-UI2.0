@@ -1,0 +1,28 @@
+/* Operational UI is sans-serif. Monospace remains reserved for identifiers,
+   code and step numbers. Standalone SVG/publication figures have their own
+   typography; no serif display faces are introduced into the application. */
+
+/* Chinese glyphs do not benefit from the Latin negative/uppercase tracking.
+   This intentionally also overrides MUI runtime styles and inline tracking. */
+html:lang(zh-CN) body,
+html:lang(zh-CN) body * {
+  letter-spacing: 0 !important;
+}
+
+html:lang(zh-CN) p {
+  line-height: 1.6;
+}
+
+html:lang(zh-CN) :is(button, label, th, .button) {
+  font-weight: 500 !important;
+}
+
+html:lang(zh-CN) :is(h1, h2, h3, h4, strong, b) {
+  font-weight: 600;
+}
+
+html:lang(zh-CN) .nav-item--active,
+html:lang(zh-CN) .workflow-guide__phase,
+html:lang(zh-CN) .workflow-guide__eyebrow {
+  font-weight: 500;
+}
