@@ -164,11 +164,11 @@ class BookingOperations:
             )
             return {"user_id": user_id, "workflow_access": enabled}
 
-    async def list_access(self):
+    async def list_access(self, offset=0):
         async with self.transaction() as (store, admin):
             if not admin:
                 raise AccessDenied("system administrator required")
-            return await store.rows(workflow_access, order=[workflow_access.c.user_id])
+            return await store.rows(workflow_access, order=[workflow_access.c.user_id], offset=offset)
 
     async def create_reservation(self, payload):
         async with self.transaction() as (store, admin):
@@ -561,15 +561,22 @@ class BookingOperations:
             )
             return result
 
-    async def list_notices(self, equipment_id=None, offset=0):
-        async with self.transaction() as (store, _):
+    async def list_notices(self, equipment_id=None, offset=0, history=False):
+        async with self.transaction() as (store, admin):
             now = utc_now()
-            criteria = [
+            criteria = [] if history else [
                 equipment_notice.c.withdrawn_at.is_(None),
                 equipment_notice.c.valid_from <= now,
                 equipment_notice.c.valid_until > now,
             ]
+            if history and not admin:
+                managed = await store.rows(equipment, equipment.c.manager_id == self.actor_id)
+                if not managed:
+                    raise AccessDenied("equipment manager required")
+                criteria.append(equipment_notice.c.equipment_id.in_([row["id"] for row in managed]))
             if equipment_id is not None:
+                if history:
+                    await self.managed(store, equipment_id, admin)
                 criteria.append(equipment_notice.c.equipment_id == equipment_id)
             return await store.rows(
                 equipment_notice,
@@ -577,6 +584,27 @@ class BookingOperations:
                 order=[equipment_notice.c.pinned.desc(), equipment_notice.c.id.desc()],
                 offset=offset,
             )
+
+    async def notice_detail(self, identity):
+        async with self.transaction() as (store, admin):
+            row = await store.one(equipment_notice, equipment_notice.c.id == identity)
+            if row is None:
+                raise RecordNotFound("notice not found")
+            now = utc_now()
+            active = (
+                row["withdrawn_at"] is None
+                and as_utc(row["valid_from"]) <= now < as_utc(row["valid_until"])
+            )
+            if not active and not admin:
+                eq = await store.one(equipment, equipment.c.id == row["equipment_id"])
+                recipient = await store.one(
+                    user_notification,
+                    user_notification.c.notice_id == identity,
+                    user_notification.c.recipient_id == self.actor_id,
+                )
+                if eq["manager_id"] != self.actor_id and recipient is None:
+                    raise AccessDenied("historical notice requires manager or recipient access")
+            return row
 
     async def notifications(self, identity=None, offset=0):
         async with self.transaction() as (store, _):

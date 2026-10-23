@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { useLanguage } from "../../i18n";
 import { trapModalFocus } from "../../lib/modalFocus";
+import { LanguageSwitcher } from "../../components/LanguageSwitcher";
 
 export function BookingDialog({
   title,
@@ -18,7 +19,7 @@ export function BookingDialog({
     id = useId();
   useEffect(() => {
     const before = document.activeElement as HTMLElement | null;
-    ref.current?.focus();
+    (ref.current?.querySelector<HTMLElement>("button") ?? ref.current)?.focus();
     return () => before?.focus();
   }, []);
   return (
@@ -37,6 +38,7 @@ export function BookingDialog({
       >
         <div className="booking-dialog__header">
           <h2 id={id}>{title}</h2>
+          <LanguageSwitcher />
           <button
             className="button button--secondary"
             disabled={busy}

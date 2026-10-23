@@ -4,6 +4,54 @@
   --booking-green: #27734b;
   --booking-amber: #a56308;
 }
+.booking-borderless {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.booking-managed-select {
+  max-width: 420px;
+}
+.booking-management .panel {
+  padding: 22px;
+}
+.booking-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+.booking-access-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid #dfe4e8;
+}
+.booking-access-row p {
+  margin: 6px 0 0;
+  font-size: 12px;
+}
+.booking-manager-action {
+  padding: 16px;
+  background: #fff7e9;
+  border: 1px solid #ead4ae;
+  margin: 20px 0;
+  border-radius: 8px;
+}
+.booking-manager-action h3 {
+  margin-top: 0;
+}
+@media (max-width: 600px) {
+  .booking-access-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .booking-management .panel {
+    padding: 14px;
+  }
+}
 .booking-page h1 {
   margin: 0;
   font-size: 1.65rem;
@@ -252,11 +300,13 @@
   color: #55348c;
   border-radius: 5px;
   text-align: left;
-  padding: 3px 5px;
+  padding: 0 5px;
+  border-top: 0;
+  border-bottom: 0;
   font: inherit;
   font-size: 11px;
   cursor: pointer;
-  min-height: 24px;
+  min-height: 0;
 }
 .booking-event strong,
 .booking-event span,

@@ -89,7 +89,7 @@ export function eventLanes(rows: CalendarRow[], date: string) {
       row,
       lane,
       top: ((start - midnight(date)) / 3600000) * 48,
-      height: Math.max(24, ((end - start) / 3600000) * 48),
+      height: ((end - start) / 3600000) * 48,
     };
   });
   return result.map((item) => ({ ...item, lanes: Math.max(1, ends.length) }));

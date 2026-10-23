@@ -132,8 +132,14 @@ def create_booking_router() -> APIRouter:
         return await op.ledger(equipment_id, pending, offset)
 
     @router.get("/notices", response_model=list[NoticeResponse])
-    async def notices(op: Ops, equipment_id: int | None = None, offset: Offset = 0):
-        return await op.list_notices(equipment_id, offset)
+    async def notices(
+        op: Ops, equipment_id: int | None = None, offset: Offset = 0, history: bool = False
+    ):
+        return await op.list_notices(equipment_id, offset, history)
+
+    @router.get("/notices/{notice_id}", response_model=NoticeResponse)
+    async def notice_detail(notice_id: int, op: Ops):
+        return await op.notice_detail(notice_id)
 
     @router.post("/notices", status_code=201, dependencies=write, response_model=NoticeResponse)
     async def create_notice(payload: NoticeCreate, op: Ops):
@@ -156,8 +162,8 @@ def create_booking_router() -> APIRouter:
         return await op.notifications(notification_id)
 
     @router.get("/workflow-access", response_model=list[AccessGrantResponse])
-    async def list_access(op: Ops):
-        return await op.list_access()
+    async def list_access(op: Ops, offset: Offset = 0):
+        return await op.list_access(offset)
 
     @router.put("/workflow-access/{user_id}", dependencies=write, response_model=AccessResponse)
     async def set_access(user_id: int, payload: AccessUpdate, op: Ops):

@@ -128,8 +128,8 @@ export function Calendar({
         className="booking-timeline"
         style={{
           gridTemplateColumns: `52px repeat(${columns.length}, minmax(${view === "day" ? 160 : 80}px, 1fr))`,
-          width: '100%',
-          minWidth: 52 + columns.length * (view === 'day' ? 160 : 80),
+          width: "100%",
+          minWidth: 52 + columns.length * (view === "day" ? 160 : 80),
         }}
       >
         <div className="booking-timeline__corner">UTC+8</div>

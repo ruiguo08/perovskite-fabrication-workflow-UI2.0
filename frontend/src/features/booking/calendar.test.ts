@@ -24,6 +24,18 @@ const row = (id: number, start: string, end: string): CalendarRow => ({
   actual_end: null,
 });
 describe("laboratory calendar", () => {
+  it("keeps adjacent short bookings proportional instead of visually overlapping", () => {
+    const packed = eventLanes(
+      [
+        row(1, "2026-10-23T09:00+08:00", "2026-10-23T09:15+08:00"),
+        row(2, "2026-10-23T09:15+08:00", "2026-10-23T09:30+08:00"),
+      ],
+      "2026-10-23",
+    );
+    expect(packed[0].height).toBe(12);
+    expect(packed[0].top + packed[0].height).toBe(packed[1].top);
+    expect(packed.map((item) => item.lane)).toEqual([0, 0]);
+  });
   it("converts timestamps independently of the browser timezone", () => {
     expect(labDate("2026-10-23T19:30:00Z")).toBe("2026-10-24");
     expect(labInput("2026-10-23T19:30:00Z")).toBe("2026-10-24T03:30");

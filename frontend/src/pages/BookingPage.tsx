@@ -6,6 +6,7 @@ import {
   type FormEvent,
 } from "react";
 import { useSession } from "../auth/session";
+import { Link } from "react-router-dom";
 import { useLanguage } from "../i18n";
 import { ApiError } from "../lib/api";
 import { bookingApi, bookingPages } from "../features/booking/api";
@@ -21,6 +22,8 @@ import {
 } from "../features/booking/calendar";
 import { BookingDialog } from "../features/booking/BookingDialog";
 import { UsageForm } from "../features/booking/UsageForm";
+import { ManagerAction } from "../features/booking/ManagerAction";
+import { useNow } from "../features/booking/useNow";
 import type {
   CalendarRow,
   Equipment,
@@ -126,12 +129,9 @@ export function BookingPage() {
           reserved_by: user?.display_name ?? "",
         });
       } else {
-        // The active notice list is used here; historical notice detail is added
-        // with the management history endpoint in PR-3.
-        const notice = notices.find(
-          (item) => item.id === notification.notice_id,
+        setNoticeOpen(
+          await bookingApi<Notice>(`notices/${notification.notice_id}`),
         );
-        if (notice) setNoticeOpen(notice);
       }
       await read(notification);
     } catch {
@@ -186,6 +186,12 @@ export function BookingPage() {
         role="group"
         aria-label={t("booking.title")}
       >
+        {(user?.role === "administrator" ||
+          equipment.some((eq) => eq.manager_id === user?.id)) && (
+          <Link className="button button--secondary" to="/booking/manage">
+            {t("booking.manage")}
+          </Link>
+        )}
         {(["calendar", "ledger", "inbox"] as const).map((key) => (
           <button
             key={key}
@@ -216,36 +222,48 @@ export function BookingPage() {
             </button>
             <button onClick={() => setSelected([])}>{t("booking.none")}</button>
           </div>
-          {["gloveboxes", "vacuum", "other", "characterization"].map(
-            (group) => (
-              <fieldset key={group}>
-                <legend>{t(`booking.${group}` as "booking.gloveboxes")}</legend>
-                {equipment
-                  .filter((eq) => eq.group_code === group)
-                  .map((eq) => (
-                    <label className="booking-equipment-option" key={eq.id}>
-                      <input
-                        type="checkbox"
-                        checked={visibleIds.has(eq.id)}
-                        onChange={() =>
-                          setSelected(
-                            visibleIds.has(eq.id)
-                              ? visible
-                                  .filter((item) => item.id !== eq.id)
-                                  .map((item) => item.id)
-                              : [...visibleIds, eq.id],
-                          )
-                        }
-                      />
-                      <span>
-                        <strong>{eq.code}</strong> {eq.name}
-                        {!eq.bookable && <small>{t("booking.closed")}</small>}
-                      </span>
-                    </label>
-                  ))}
-              </fieldset>
-            ),
-          )}
+          {Array.from(
+            new Set([
+              "gloveboxes",
+              "vacuum",
+              "other",
+              "characterization",
+              ...equipment.map((eq) => eq.group_code),
+            ]),
+          ).map((group) => (
+            <fieldset key={group}>
+              <legend>
+                {["gloveboxes", "vacuum", "other", "characterization"].includes(
+                  group,
+                )
+                  ? t(`booking.${group}` as "booking.gloveboxes")
+                  : group}
+              </legend>
+              {equipment
+                .filter((eq) => eq.group_code === group)
+                .map((eq) => (
+                  <label className="booking-equipment-option" key={eq.id}>
+                    <input
+                      type="checkbox"
+                      checked={visibleIds.has(eq.id)}
+                      onChange={() =>
+                        setSelected(
+                          visibleIds.has(eq.id)
+                            ? visible
+                                .filter((item) => item.id !== eq.id)
+                                .map((item) => item.id)
+                            : [...visibleIds, eq.id],
+                        )
+                      }
+                    />
+                    <span>
+                      <strong>{eq.code}</strong> {eq.name}
+                      {!eq.bookable && <small>{t("booking.closed")}</small>}
+                    </span>
+                  </label>
+                ))}
+            </fieldset>
+          ))}
         </aside>
         <section className="booking-workspace">
           {loading && (
@@ -485,6 +503,17 @@ export function BookingPage() {
           onClose={() => setNoticeOpen(null)}
         >
           <p className="booking-body">{noticeOpen.body}</p>
+          <p>
+            {labStamp(noticeOpen.valid_from, language)} –{" "}
+            {labStamp(noticeOpen.valid_until, language)} ·{" "}
+            {t(
+              noticeOpen.withdrawn_at
+                ? "booking.withdrawn"
+                : Date.parse(noticeOpen.valid_until) <= Date.now()
+                  ? "booking.expired"
+                  : "booking.active",
+            )}
+          </p>
         </BookingDialog>
       )}
     </div>
@@ -497,7 +526,13 @@ export function bookingError(
   | "booking.conflict"
   | "booking.denied"
   | "booking.invalid"
-  | "booking.failed" {
+  | "booking.failed"
+  | "booking.overrun" {
+  if (
+    error instanceof ApiError &&
+    error.message.includes("equipment remains in use")
+  )
+    return "booking.overrun";
   return error instanceof ApiError
     ? error.status === 409
       ? "booking.conflict"
@@ -621,14 +656,17 @@ export function ReservationDialog({
   equipment,
   onClose,
   onSaved,
+  management = false,
 }: {
   row: CalendarRow;
   equipment: Equipment | undefined;
   onClose: () => void;
   onSaved: () => void;
+  management?: boolean;
 }) {
   const { t, language } = useLanguage(),
     { user } = useSession();
+  const now = useNow();
   const canRead =
     row.user_id === user?.id ||
     equipment?.manager_id === user?.id ||
@@ -746,8 +784,8 @@ export function ReservationDialog({
               className="button button--primary"
               disabled={
                 busy ||
-                Date.parse(row.starts_at) > Date.now() ||
-                Date.parse(row.ends_at) <= Date.now()
+                Date.parse(detail?.starts_at ?? row.starts_at) > now ||
+                Date.parse(detail?.ends_at ?? row.ends_at) <= now
               }
               onClick={() =>
                 void mutate(`reservations/${row.id}/actions`, "POST", {
@@ -769,7 +807,7 @@ export function ReservationDialog({
               {t("booking.cancel")}
             </button>
           </div>
-          {Date.parse(detail?.starts_at ?? row.starts_at) > Date.now() && (
+          {Date.parse(detail?.starts_at ?? row.starts_at) > now && (
             <form
               className="booking-form-grid"
               onSubmit={(event) => {
@@ -807,6 +845,22 @@ export function ReservationDialog({
           )}
         </>
       )}
+      {management &&
+        ready &&
+        (equipment?.manager_id === user?.id ||
+          user?.role === "administrator") && (
+          <ManagerAction
+            row={detail ?? row}
+            busy={busy}
+            owner={owner}
+            onAction={(action, reason) =>
+              void mutate(`reservations/${row.id}/actions`, "POST", {
+                action,
+                reason,
+              })
+            }
+          />
+        )}
       {usage && ready && (
         <UsageForm
           key={`${usage.id}:${usage.updated_at}`}

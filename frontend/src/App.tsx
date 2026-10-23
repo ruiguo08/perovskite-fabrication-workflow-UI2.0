@@ -34,6 +34,7 @@ import { ResultsPage } from "./pages/ResultsPage";
 import { FabricationBatchesPage } from "./pages/FabricationBatchesPage";
 import { BatchDetailPage } from "./pages/BatchDetailPage";
 import { BookingPage } from './pages/BookingPage';
+import { BookingManagementPage } from './pages/BookingManagementPage';
 
 function RequireWorkflow() {
   const {user} = useSession();
@@ -127,6 +128,7 @@ export default function App() {
               <Route element={<AppShell />}>
                 <Route index element={<Home />} />
                 <Route path="booking" element={<BookingPage />} />
+                <Route path="booking/manage" element={<BookingManagementPage />} />
                 <Route element={<RequireWorkflow />}>
                 <Route path="workflow" element={<WorkflowGuidePage />} />
                 <Route

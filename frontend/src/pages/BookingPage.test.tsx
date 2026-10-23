@@ -77,6 +77,14 @@ describe("booking workspace", () => {
     const create = await screen.findByRole("button", { name: "New booking" });
     await waitFor(() => expect(create).toBeEnabled());
     fireEvent.click(create);
+    expect(screen.getByRole("button", { name: "中文" })).toHaveFocus();
+    fireEvent.keyDown(screen.getByRole("dialog"), {
+      key: "Tab",
+      shiftKey: true,
+    });
+    expect(
+      screen.getByRole("button", { name: "Book equipment" }),
+    ).toHaveFocus();
     const starts = screen.getByLabelText("Start (Shanghai time)");
     fireEvent.change(starts, { target: { value: "2026-12-01T09:00" } });
     fireEvent.change(screen.getByLabelText("End (Shanghai time)"), {
