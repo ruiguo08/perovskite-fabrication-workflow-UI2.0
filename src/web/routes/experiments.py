@@ -14,7 +14,6 @@ from starlette.concurrency import run_in_threadpool
 from ..auth import (
     AuthContext,
     require_csrf,
-    require_role,
     require_user,
 )
 from ..models import (
@@ -41,10 +40,10 @@ from ..repository import (
     ConditionRole,
     ExceptionDecision,
     PlanStatus,
-    UserRole,
     WebRepository,
 )
 from .common import (
+    _actor_access,
     _client_ip,
     _condition_response,
     _fabrication_batch_response,
@@ -52,7 +51,6 @@ from .common import (
     _operation_error_to_http,
     _record_response,
     _result_summary_response,
-    _student_owner_id,
     _substrate_exception_response,
 )
 
@@ -135,6 +133,7 @@ def create_experiments_router(
                 ),
                 actor_user_id=auth_context.user.id,
                 client_ip=_client_ip(request),
+                actor_access=await _actor_access(repository, auth_context),
             )
         except OperationError as error:
             raise _operation_error_to_http(error) from error
@@ -143,8 +142,11 @@ def create_experiments_router(
     async def list_experiments_api(
         auth_context: Annotated[AuthContext, Depends(require_user)],
     ) -> list[ExperimentResponse]:
+        # Membership-scoped listing: members see every experiment of
+        # their campaigns (their own and peers'); administrators see all.
+        access = await _actor_access(repository, auth_context)
         records = await repository.list_experiments(
-            owner_user_id=_student_owner_id(auth_context)
+            campaign_ids=access.visible_campaign_codes()
         )
         # Measured data pulled forward (D1): best forward-scan metrics per
         # experiment, empty for experiments without characterization results.
@@ -249,7 +251,7 @@ def create_experiments_router(
                 planned_substrate_count=payload.planned_substrate_count,
                 actor_user_id=auth_context.user.id,
                 client_ip=_client_ip(request),
-                actor_role=auth_context.user.role,
+                actor_access=await _actor_access(repository, auth_context),
             )
         except OperationError as error:
             raise _operation_error_to_http(error) from error
@@ -276,7 +278,7 @@ def create_experiments_router(
                 planned_substrate_count=payload.planned_substrate_count,
                 actor_user_id=auth_context.user.id,
                 client_ip=_client_ip(request),
-                actor_role=auth_context.user.role,
+                actor_access=await _actor_access(repository, auth_context),
             )
         except OperationError as error:
             raise _operation_error_to_http(error) from error
@@ -297,7 +299,7 @@ def create_experiments_router(
                 condition_id,
                 actor_user_id=auth_context.user.id,
                 client_ip=_client_ip(request),
-                actor_role=auth_context.user.role,
+                actor_access=await _actor_access(repository, auth_context),
             )
         except OperationError as error:
             raise _operation_error_to_http(error) from error
@@ -321,7 +323,7 @@ def create_experiments_router(
                 reason=payload.reason,
                 requested_by_id=auth_context.user.id,
                 client_ip=_client_ip(request),
-                actor_role=auth_context.user.role,
+                actor_access=await _actor_access(repository, auth_context),
             )
         except OperationError as error:
             raise _operation_error_to_http(error) from error
@@ -329,10 +331,7 @@ def create_experiments_router(
     @router.post(
         "/api/substrate-exceptions/{exception_id}/decision",
         response_model=SubstrateExceptionResponse,
-        dependencies=[
-            Depends(require_role(UserRole.INSTRUCTOR)),
-            Depends(require_csrf),
-        ],
+        dependencies=[Depends(require_csrf)],
     )
     async def decide_substrate_exception(
         request: Request,
@@ -348,7 +347,7 @@ def create_experiments_router(
                 decided_by_id=auth_context.user.id,
                 decision_note=payload.decision_note,
                 client_ip=_client_ip(request),
-                actor_role=auth_context.user.role,
+                actor_access=await _actor_access(repository, auth_context),
             )
         except OperationError as error:
             raise _operation_error_to_http(error) from error
@@ -371,7 +370,7 @@ def create_experiments_router(
                 PlanStatus(payload.status),
                 actor_user_id=auth_context.user.id,
                 client_ip=_client_ip(request),
-                actor_role=auth_context.user.role,
+                actor_access=await _actor_access(repository, auth_context),
                 expected_approval_digest=payload.expected_approval_digest,
             )
         except OperationError as error:

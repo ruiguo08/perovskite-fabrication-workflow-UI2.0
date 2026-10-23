@@ -1196,6 +1196,31 @@ select.text-input {
   white-space: nowrap;
 }
 
+/* Campaign membership panels on the campaigns page. */
+.membership-panel {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--hairline);
+}
+
+.membership-panel summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.membership-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+  align-items: start;
+  margin-top: var(--space-3);
+}
+
+.membership-add .form-field {
+  flex: 1 1 12rem;
+  margin-bottom: 0;
+}
+
 /* One-time activation/recovery link display in the accounts table. */
 .password-link {
   display: grid;

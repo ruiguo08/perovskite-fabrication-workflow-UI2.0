@@ -29,7 +29,7 @@ export function condition(id: number, rpm = 1000, role = "control"): Condition {
 export function experiment(id: number, code = `Plan-${id}`): Experiment {
   return { id, experiment_code: code, recipe: { device_recipe: null }, status: "suggested", metrics: {}, failure_reason: null,
     created_at: "2026-10-03T08:00:00Z", updated_at: "2026-10-03T08:00:00Z", campaign_id: "review", series_version: 1,
-    plan_type: "comparison", plan_status: "completed", device_summary: null, best_pce: 25, best_jsc: 24 };
+    plan_type: "comparison", plan_status: "completed", device_summary: null, created_by_id: 2, best_pce: 25, best_jsc: 24 };
 }
 
 export function detail(id: number, code = `Plan-${id}`): ExperimentDetail {

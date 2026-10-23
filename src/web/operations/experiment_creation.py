@@ -13,8 +13,9 @@ from typing import Any, Mapping, Sequence
 
 from perovskite_bo import DepositionRecipe
 
+from ..access import ActorCampaignAccess
 from ..repository.experiment import _normalize_campaign_id, apply_experiment_create
-from .errors import InvalidInput, RecordNotFound
+from .errors import AccessDenied, InvalidInput, RecordNotFound
 
 
 async def create_experiment(
@@ -26,6 +27,7 @@ async def create_experiment(
     condition_plans: Sequence[Mapping[str, Any]] | None = None,
     actor_user_id: int | None,
     client_ip: str | None = None,
+    actor_access: ActorCampaignAccess | None = None,
 ):
     """Validate, authorize, and persist one new experiment plan."""
 
@@ -53,6 +55,35 @@ async def create_experiment(
         raise InvalidInput(str(error)) from error
     if normalized_campaign_id is None:
         raise InvalidInput("an active instructor-created campaign is required")
+
+    # --- Campaign membership -----------------------------------------------
+    # Creating an experiment requires an active participant or manager
+    # membership of the campaign (administrators grant themselves a
+    # membership first; the system role alone does not create data).
+    # Non-members receive the uniform unknown-campaign denial.
+    if actor_access is not None:
+        # Existence and activity first, preserving the historical 400
+        # contract for unknown/inactive campaign codes.
+        try:
+            campaign = await repository.get_campaign(normalized_campaign_id)
+        except KeyError as error:
+            raise InvalidInput(
+                f"campaign {normalized_campaign_id!r} does not exist; "
+                "an instructor must create it first"
+            ) from error
+        from ..repository.records import CampaignStatus
+
+        if campaign.status != CampaignStatus.ACTIVE:
+            raise InvalidInput(
+                f"campaign {normalized_campaign_id!r} is not active"
+            )
+        if not actor_access.can_view(normalized_campaign_id):
+            raise RecordNotFound(f"unknown campaign: {normalized_campaign_id}")
+        if not actor_access.can_create_experiments_in(normalized_campaign_id):
+            raise AccessDenied(
+                "an active campaign membership with participant or manager "
+                "role is required to create experiments"
+            )
 
     # --- Transaction -------------------------------------------------------
     try:

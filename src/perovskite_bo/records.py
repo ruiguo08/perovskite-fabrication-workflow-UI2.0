@@ -32,3 +32,7 @@ class ExperimentRecord:
     # Derived from the control (or standalone) condition snapshot: substrate
     # material plus layer names, for list views and human-readable summaries.
     device_summary: str | None = None
+    # Owning account (users.id); the single principal responsible for the
+    # experiment's content. Web-layer authorization reads it; BO consumers
+    # leave it unset.
+    created_by_id: int | None = None

@@ -68,6 +68,7 @@ const experiment = {
   campaign_id: "interface-2026",
   experiment_code: "interface-2026-v7",
   series_version: 7,
+  created_by_id: 2,
   plan_type: "comparative",
   plan_status: "draft",
 };
@@ -147,7 +148,18 @@ describe("ExperimentDetailPage", () => {
   beforeEach(() => {
     sessionState.role = "student";
     apiFetchMock.mockReset();
-    apiFetchMock.mockResolvedValue(detail());
+    apiFetchMock.mockImplementation((path: string) => {
+      if (path === "/api/campaigns") {
+        // The reviewer lookup: staff fixtures hold the manager role of the
+        // plan's campaign; students are participating owners.
+        return Promise.resolve([
+          { id: 1, code: "review", display_name: "Review", description: "", status: "active",
+            created_at: "2026-10-01T08:00:00Z", updated_at: "2026-10-01T08:00:00Z", closed_at: null,
+            my_role: sessionState.role === "student" ? "participant" : "manager" },
+        ]);
+      }
+      return Promise.resolve(detail());
+    });
   });
 
   it("renders complete condition provenance and direct audit exports", async () => {
@@ -180,6 +192,13 @@ describe("ExperimentDetailPage", () => {
 
   it("lets a student request a required substrate exception", async () => {
     apiFetchMock.mockImplementation((path: string, options?: { method?: string }) => {
+      if (path === "/api/campaigns") {
+        return Promise.resolve([
+          { id: 1, code: "interface-2026", display_name: "Interface 2026", description: "", status: "active",
+            created_at: "2026-08-01T08:00:00Z", updated_at: "2026-08-01T08:00:00Z", closed_at: null,
+            my_role: sessionState.role === "student" ? "participant" : "manager" },
+        ]);
+      }
       if (path === "/api/conditions/81/substrate-exceptions" && options?.method === "POST") {
         return Promise.resolve(pendingException);
       }
@@ -201,6 +220,13 @@ describe("ExperimentDetailPage", () => {
   it("lets staff approve pending exceptions and then approve the plan", async () => {
     sessionState.role = "instructor";
     apiFetchMock.mockImplementation((path: string, options?: { method?: string }) => {
+      if (path === "/api/campaigns") {
+        return Promise.resolve([
+          { id: 1, code: "interface-2026", display_name: "Interface 2026", description: "", status: "active",
+            created_at: "2026-08-01T08:00:00Z", updated_at: "2026-08-01T08:00:00Z", closed_at: null,
+            my_role: sessionState.role === "student" ? "participant" : "manager" },
+        ]);
+      }
       if (path === "/api/substrate-exceptions/91/decision" && options?.method === "POST") {
         return Promise.resolve({ ...pendingException, decision: "approved", decided_by_id: 3, approved_condition_hash: condition.canonical_hash });
       }
@@ -228,6 +254,13 @@ describe("ExperimentDetailPage", () => {
     sessionState.role = "instructor";
     let detailLoads = 0;
     apiFetchMock.mockImplementation((path: string, options?: { method?: string; body?: unknown }) => {
+      if (path === "/api/campaigns") {
+        return Promise.resolve([
+          { id: 1, code: "interface-2026", display_name: "Interface 2026", description: "", status: "active",
+            created_at: "2026-08-01T08:00:00Z", updated_at: "2026-08-01T08:00:00Z", closed_at: null,
+            my_role: sessionState.role === "student" ? "participant" : "manager" },
+        ]);
+      }
       if (path === "/api/experiments/7/plan-status" && options?.method === "PATCH") {
         return Promise.reject(new ApiError(409, "plan content changed since it was loaded for review"));
       }
@@ -256,6 +289,13 @@ describe("ExperimentDetailPage", () => {
   it("creates a frozen batch only from a released plan", async () => {
     const released = detail({ plan_status: "released" });
     apiFetchMock.mockImplementation((path: string, options?: { method?: string }) => {
+      if (path === "/api/campaigns") {
+        return Promise.resolve([
+          { id: 1, code: "interface-2026", display_name: "Interface 2026", description: "", status: "active",
+            created_at: "2026-08-01T08:00:00Z", updated_at: "2026-08-01T08:00:00Z", closed_at: null,
+            my_role: sessionState.role === "student" ? "participant" : "manager" },
+        ]);
+      }
       if (path === "/api/experiments/7/fabrication-batches" && options?.method === "POST") {
         return Promise.resolve({
           id: 101,
@@ -291,6 +331,13 @@ describe("ExperimentDetailPage", () => {
   it("never shows or mutates experiment A under route B when navigating without remount", async () => {
     let resolvePatch: ((value: unknown) => void) | null = null;
     apiFetchMock.mockImplementation((path: string, options?: { method?: string }) => {
+      if (path === "/api/campaigns") {
+        return Promise.resolve([
+          { id: 1, code: "interface-2026", display_name: "Interface 2026", description: "", status: "active",
+            created_at: "2026-08-01T08:00:00Z", updated_at: "2026-08-01T08:00:00Z", closed_at: null,
+            my_role: sessionState.role === "student" ? "participant" : "manager" },
+        ]);
+      }
       if (path === "/api/experiments/7/plan-status" && options?.method === "PATCH") {
         return new Promise((resolve) => {
           resolvePatch = resolve;

@@ -31,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_en
 
 from .account_schema_v1 import password_token_table
 from .booking_schema_v1 import booking_tables
+from .campaign_schema_v1 import campaign_membership_table
 from .condition_snapshot import CONDITION_RECIPE_SCHEMA_VERSION
 from .execution_snapshots import (
     PROCESS_SNAPSHOT_SCHEMA_VERSION,
@@ -85,6 +86,7 @@ users = Table(
 )
 
 password_reset_tokens = password_token_table(metadata)
+campaign_members = campaign_membership_table(metadata)
 
 sessions = Table(
     "sessions",

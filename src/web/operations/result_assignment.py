@@ -12,10 +12,10 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any, Sequence
 
+from ..access import ActorCampaignAccess, require_experiment_visible
 from ..jv_parser import assign_substrates_to_groups
-from ..repository.records import UserRole
 from ..repository.result import apply_result_assignment
-from .errors import InvalidInput, RecordNotFound
+from .errors import AccessDenied, InvalidInput, RecordNotFound
 
 
 @dataclass(frozen=True)
@@ -59,29 +59,29 @@ async def save_result_analysis(
     group_assignment: str | None,
     correction_reason: str | None = None,
     actor_user_id: int,
-    actor_role: UserRole | None,
+    actor_access: ActorCampaignAccess | None,
     client_ip: str | None = None,
 ) -> dict[str, Any]:
     """Authorize, validate, and persist one result-assignment command.
 
-    ``actor_role`` is the authenticated role of the caller; ``None`` is only
-    used by the deprecated repository delegate, which keeps that method's
-    original no-pre-check semantics (the transaction still enforces batch
-    ownership for students).
+    ``actor_access`` is the caller's resolved campaign standing; ``None`` is
+    only used by the deprecated repository delegate, which keeps that
+    method's original no-pre-check semantics (the transaction still
+    enforces experiment ownership under the row lock).
     """
 
     # --- Authorization -------------------------------------------------
-    # A missing result and a result owned by another student report the
-    # same error so the response never reveals existence.
+    # A missing result and a result the caller cannot see report the same
+    # error so the response never reveals existence; the owner-only write
+    # rule is re-checked inside the transaction.
     try:
         result = await repository.get_result(file_id)
     except KeyError as error:
         raise RecordNotFound(*error.args) from error
-    if actor_role is not None:
-        owner_scope = actor_user_id if actor_role == UserRole.STUDENT else None
+    if actor_access is not None:
         try:
-            await repository.get_experiment(
-                int(result["experiment_id"]), owner_user_id=owner_scope
+            await require_experiment_visible(
+                repository, int(result["experiment_id"]), actor=actor_access
             )
         except KeyError as error:
             raise RecordNotFound(*error.args) from error
@@ -158,6 +158,10 @@ async def save_result_analysis(
                 actor_user_id=actor_user_id,
                 client_ip=client_ip,
             )
+    except PermissionError as error:
+        # The in-transaction owner check: visible non-owners get 403, not
+        # an unhandled 500.
+        raise AccessDenied(str(error)) from error
     except (KeyError, TypeError, ValueError) as error:
         raise InvalidInput(str(error)) from error
     try:

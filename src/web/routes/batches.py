@@ -65,6 +65,7 @@ from ..repository import (
     WebRepository,
 )
 from .common import (
+    _actor_access,
     _batch_for_actor_or_404,
     _build_batch_export_payload,
     _client_ip,
@@ -78,7 +79,6 @@ from .common import (
     _operation_error_to_http,
     _process_execution_response,
     _solution_preparation_response,
-    _student_owner_id,
 )
 
 
@@ -165,10 +165,12 @@ def create_batches_router(
     ) -> list[FabricationBatchListItemResponse]:
         if experiment_id is not None:
             await _get_record_or_404(repository, experiment_id, auth_context)
+        access = await _actor_access(repository, auth_context)
         items = await repository.list_fabrication_batches_for_actor(
-            _student_owner_id(auth_context),
+            None,
             status=status,
             experiment_id=experiment_id,
+            campaign_ids=access.visible_campaign_codes(),
         )
         # Measured data pulled forward (D1): best forward-scan metrics per
         # batch, empty for batches without characterization results.
@@ -269,7 +271,7 @@ def create_batches_router(
                     if payload.shortfall_deviations is not None
                     else None
                 ),
-                actor_role=auth_context.user.role,
+                actor_access=await _actor_access(repository, auth_context),
             )
         except OperationError as error:
             raise _operation_error_to_http(error) from error

@@ -1362,6 +1362,26 @@
 | This password link is invalid or expired. | 密码链接无效或已过期。 |
 | Account credentials changed. Please sign in again. | 账号凭据已变更，请重新登录。 |
 
+## 19a. 实验系列成员管理（新增）
+
+| English | 中文 |
+|---|---|
+| My role | 我的角色 |
+| Reader / Participant / Manager（系列角色） | 阅读成员 / 实验成员 / 负责人 |
+| Administrator view | 管理员视角 |
+| Membership management | 成员管理 |
+| Managers grant reader and participant memberships of their campaign; administrators also appoint managers. At least one active manager always remains. | 负责人可授予本人实验系列的阅读与实验成员身份；管理员还可指定负责人。系列始终保留至少一名生效负责人。 |
+| Members of {name} | {name} 的成员 |
+| Member | 成员 |
+| Account role / Campaign role | 账号角色 / 系列角色 |
+| Campaign role for {username} | {username} 的系列角色 |
+| Remove | 移除 |
+| Unable to load members. | 无法加载成员。 |
+| No members yet. | 暂无成员。 |
+| Add by username | 按用户名添加 |
+| Add member | 添加成员 |
+| Read-only view: you are a member of this campaign but not the owner of this experiment. | 只读视图：您是该实验系列的成员，但不是此实验的负责人。 |
+
 ## 20. 版本历史（通用组件）
 
 | English | 中文 |

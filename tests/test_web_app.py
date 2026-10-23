@@ -1805,11 +1805,16 @@ class OperationContractRegressionTests(unittest.TestCase):
         self.client_context = TestClient(self.app)
         self.client = self.client_context.__enter__()
         self._login("admin", "Adm1n!password")
-        self._create_user("student1", UserRole.STUDENT, "Stud3nt!pass")
+        created_user = self._create_user("student1", UserRole.STUDENT, "Stud3nt!pass")
         seed_standard_layouts(self.client)
         self.client.post(
             "/api/campaigns",
             json={"code": "contract", "display_name": "contract", "description": ""},
+        )
+        from tests.campaign_access_fixtures import grant_campaign_member
+
+        grant_campaign_member(
+            self.client, "contract", int(created_user.json()["id"]), "participant"
         )
         self._login("student1", "Stud3nt!pass")
         device_recipe, deposition_process = complete_guided_setup()
@@ -1853,7 +1858,7 @@ class OperationContractRegressionTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         self.client.headers["X-CSRF-Token"] = self.client.cookies.get("perovskite_csrf")
 
-    def _create_user(self, username: str, role: UserRole, password: str) -> None:
+    def _create_user(self, username: str, role: UserRole, password: str):
         response = self.client.post(
             "/api/users",
             json={"username": username, "display_name": username.title(),
@@ -1861,6 +1866,7 @@ class OperationContractRegressionTests(unittest.TestCase):
         )
         grant_created_workflow_user(self.client, response)
         self.assertEqual(response.status_code, 201, response.text)
+        return response
 
     def _create_valid_experiment(self) -> None:
         created = self.client.post(
@@ -1929,7 +1935,7 @@ class OperationContractRegressionTests(unittest.TestCase):
             json={"status": "approved"},
         )
         self.assertEqual(approved.status_code, 403, approved.text)
-        self.assertIn("instructor", approved.json()["detail"])
+        self.assertIn("campaign manager", approved.json()["detail"])
 
     def test_missing_condition_404_detail_is_the_historical_quoted_form(self) -> None:
         # The repository raises KeyError("unknown condition id: 99999"); the
@@ -1976,12 +1982,19 @@ class OperationContractRegressionTests(unittest.TestCase):
         foreign = self.client.put(
             f"/api/conditions/{foreign_condition['id']}", json=payload
         )
+        # An unknown condition stays the uniform 404; a condition of a
+        # same-campaign experiment is visible to the member student, so
+        # the owner-only write boundary answers 403 instead.
         self.assertEqual(missing.status_code, 404, missing.text)
-        self.assertEqual(foreign.status_code, 404, foreign.text)
+        self.assertEqual(foreign.status_code, 403, foreign.text)
+        self.assertIn(
+            "only the experiment owner", foreign.json()["detail"]
+        )
 
-    def test_foreign_condition_reports_404_like_missing(self) -> None:
-        # Ownership isolation: another user's condition is indistinguishable
-        # from a missing one at the status-code level.
+    def test_foreign_condition_is_visible_but_owner_only(self) -> None:
+        # Membership visibility + owner-only writes: a same-campaign
+        # peer's condition is readable (member) but not writable (403);
+        # an unknown condition stays the uniform 404.
         self._create_valid_experiment()  # student owns experiment 1
         self._login("admin", "Adm1n!password")
         self._create_valid_experiment()  # admin owns experiment 2
@@ -2000,8 +2013,14 @@ class OperationContractRegressionTests(unittest.TestCase):
         foreign = self.client.put(
             f"/api/conditions/{foreign_condition['id']}", json=payload
         )
+        # An unknown condition stays the uniform 404; a condition of a
+        # same-campaign experiment is visible to the member student, so
+        # the owner-only write boundary answers 403 instead.
         self.assertEqual(missing.status_code, 404, missing.text)
-        self.assertEqual(foreign.status_code, 404, foreign.text)
+        self.assertEqual(foreign.status_code, 403, foreign.text)
+        self.assertIn(
+            "only the experiment owner", foreign.json()["detail"]
+        )
 
 
 if __name__ == "__main__":

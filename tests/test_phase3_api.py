@@ -71,6 +71,31 @@ class Phase3ApiTests(unittest.TestCase):
         self.create_user(OWNER_USERNAME, OWNER_PASSWORD, UserRole.STUDENT)
         self.create_user(OTHER_USERNAME, OTHER_PASSWORD, UserRole.STUDENT)
         self.create_user(INSTRUCTOR_USERNAME, INSTRUCTOR_PASSWORD, UserRole.INSTRUCTOR)
+        # The OTHER student lives in a second campaign so cross-campaign
+        # isolation can be asserted alongside same-campaign sharing.
+        from tests.campaign_access_fixtures import (
+            grant_campaign_member,
+        )
+        from web.app import DEFAULT_EXPERIMENT_SERIES_ID
+
+        self.client.post(
+            "/api/campaigns",
+            json={
+                "code": "phase3-other-series",
+                "display_name": "Phase 3 other series",
+                "description": "",
+            },
+        )
+        grant_campaign_member(
+            self.client, "phase3-other-series", self._user_id(OTHER_USERNAME), "participant"
+        )
+        asyncio.run(
+            self.app.state.repository.remove_campaign_member(
+                DEFAULT_EXPERIMENT_SERIES_ID,
+                self._user_id(OTHER_USERNAME),
+                actor_user_id=self._user_id(ADMIN_USERNAME),
+            )
+        )
         seed_standard_layouts(self.client)
         self.owner_id = self._user_id(OWNER_USERNAME)
         self.other_id = self._user_id(OTHER_USERNAME)
@@ -135,6 +160,7 @@ class Phase3ApiTests(unittest.TestCase):
         password: str,
         code: str,
         device_layout_code: str = "15x15_dual_005",
+        campaign_id: str | None = None,
     ) -> int:
         """Create an owner-scoped experiment with explicit conditions and release it.
 
@@ -171,6 +197,7 @@ class Phase3ApiTests(unittest.TestCase):
                     **deposition_recipe_from_process(deposition_process),
                     "device_recipe": device_recipe,
                 },
+                **({"campaign_id": campaign_id} if campaign_id else {}),
                 "source_baseline_version_id": baseline.json()["current_version_id"],
                 "condition_plans": [
                     {
@@ -242,7 +269,7 @@ class Phase3ApiTests(unittest.TestCase):
                     preparation.id,
                     status=PreparationStatus.DISCARDED,
                     fabrication_batch_id=batch_id,
-                    actor_user_id=1,
+                    actor_user_id=self.owner_id,
                 )
             )
         for execution in asyncio.run(repo.list_process_executions(batch_id)):
@@ -251,7 +278,7 @@ class Phase3ApiTests(unittest.TestCase):
                     execution.id,
                     status=ExecutionStatus.CANCELLED,
                     fabrication_batch_id=batch_id,
-                    actor_user_id=1,
+                    actor_user_id=self.owner_id,
                 )
             )
         conditions = asyncio.run(repo.get_fabrication_batch_conditions(batch_id))
@@ -331,7 +358,8 @@ class Phase3ApiTests(unittest.TestCase):
         # Another student now tries to upload onto their own experiment
         # using the owner's batch id.
         other_experiment_id = self._create_released_experiment(
-            OTHER_USERNAME, OTHER_PASSWORD, "phase3-other"
+            OTHER_USERNAME, OTHER_PASSWORD, "phase3-other",
+            campaign_id="phase3-other-series",
         )
         self.logout()
         self.login(OTHER_USERNAME, OTHER_PASSWORD)
@@ -610,14 +638,26 @@ class Phase3ApiTests(unittest.TestCase):
         self.assertEqual(read.status_code, 401, read.text)
         self.assertEqual(write.status_code, 401, write.text)
 
-    def test_instructor_can_assign_a_students_result(self) -> None:
+    def test_manager_reads_but_only_owner_assigns_a_result(self) -> None:
         _, _, file_id = self._owner_batch_and_result()
         self.logout()
         self.login(INSTRUCTOR_USERNAME, INSTRUCTOR_PASSWORD)
 
+        # The campaign manager (instructor) reads the member's result but
+        # cannot rewrite its analysis: the owner-only write boundary.
         detail = self.client.get(f"/api/results/{file_id}")
         self.assertEqual(detail.status_code, 200, detail.text)
         payload, _, _ = self._assignment_payload(file_id)
+        denied = self.client.post(
+            f"/api/results/{file_id}/assignments",
+            json=payload,
+        )
+        self.assertEqual(denied.status_code, 403, denied.text)
+        self.assertIn("only the experiment owner", denied.json()["detail"])
+
+        # The owner performs the same assignment successfully.
+        self.logout()
+        self.login(OWNER_USERNAME, OWNER_PASSWORD)
         assigned = self.client.post(
             f"/api/results/{file_id}/assignments",
             json=payload,
@@ -991,7 +1031,7 @@ class Phase3ApiTests(unittest.TestCase):
                     preparation.id,
                     status=PreparationStatus.DISCARDED,
                     fabrication_batch_id=batch_id,
-                    actor_user_id=1,
+                    actor_user_id=self.owner_id,
                 )
             )
         for execution in asyncio.run(repo.list_process_executions(batch_id)):
@@ -1000,7 +1040,7 @@ class Phase3ApiTests(unittest.TestCase):
                     execution.id,
                     status=ExecutionStatus.CANCELLED,
                     fabrication_batch_id=batch_id,
-                    actor_user_id=1,
+                    actor_user_id=self.owner_id,
                 )
             )
         conditions = asyncio.run(repo.get_fabrication_batch_conditions(batch_id))
@@ -1093,7 +1133,7 @@ class Phase3ApiTests(unittest.TestCase):
                     preparation.id,
                     status=PreparationStatus.DISCARDED,
                     fabrication_batch_id=batch_id,
-                    actor_user_id=1,
+                    actor_user_id=self.owner_id,
                 )
             )
         for execution in asyncio.run(repo.list_process_executions(batch_id)):
@@ -1102,7 +1142,7 @@ class Phase3ApiTests(unittest.TestCase):
                     execution.id,
                     status=ExecutionStatus.CANCELLED,
                     fabrication_batch_id=batch_id,
-                    actor_user_id=1,
+                    actor_user_id=self.owner_id,
                 )
             )
         conditions = asyncio.run(repo.get_fabrication_batch_conditions(batch_id))
@@ -1270,7 +1310,7 @@ class Phase3ApiTests(unittest.TestCase):
                             mutated,
                             substrate_assignments={"A001": control_id},
                             group_assignment="bad ordinal test",
-                            actor_user_id=1,
+                            actor_user_id=self.owner_id,
                         )
                     )
         self.assertEqual(self._assignment_rows(file_id), [])
@@ -1444,7 +1484,8 @@ class Phase3ApiTests(unittest.TestCase):
     def test_assignment_rejects_condition_from_another_batch(self) -> None:
         _, _, file_id = self._owner_batch_and_result()
         other_experiment = self._create_released_experiment(
-            OTHER_USERNAME, OTHER_PASSWORD, "phase3-other"
+            OTHER_USERNAME, OTHER_PASSWORD, "phase3-other",
+            campaign_id="phase3-other-series",
         )
         self.logout()
         self.login(OTHER_USERNAME, OTHER_PASSWORD)
@@ -1543,7 +1584,8 @@ class Phase3ApiTests(unittest.TestCase):
     def test_global_result_list_is_role_scoped(self) -> None:
         experiment_id, batch_id, file_id = self._owner_batch_and_result()
         other_experiment_id = self._create_released_experiment(
-            OTHER_USERNAME, OTHER_PASSWORD, "phase3-other"
+            OTHER_USERNAME, OTHER_PASSWORD, "phase3-other",
+            campaign_id="phase3-other-series",
         )
 
         self.logout()
@@ -1659,7 +1701,8 @@ class Phase3ApiTests(unittest.TestCase):
         )
         self._create_owner_batch(owner_experiment)
         other_experiment = self._create_released_experiment(
-            OTHER_USERNAME, OTHER_PASSWORD, "phase3-other"
+            OTHER_USERNAME, OTHER_PASSWORD, "phase3-other",
+            campaign_id="phase3-other-series",
         )
         self.logout()
         self.login(OTHER_USERNAME, OTHER_PASSWORD)

@@ -25,6 +25,21 @@ async def grant_user(database, user_id):
 
 
 def grant_created_workflow_user(client, response):
-    """Call only in legacy fabrication-account fixtures after POST /api/users."""
+    """Call only in legacy fabrication-account fixtures after POST /api/users.
+
+    Grants fabrication workflow access and, for the legacy single-campaign
+    fixtures, a membership of the bootstrap campaign: manager for staff
+    accounts (their historical review rights), participant for students
+    (their historical create-and-own rights)."""
+    from tests.campaign_access_fixtures import grant_campaign_member
+    from web.app import DEFAULT_EXPERIMENT_SERIES_ID
+
     if response.status_code == 201:
-        client.portal.call(grant_user, client.app.state.database, response.json()["id"])
+        user_id = response.json()["id"]
+        client.portal.call(grant_user, client.app.state.database, user_id)
+        membership_role = (
+            "participant" if response.json()["role"] == "student" else "manager"
+        )
+        grant_campaign_member(
+            client, DEFAULT_EXPERIMENT_SERIES_ID, user_id, membership_role
+        )

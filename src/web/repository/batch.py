@@ -6,7 +6,7 @@ import hashlib
 import json
 import math
 from datetime import datetime
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from sqlalchemy import delete, func, insert, select, text, update
 from sqlalchemy.ext.asyncio import AsyncConnection
@@ -45,6 +45,7 @@ from ..execution_snapshots import (
 from ..services.catalog_service import (
     resolve_layout as _resolve_layout,
 )
+from .campaign import connection_campaign_role
 from .helpers import (
     _actor_role,
     _add_audit_event,
@@ -56,6 +57,7 @@ from .helpers import (
 from .records import (
     DEVIATION_TYPES,
     BatchStatus,
+    CampaignMembershipRole,
     ExceptionDecision,
     ExecutionDeviationRecord,
     ExecutionStatus,
@@ -162,9 +164,14 @@ async def _batch_for_actor(
     ).mappings().one_or_none()
     if row is None:
         raise KeyError(f"unknown fabrication batch id: {batch_id}")
-    role = await _actor_role(connection, actor_user_id)
-    if role == UserRole.STUDENT and row["experiment_owner_id"] != actor_user_id:
-        raise PermissionError("students can update batches only for their own plans")
+    # The actor must exist and be active; then content writes are
+    # owner-only — campaign managers review, they never edit members'
+    # experiment records (docs/campaign-access-matrix.md).
+    await _actor_role(connection, actor_user_id)
+    if row["experiment_owner_id"] != actor_user_id:
+        raise PermissionError(
+            "only the experiment owner may modify this experiment's batches"
+        )
     current = BatchStatus(row["status"])
     if allowed_statuses is not None and current not in allowed_statuses:
         allowed_text = ", ".join(sorted(status.value for status in allowed_statuses))
@@ -970,14 +977,12 @@ class FabricationBatchesMixin:
                     f"a batch, got '{plan_row.plan_status}'"
                 )
 
-            # 2. Verify actor permissions
-            actor_role = await _actor_role(connection, actor_user_id)
-            if (
-                actor_role == UserRole.STUDENT
-                and plan_row.created_by_id != actor_user_id
-            ):
+            # 2. Verify actor permissions: owner-only regardless of system
+            # role (managers and administrators review; they do not author).
+            await _actor_role(connection, actor_user_id)
+            if plan_row.created_by_id != actor_user_id:
                 raise PermissionError(
-                    "students can create batches only for their own plans"
+                    "only the experiment owner may create batches for the plan"
                 )
 
             # 3. Load conditions and verify
@@ -1473,17 +1478,23 @@ class FabricationBatchesMixin:
         *,
         status: BatchStatus | None = None,
         experiment_id: int | None = None,
+        campaign_ids: Iterable[str] | None = None,
     ) -> list[dict[str, Any]]:
-        """Role-scoped fabrication-batch summaries with their experiment codes.
+        """Access-scoped fabrication-batch summaries with their experiment codes.
 
-        Students are restricted to batches of their own experiments; instructors
-        and administrators receive every batch. Optional status and experiment
-        filters narrow the result set.
+        Callers pass either an owner filter (legacy) or the campaign codes the
+        actor can see (membership-based; ``None`` means unrestricted). Optional
+        status and experiment filters narrow the result set.
         """
 
         conditions = []
         if owner_user_id is not None:
             conditions.append(experiments.c.created_by_id == owner_user_id)
+        if campaign_ids is not None:
+            values = list(campaign_ids)
+            if not values:
+                return []
+            conditions.append(experiments.c.campaign_id.in_(values))
         if status is not None:
             conditions.append(fabrication_batches.c.status == status.value)
         if experiment_id is not None:
@@ -3176,21 +3187,32 @@ async def apply_batch_status_update(
                 "while the plan is in progress"
             )
 
-    # Check ownership for students
+    # Ownership and reviewer standing under the experiment row lock:
+    # execution transitions are owner-only; cancellation additionally
+    # allows the campaign's managers and system administrators.
     actor_role = await _actor_role(connection, actor_user_id)
-    if actor_role == UserRole.STUDENT:
-        experiment_owner = await connection.scalar(
-            select(experiments.c.created_by_id)
-            .where(experiments.c.id == row["experiment_id"])
+    member_role = (
+        await connection_campaign_role(
+            connection, experiment["campaign_id"], actor_user_id
         )
-        if experiment_owner != actor_user_id:
+        if experiment["campaign_id"] is not None
+        else None
+    )
+    is_owner = experiment["created_by_id"] == actor_user_id
+    is_reviewer = (
+        actor_role == UserRole.ADMINISTRATOR
+        or member_role == CampaignMembershipRole.MANAGER
+    )
+    if status == BatchStatus.CANCELLED:
+        if not (is_owner or is_reviewer):
             raise PermissionError(
-                "students can update batches only for their own plans"
+                "only the experiment owner, a campaign manager, or an "
+                "administrator can cancel a batch"
             )
-        if status == BatchStatus.CANCELLED:
-            raise PermissionError(
-                "only instructors and administrators can cancel a batch"
-            )
+    elif not is_owner:
+        raise PermissionError(
+            "only the experiment owner may update this experiment's batches"
+        )
 
     if status == BatchStatus.READY:
         await _validate_batch_ready(connection, batch_id)

@@ -12,10 +12,11 @@ class AlembicGraphTests(unittest.TestCase):
         script = ScriptDirectory.from_config(config)
         revisions = list(script.walk_revisions())
 
-        self.assertEqual(script.get_heads(), ["0018_password_self_service"])
+        self.assertEqual(script.get_heads(), ["0019_campaign_members"])
         self.assertEqual(
             [(revision.revision, revision.down_revision) for revision in revisions],
             [
+                ("0019_campaign_members", "0018_password_self_service"),
                 (
                     "0018_password_self_service",
                     "0017_equipment_booking",
@@ -39,6 +40,39 @@ class AlembicGraphTests(unittest.TestCase):
                 ("0007_fabrication_batches", None),
             ],
         )
+
+    def test_campaign_membership_schema_matches_the_frozen_contract(self) -> None:
+        """Migration 0019 builds its table through the same frozen builder
+        the runtime metadata uses, under the same naming convention."""
+
+        import sqlalchemy as sa
+
+        from web.campaign_schema_v1 import campaign_membership_table
+        from web.database import (
+            NAMING_CONVENTION,
+            campaign_members,
+            metadata,
+        )
+
+        migration_metadata = sa.MetaData(naming_convention=NAMING_CONVENTION)
+        sa.Table("users", migration_metadata, sa.Column("id", sa.Integer, primary_key=True))
+        sa.Table(
+            "campaigns",
+            migration_metadata,
+            sa.Column("code", sa.String(160), primary_key=True),
+        )
+        frozen = campaign_membership_table(migration_metadata)
+
+        def create_ddl(table: sa.Table) -> str:
+            compiled = str(
+                sa.schema.CreateTable(table).compile(dialect=sa.dialects.sqlite.dialect())
+            )
+            return " ".join(line.strip() for line in compiled.splitlines())
+
+        self.assertEqual(create_ddl(frozen), create_ddl(campaign_members))
+        self.assertIn("campaign_members", metadata.tables)
+        primary = [column.name for column in frozen.primary_key.columns]
+        self.assertEqual(primary, ["campaign_code", "user_id"])
 
     def test_password_token_schema_matches_the_frozen_contract(self) -> None:
         """Migration 0018 builds its table through the same frozen builder the

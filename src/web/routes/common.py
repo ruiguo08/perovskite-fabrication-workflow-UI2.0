@@ -28,6 +28,7 @@ from perovskite_bo import (
     validate_device_recipe,
 )
 
+from ..access import require_experiment_visible
 from ..auth import AuthContext, require_csrf, require_role, require_user
 from ..jv_parser import (
     # Re-imported from here by routes/results.py because the underscore name
@@ -485,16 +486,36 @@ async def _get_record_or_404(
     experiment_id: int,
     auth_context: AuthContext,
 ) -> ExperimentRecord:
+    """Fetch an experiment the caller may see, or the uniform 404.
+
+    Visibility is membership-based (docs/campaign-access-matrix.md): an
+    active member of the experiment's campaign — any role — or a system
+    administrator may read it; everyone else gets the same fixed 404 as for
+    an unknown id, so non-members learn nothing about the record.
+    """
     try:
-        return await repository.get_experiment(
+        return await require_experiment_visible(
+            repository,
             experiment_id,
-            owner_user_id=_student_owner_id(auth_context),
+            actor=await _actor_access(repository, auth_context),
         )
     except KeyError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(error),
         ) from error
+
+
+async def _actor_access(repository: WebRepository, auth_context: AuthContext):
+    """Resolve the caller's campaign standing for this request (fresh
+    database rows — revocation applies to live sessions immediately)."""
+    from ..access import resolve_access
+
+    return await resolve_access(
+        repository,
+        user_id=auth_context.user.id,
+        system_role=auth_context.user.role,
+    )
 
 
 def _operation_error_to_http(error: OperationError) -> HTTPException:
@@ -528,7 +549,11 @@ def _operation_error_to_http(error: OperationError) -> HTTPException:
 
 
 def _student_owner_id(auth_context: AuthContext) -> int | None:
-    """Restrict students to their own records; elevated roles retain lab-wide access."""
+    """Deprecated student-only scope, superseded by campaign membership.
+
+    Retained temporarily for the few legacy listing call sites that still
+    pass an owner filter; new code resolves :func:`_actor_access` instead.
+    """
 
     if auth_context.user.role == UserRole.STUDENT:
         return auth_context.user.id
@@ -554,6 +579,7 @@ def _record_response(
         plan_type=record.plan_type,
         plan_status=record.plan_status,
         device_summary=record.device_summary,
+        created_by_id=record.created_by_id,
         best_pce=best_metrics.get("pce") if best_metrics else None,
         best_jsc=best_metrics.get("jsc") if best_metrics else None,
     )
@@ -853,6 +879,7 @@ __all__ = [
     "validate_result_upload_metadata",
     "_batch_result_groups",
     "_get_record_or_404",
+    "_actor_access",
     "_operation_error_to_http",
     "_student_owner_id",
     "_record_response",
