@@ -132,7 +132,7 @@ beforeEach(() => {
   );
 });
 describe("scoped booking management", () => {
-  it("shows only assigned equipment and withholds manager assignment and grants from an ordinary manager", async () => {
+  it("shows only assigned equipment and withholds manager assignment and registration from an ordinary manager", async () => {
     render(
       <MemoryRouter>
         <BookingManagementPage />
@@ -146,11 +146,11 @@ describe("scoped booking management", () => {
       screen.queryByLabelText("Equipment manager"),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Fabrication workflow access" }),
+      screen.queryByRole("button", { name: "Equipment registration" }),
     ).not.toBeInTheDocument();
     expect(mocks.users).not.toHaveBeenCalled();
   });
-  it("allows a system administrator to assign a manager and revoke an independent workflow grant", async () => {
+  it("allows a system administrator to assign a manager and register new equipment", async () => {
     mocks.role = "administrator";
     render(
       <MemoryRouter>
@@ -173,18 +173,30 @@ describe("scoped booking management", () => {
       ),
     );
     fireEvent.click(
-      screen.getByRole("button", { name: "Fabrication workflow access" }),
+      screen.getByRole("button", { name: "Equipment registration" }),
     );
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Revoke fabrication access" }),
-    );
+    fireEvent.change(await screen.findByLabelText("Equipment code"), {
+      target: { value: "NEW-9" },
+    });
+    fireEvent.change(screen.getByLabelText("Equipment name"), {
+      target: { value: "Registered spin coater" },
+    });
+    fireEvent.change(screen.getByLabelText("Equipment type"), {
+      target: { value: "spin_coating" },
+    });
+    fireEvent.change(screen.getByLabelText("Location"), {
+      target: { value: "GB-20" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Register equipment" }));
     await waitFor(() =>
-      expect(mocks.api).toHaveBeenCalledWith("workflow-access/1", {
-        method: "PUT",
-        body: { enabled: false },
-      }),
+      expect(mocks.api).toHaveBeenCalledWith(
+        "equipment",
+        expect.objectContaining({
+          method: "POST",
+          body: expect.objectContaining({ code: "NEW-9" }),
+        }),
+      ),
     );
-    expect(mocks.refresh).toHaveBeenCalled();
   });
   it("requires a reason to cancel another user and never allows writing their usage", async () => {
     render(

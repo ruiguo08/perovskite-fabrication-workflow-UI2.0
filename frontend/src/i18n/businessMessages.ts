@@ -4044,6 +4044,29 @@ export const businessMessages = {
     "Access",
     "权限"
   ],
+  "usersPage.workflowAccess": [
+    "Workflow access",
+    "工艺区访问"
+  ],
+  "usersPage.loadingWorkflowAccess": ["Loading workflow access…", "正在读取工作流访问权…"],
+  "usersPage.unableToLoadWorkflowAccess": ["Unable to read workflow access. Retry before changing permissions.", "无法读取工作流访问权，请重试后再修改授权。"],
+  "usersPage.workflowAccessUnknown": ["Unknown", "状态未知"],
+  "usersPage.workflowAccessLabel": [
+    "Fabrication workflow",
+    "制备工作流"
+  ],
+  "usersPage.workflowAccessForUsername": [
+    "Fabrication workflow access for {username}",
+    "{username} 的制备工作流访问权"
+  ],
+  "usersPage.workflowAccessUpdated": [
+    "Workflow access updated.",
+    "工作流访问权已更新。"
+  ],
+  "usersPage.workflowAccessFailed": [
+    "Unable to update workflow access.",
+    "无法更新工作流访问权。"
+  ],
   "usersPage.passwordReset": [
     "Password reset",
     "密码重置"

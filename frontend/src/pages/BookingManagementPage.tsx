@@ -11,6 +11,7 @@ import {
   midnight,
 } from "../features/booking/calendar";
 import { EquipmentEditor } from "../features/booking/EquipmentEditor";
+import { EquipmentCreator } from "../features/booking/EquipmentCreator";
 import { ManagementCreate } from "../features/booking/ManagementCreate";
 import { bookingError, ReservationDialog } from "./BookingPage";
 import type {
@@ -21,22 +22,13 @@ import type {
 } from "../features/booking/types";
 import type { UserAccount } from "../types/api";
 import "../features/booking/booking.css";
-
-interface Grant {
-  user_id: number;
-  granted_at: string;
-  revoked_at: string | null;
-  granted_by_id: number | null;
-  revoked_by_id: number | null;
-}
-type Panel = "profile" | "reservations" | "teamLedger" | "notices" | "access";
+type Panel = "profile" | "reservations" | "teamLedger" | "notices" | "register";
 export function BookingManagementPage() {
   const { t, language } = useLanguage(),
-    { user, refresh: refreshSession } = useSession();
+    { user } = useSession();
   const admin = user?.role === "administrator";
   const [equipment, setEquipment] = useState<Equipment[]>([]),
-    [users, setUsers] = useState<UserAccount[]>([]),
-    [grants, setGrants] = useState<Grant[]>([]);
+    [users, setUsers] = useState<UserAccount[]>([]);
   const [panel, setPanel] = useState<Panel>("profile"),
     [selected, setSelected] = useState(0),
     [revision, setRevision] = useState(0);
@@ -63,13 +55,11 @@ export function BookingManagementPage() {
     void Promise.all([
       bookingApi<Equipment[]>("equipment"),
       admin ? apiFetch<UserAccount[]>("/api/users") : Promise.resolve([]),
-      admin ? bookingPages<Grant>("workflow-access") : Promise.resolve([]),
     ])
-      .then(([eq, accounts, access]) => {
+      .then(([eq, accounts]) => {
         if (alive) {
           setEquipment(eq);
           setUsers(accounts);
-          setGrants(access);
         }
       })
       .catch((err) => {
@@ -126,7 +116,6 @@ export function BookingManagementPage() {
     try {
       await bookingApi(path, { method, body });
       reload();
-      if (path.startsWith("workflow-access/")) await refreshSession();
     } catch (err) {
       setError(bookingError(err));
     } finally {
@@ -164,6 +153,16 @@ export function BookingManagementPage() {
   }
   return (
     <div className="booking-page booking-management">
+      {!loading && !admin && equipment.length > 0 && managed.length === 0 ? (
+        <section className="panel">
+          <h1>{t("booking.manage")}</h1>
+          <p>{t("booking.manageDenied")}</p>
+          <Link className="button button--secondary" to="/booking">
+            {t("booking.back")}
+          </Link>
+        </section>
+      ) : (
+      <>
       <div className="booking-page__header">
         <div>
           <h1>{t("booking.manage")}</h1>
@@ -189,7 +188,7 @@ export function BookingManagementPage() {
             "reservations",
             "teamLedger",
             "notices",
-            ...(admin ? ["access"] : []),
+            ...(admin ? ["register"] : []),
           ] as Panel[]
         ).map((tab) => (
           <button
@@ -202,40 +201,15 @@ export function BookingManagementPage() {
           </button>
         ))}
       </div>
-      {panel === "access" && admin ? (
+      {panel === "register" && admin ? (
         <section className="panel">
-          <h2>{t("booking.access")}</h2>
-          <p>{t("booking.accessHint")}</p>
-          <div className="booking-access-list">
-            {users.map((account) => {
-              const grant = grants.find((row) => row.user_id === account.id),
-                enabled = !!grant && !grant.revoked_at;
-              return (
-                <article key={account.id} className="booking-access-row">
-                  <div>
-                    <strong>{account.display_name}</strong>{" "}
-                    <span className="muted">{account.username}</span>
-                    <p>
-                      {t(enabled ? "booking.granted" : "booking.notGranted")}
-                      {grant &&
-                        ` · ${t("booking.auditAccess")}: ${labStamp(grant.revoked_at ?? grant.granted_at, language)} · ${t("booking.userNumber", { id: grant.revoked_by_id ?? grant.granted_by_id ?? "—" })}`}
-                    </p>
-                  </div>
-                  <button
-                    className={`button ${enabled ? "button--danger" : "button--secondary"}`}
-                    disabled={busy}
-                    onClick={() =>
-                      void mutate(`workflow-access/${account.id}`, "PUT", {
-                        enabled: !enabled,
-                      })
-                    }
-                  >
-                    {t(enabled ? "booking.revoke" : "booking.grant")}
-                  </button>
-                </article>
-              );
-            })}
-          </div>
+          <EquipmentCreator
+            onCreated={(id) => {
+              reload();
+              setSelected(id);
+              setPanel("profile");
+            }}
+          />
         </section>
       ) : (
         <>
@@ -454,6 +428,8 @@ export function BookingManagementPage() {
           onClose={() => setOpen(null)}
           onSaved={reload}
         />
+      )}
+      </>
       )}
     </div>
   );

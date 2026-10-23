@@ -1567,6 +1567,10 @@
 | booking.usage | Usage ledger | 使用台账 |
 | booking.pending | Pending completion | 待补填 |
 | booking.ledger | My usage records | 我的使用记录 |
+| booking.supervisionHint | Read-only supervision of all users’ equipment records. Equipment and pending filters apply here; edit your own records under My usage records. | 只读监督所有用户的设备台账，支持设备及待补填筛选；请在“我的使用记录”中编辑本人记录。 |
+| usersPage.loadingWorkflowAccess | Loading workflow access… | 正在读取工作流访问权… |
+| usersPage.unableToLoadWorkflowAccess | Unable to read workflow access. Retry before changing permissions. | 无法读取工作流访问权，请重试后再修改授权。 |
+| usersPage.workflowAccessUnknown | Unknown | 状态未知 |
 | booking.pendingOnly | Pending records only | 仅待补填 |
 | booking.draft | Draft | 草稿 |
 | booking.submitted | Submitted | 已提交 |
@@ -1600,7 +1604,7 @@
 | booking.reservation_cancelled | Your reservation {id} was cancelled by a manager. | 管理员已取消您的预约 {id}。 |
 | booking.equipment_notice | Equipment notice {id} | 设备公告 {id} |
 | booking.open | Open | 查看 |
-| booking.private | Usage details are visible only to the owner, equipment manager and system administrator. | 详细台账仅本人、对应设备管理员及系统管理员可见。 |
+| booking.private | Usage details are visible to the owner, assigned equipment manager, instructors and system administrators. | 详细台账对本人、对应设备管理员、教师及系统管理员可见。 |
 | booking.noInbox | No notifications. | 暂无通知。 |
 | booking.refresh | Refresh calendar | 刷新日历 |
 | booking.occupied | Reservations: {n} | {n} 条预约 |

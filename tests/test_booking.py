@@ -16,6 +16,7 @@ from web.audit_trail import utc_now
 from web.booking_catalog import seed_equipment
 from web.booking_models import (
     DEFAULT_UNITS,
+    EquipmentCreate,
     EquipmentUpdate,
     Interval,
     NoticeCreate,
@@ -145,8 +146,6 @@ class BookingTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(AccessDenied):
             await self.teacher.action(row["id"], ReservationAction(action="cancel", reason="No"))
         with self.assertRaises(AccessDenied):
-            await self.teacher.get_usage(row["id"])
-        with self.assertRaises(AccessDenied):
             await self.teacher.update_usage(row["id"], UsageUpdate(fields={}))
         with self.assertRaises(AccessDenied):
             await self.manager.update_equipment(self.other_eq, EquipmentUpdate(name="No"))
@@ -159,7 +158,11 @@ class BookingTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(AccessDenied):
             await self.manager.action(row["id"], ReservationAction(action="start"))
         await self.manager.get_usage(row["id"])
-        self.assertEqual(len(await self.teacher.ledger()), 0)
+        # Instructors supervise read-only: they may inspect any reservation
+        # and its usage record, and see the full equipment ledger.
+        await self.teacher.get_usage(row["id"])
+        await self.teacher.reservation_detail(row["id"])
+        self.assertEqual(len(await self.teacher.ledger()), 1)
         self.assertEqual(len(await self.manager.ledger()), 1)
 
     async def test_cancellation_notifies_once_and_requires_reason(self):
@@ -280,6 +283,55 @@ class BookingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(usage["template"], "glovebox")
         self.assertEqual(usage["units"], DEFAULT_UNITS["glovebox"])
         self.assertEqual(usage["template_version"], 1)
+
+    async def test_admin_registers_equipment_and_opens_it(self):
+        created = await self.admin.create_equipment(
+            EquipmentCreate(
+                code="NEW-1",
+                name="New sputter",
+                group_code="vacuum",
+                equipment_type="sputtering",
+                location="SP-2",
+                template="general",
+            )
+        )
+        self.assertFalse(created["bookable"])
+        self.assertIsNone(created["manager_id"])
+        self.assertEqual(created["units"], DEFAULT_UNITS["general"])
+        # Duplicate codes are rejected for every caller.
+        with self.assertRaises(StateConflict):
+            await self.admin.create_equipment(
+                EquipmentCreate(
+                    code="NEW-1",
+                    name="Clash",
+                    group_code="vacuum",
+                    equipment_type="sputtering",
+                    location="SP-2",
+                    template="general",
+                )
+            )
+        # Non-administrators cannot register equipment.
+        with self.assertRaises(AccessDenied):
+            await self.teacher.create_equipment(
+                EquipmentCreate(
+                    code="NEW-2",
+                    name="Teacher unit",
+                    group_code="vacuum",
+                    equipment_type="sputtering",
+                    location="SP-3",
+                    template="general",
+                )
+            )
+        # Enabling still requires an assigned manager, and the created unit
+        # participates in booking like any seeded unit.
+        with self.assertRaises(ValueError):
+            await self.admin.update_equipment(created["id"], EquipmentUpdate(bookable=True))
+        await self.admin.update_equipment(
+            created["id"], EquipmentUpdate(manager_id=self.accounts["manager"].id)
+        )
+        await self.admin.update_equipment(created["id"], EquipmentUpdate(bookable=True))
+        row = await self.book(eq=created["id"])
+        self.assertEqual(row["equipment_id"], created["id"])
 
     async def test_reschedule_and_retry_keys(self):
         row = await self.book(key="same-key-123")
@@ -479,6 +531,40 @@ class WorkflowBoundaryTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 201, response.text)
         return response.json()["id"]
+
+    def test_admin_creates_equipment_and_non_admins_cannot(self):
+        self.client.portal.call(seed_equipment, self.app.state.database)
+        self.login("booking-admin", "Synthetic administrator secret")
+        payload = {
+            "code": "SS-3",
+            "name": "Tandem simulator",
+            "group_code": "characterization",
+            "equipment_type": "solar_simulator",
+            "location": "SS-3",
+            "template": "general",
+        }
+        response = self.client.post("/api/booking/equipment", json=payload)
+        self.assertEqual(response.status_code, 201, response.text)
+        created = response.json()
+        self.assertEqual(created["code"], "SS-3")
+        self.assertFalse(created["bookable"])
+        self.assertIsNone(created["manager_id"])
+        self.assertEqual(created["units"], DEFAULT_UNITS["general"])
+        listed = {row["code"]: row for row in self.client.get("/api/booking/equipment").json()}
+        self.assertIn("SS-3", listed)
+        # A duplicate code is a conflict, not a silent overwrite.
+        self.assertEqual(
+            self.client.post("/api/booking/equipment", json=payload).status_code, 409
+        )
+        # Instructors cannot register equipment.
+        self.create("booking-teacher-2", "instructor")
+        self.login("booking-teacher-2", "Synthetic booking account secret")
+        self.assertEqual(
+            self.client.post(
+                "/api/booking/equipment", json=payload | {"code": "SS-4"}
+            ).status_code,
+            403,
+        )
 
     def test_new_students_teachers_and_managers_have_no_workflow_access(self):
         for role in ("student", "instructor", "administrator"):

@@ -337,7 +337,7 @@ class BookingBrowserTests(unittest.TestCase):
         self.navigate(session, "/app/booking/manage")
         wait_for_expression(session, "Boolean(document.querySelector('.booking-equipment-editor'))")
         self.assertFalse(
-            evaluate(session, f"Boolean({self.button('Fabrication workflow access')})")
+            evaluate(session, f"Boolean({self.button('Equipment registration')})")
         )
         self.assertFalse(
             evaluate(
@@ -414,23 +414,22 @@ class BookingBrowserTests(unittest.TestCase):
 
     def test_admin_workflow_grant_and_live_session_revocation(self):
         session = self.open_browser("admin")
-        self.navigate(session, "/app/booking/manage")
-        self.click(session, self.button("Fabrication workflow access"))
-        teacher_row = "Array.from(document.querySelectorAll('.booking-access-row')).find(e=>e.textContent.includes('booking-teacher'))"
+        evaluate(session, f"location.href={json.dumps(self.base + '/app/users')}")
+        wait_for_expression(session, "Boolean(document.querySelector('.account-table'))")
+        checkbox = (
+            "document.querySelector("
+            f"'input[type=checkbox][aria-label={json.dumps('Fabrication workflow access for booking-teacher')}]')"
+        )
         with httpx.Client(base_url=self.base) as client:
             login(client, "booking-teacher")
             self.assertFalse(client.get("/api/session").json()["workflow_access"])
             self.assertEqual(client.get("/api/experiments").status_code, 403)
-            self.click(session, f"{teacher_row}.querySelector('button')")
-            wait_for_expression(
-                session, f"{teacher_row}.textContent.includes('Revoke fabrication access')"
-            )
+            self.click(session, checkbox)
+            wait_for_expression(session, f"Boolean({checkbox}.checked)")
             self.assertTrue(client.get("/api/session").json()["workflow_access"])
             self.assertEqual(client.get("/api/experiments").status_code, 200)
-            self.click(session, f"{teacher_row}.querySelector('button')")
-            wait_for_expression(
-                session, f"{teacher_row}.textContent.includes('Grant fabrication access')"
-            )
+            self.click(session, checkbox)
+            wait_for_expression(session, f"Boolean(!{checkbox}.checked)")
             self.assertFalse(client.get("/api/session").json()["workflow_access"])
             self.assertEqual(client.get("/api/experiments").status_code, 403)
             self.assertEqual(client.get("/api/booking/equipment").status_code, 200)

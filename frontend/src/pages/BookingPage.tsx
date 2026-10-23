@@ -48,7 +48,7 @@ export function BookingPage() {
     [ledger, setLedger] = useState<LedgerRow[]>([]);
   const [history, setHistory] = useState(false),
     [pending, setPending] = useState(false),
-    [panel, setPanel] = useState<"calendar" | "ledger" | "inbox">("calendar");
+    [panel, setPanel] = useState<"calendar" | "ledger" | "teamLedger" | "inbox">("calendar");
   const [revision, setRevision] = useState(0),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(false);
@@ -92,6 +92,10 @@ export function BookingPage() {
     (eq) => selected === null || selected.includes(eq.id),
   );
   const visibleIds = new Set(visible.map((eq) => eq.id));
+  const supervision = panel === "teamLedger" && user?.role === "instructor";
+  const visibleLedger = ledger.filter(
+    (row) => visibleIds.has(row.equipment_id) && (supervision || row.user_id === user?.id),
+  );
   const filteredRows = rows.filter((row) => visibleIds.has(row.equipment_id));
   const mainRows = filteredRows.filter(
     (row) => !["cancelled", "no_show", "released"].includes(row.status),
@@ -192,7 +196,7 @@ export function BookingPage() {
             {t("booking.manage")}
           </Link>
         )}
-        {(["calendar", "ledger", "inbox"] as const).map((key) => (
+        {(["calendar", "ledger", ...(user?.role === "instructor" ? ["teamLedger" as const] : []), "inbox"] as const).map((key) => (
           <button
             key={key}
             className="button button--secondary"
@@ -374,10 +378,10 @@ export function BookingPage() {
               </details>
             </>
           )}
-          {panel === "ledger" && (
+          {(panel === "ledger" || panel === "teamLedger") && (
             <div className="booking-records">
-              <h2>{t("booking.ledger")}</h2>
-              <p>{t("booking.private")}</p>
+              <h2>{t(supervision ? "booking.teamLedger" : "booking.ledger")}</h2>
+              <p>{t(supervision ? "booking.supervisionHint" : "booking.private")}</p>
               <label>
                 <input
                   type="checkbox"
@@ -387,13 +391,7 @@ export function BookingPage() {
                 {t("booking.pendingOnly")}
               </label>
               <div className="booking-list">
-                {ledger
-                  .filter(
-                    (row) =>
-                      row.user_id === user?.id &&
-                      visibleIds.has(row.equipment_id),
-                  )
-                  .map((row) => (
+                {visibleLedger.map((row) => (
                     <button
                       className="booking-record"
                       key={row.id}
@@ -405,7 +403,9 @@ export function BookingPage() {
                             equipment.find((eq) => eq.id === row.equipment_id)
                               ?.code ?? "",
                           user_id: row.user_id,
-                          reserved_by: user?.display_name ?? "",
+                          reserved_by: row.user_id === user?.id
+                            ? user.display_name
+                            : t("booking.userNumber", { id: row.user_id }),
                           kind: "booking",
                           status: row.reservation_status,
                           starts_at: row.actual_start ?? row.updated_at,
@@ -423,16 +423,13 @@ export function BookingPage() {
                         · #{row.reservation_id}
                       </strong>
                       <span>
+                        {supervision && <>{t("booking.userNumber", { id: row.user_id })} · </>}
                         {t(`booking.${row.status}`)} ·{" "}
                         {t(`booking.${row.reservation_status}`)}
                       </span>
                     </button>
                   ))}
-                {!ledger.some(
-                  (row) =>
-                    row.user_id === user?.id &&
-                    visibleIds.has(row.equipment_id),
-                ) && <p>{t("common.empty")}</p>}
+                {visibleLedger.length === 0 && <p>{t("common.empty")}</p>}
               </div>
             </div>
           )}
@@ -495,6 +492,7 @@ export function BookingPage() {
           equipment={equipment.find((eq) => eq.id === open.equipment_id)}
           onClose={() => setOpen(null)}
           onSaved={refresh}
+          readOnly={supervision}
         />
       )}
       {noticeOpen && (
@@ -657,12 +655,14 @@ export function ReservationDialog({
   onClose,
   onSaved,
   management = false,
+  readOnly = false,
 }: {
   row: CalendarRow;
   equipment: Equipment | undefined;
   onClose: () => void;
   onSaved: () => void;
   management?: boolean;
+  readOnly?: boolean;
 }) {
   const { t, language } = useLanguage(),
     { user } = useSession();
@@ -670,7 +670,8 @@ export function ReservationDialog({
   const canRead =
     row.user_id === user?.id ||
     equipment?.manager_id === user?.id ||
-    user?.role === "administrator";
+    user?.role === "administrator" ||
+    user?.role === "instructor";
   const [detail, setDetail] = useState<Reservation | null>(null),
     [usage, setUsage] = useState<Usage | null>(null);
   const [busy, setBusy] = useState(false),
@@ -678,7 +679,7 @@ export function ReservationDialog({
     [ready, setReady] = useState(!canRead);
   const [starts, setStarts] = useState(labInput(row.starts_at)),
     [ends, setEnds] = useState(labInput(row.ends_at));
-  const owner = row.user_id === user?.id;
+  const owner = row.user_id === user?.id && !readOnly;
   const load = useCallback(async () => {
     const [res, record] = await Promise.all([
       bookingApi<Reservation>(`reservations/${row.id}`),
@@ -846,6 +847,7 @@ export function ReservationDialog({
         </>
       )}
       {management &&
+        !readOnly &&
         ready &&
         (equipment?.manager_id === user?.id ||
           user?.role === "administrator") && (
