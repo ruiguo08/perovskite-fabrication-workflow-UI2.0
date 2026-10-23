@@ -17,6 +17,7 @@ export interface SessionUser {
   display_name: string;
   role: Role;
   csrf_available: boolean;
+  workflow_access: boolean;
 }
 
 export type SessionStatus =
@@ -31,6 +32,7 @@ interface LoginResult {
   display_name: string;
   role: Role;
   csrf_available: boolean;
+  workflow_access: boolean;
 }
 
 interface SessionContextValue {
@@ -75,6 +77,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void refresh();
+    const current = () => { if (document.visibilityState === 'visible') void refresh(); };
+    window.addEventListener('focus', current);
+    document.addEventListener('visibilitychange', current);
+    return () => {
+      window.removeEventListener('focus', current);
+      document.removeEventListener('visibilitychange', current);
+    };
   }, [refresh]);
 
   const login = useCallback(

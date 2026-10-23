@@ -1,7 +1,9 @@
 import { businessMessages } from "./businessMessages";
+import { bookingMessages } from "./bookingMessages";
 
 /** Shared UI copy. Keys describe meaning; API values and user content stay unchanged. */
 export const messages = {
+  ...bookingMessages,
   ...businessMessages,
   "summary.supplierProducts": ["{n} supplier product{s}", "{n} 个供应商产品"],
   "summary.devices": ["{n} device{s}", "{n} 个器件"],

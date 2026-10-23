@@ -18,6 +18,7 @@ vi.mock("../auth/session", () => ({
       display_name: "Planner",
       role: sessionState.role,
       csrf_available: true,
+      workflow_access: true,
     },
   }),
 }));

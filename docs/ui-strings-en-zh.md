@@ -1463,3 +1463,105 @@
 - 编号章节：22 节（0–21，不含核心术语校对记录）。章节数量不代表源码覆盖率。
 - 原始清单估计去重后词条约 **950–1000** 条（模板字符串按一条计）；尚未通过程序核对去重数量及遗漏，不能作为完整覆盖的验收依据。
 - 本表按模块整理；通用词汇（第 21 节）在各模块中不重复列出，做 i18n 资源文件时应抽取为共享命名空间。
+
+## 设备预约（booking.*）
+
+复用应用语言状态；设备名称、公告正文、备注及材料名称保留原值。Equipment = 设备，Device = 器件。时间按 Asia/Shanghai，单位随台账快照保存。
+
+| Key | English | 中文 |
+|---|---|---|
+| booking.title | Equipment booking | 设备预约 |
+| booking.description | Shared laboratory calendar · Asia/Shanghai (UTC+08:00) | 共享实验室日历 · 上海时区（UTC+08:00） |
+| booking.day | Day | 日 |
+| booking.week | Week | 周 |
+| booking.month | Month | 月 |
+| booking.today | Today | 今天 |
+| booking.previous | Previous period | 上一时段 |
+| booking.next | Next period | 下一时段 |
+| booking.date | Calendar date | 日历日期 |
+| booking.equipment | Equipment | 设备 |
+| booking.all | Select all | 全选 |
+| booking.none | Clear selection | 清空选择 |
+| booking.gloveboxes | Gloveboxes | 手套箱 |
+| booking.vacuum | Vacuum deposition | 真空镀膜 |
+| booking.other | Other processes | 其他工序 |
+| booking.characterization | Characterization | 表征 |
+| booking.closed | Reservations paused | 暂停预约 |
+| booking.new | New booking | 新建预约 |
+| booking.starts | Start (Shanghai time) | 开始（上海时间） |
+| booking.ends | End (Shanghai time) | 结束（上海时间） |
+| booking.create | Book equipment | 预约设备 |
+| booking.saved | Saved. | 已保存。 |
+| booking.empty | No reservations in this selection. | 当前筛选下没有预约。 |
+| booking.selectEquipment | Select equipment to view its calendar. | 选择设备以查看日历。 |
+| booking.planned | Reserved | 已预约 |
+| booking.in_use | In use | 进行中 |
+| booking.completed | Completed | 已完成 |
+| booking.blocked | Maintenance | 维护封锁 |
+| booking.cancelled | Cancelled | 已取消 |
+| booking.no_show | No-show | 爽约 |
+| booking.released | Released | 已解除 |
+| booking.history | Include cancelled / no-show / released in history | 历史记录包含取消、爽约和已解除维护 |
+| booking.historyTitle | Reservation history | 预约历史 |
+| booking.person | Reserved by | 预约人 |
+| booking.details | Reservation {id} | 预约 {id} |
+| booking.start | Start use | 开始使用 |
+| booking.endLater | End use, fill in later | 结束使用，稍后补填 |
+| booking.submitEnd | Submit and end use | 提交并结束使用 |
+| booking.cancel | Cancel booking | 取消预约 |
+| booking.reschedule | Reschedule | 调整时间 |
+| booking.usage | Usage ledger | 使用台账 |
+| booking.pending | Pending completion | 待补填 |
+| booking.ledger | My usage records | 我的使用记录 |
+| booking.pendingOnly | Pending records only | 仅待补填 |
+| booking.draft | Draft | 草稿 |
+| booking.submitted | Submitted | 已提交 |
+| booking.saveDraft | Save draft | 保存草稿 |
+| booking.submit | Submit usage record | 提交台账 |
+| booking.notes | Notes (optional) | 备注（选填） |
+| booking.usageText | Usage | 使用情况 |
+| booking.before_h2o | H₂O before use | 使用前 H₂O |
+| booking.after_h2o | H₂O after use | 使用后 H₂O |
+| booking.before_o2 | O₂ before use | 使用前 O₂ |
+| booking.after_o2 | O₂ after use | 使用后 O₂ |
+| booking.before_temperature | Temperature before use | 使用前温度 |
+| booking.after_temperature | Temperature after use | 使用后温度 |
+| booking.material | Deposition material | 沉积材料 |
+| booking.cycles | Cycle number | 循环次数 |
+| booking.initial_temperature | Initial process temperature | 起始工艺温度 |
+| booking.chamber_pressure | Chamber pressure | 腔体压强 |
+| booking.vacuumValue | Deposition vacuum | 镀膜真空度 |
+| booking.thickness | Thickness | 厚度 |
+| booking.layers | Deposited layers | 沉积膜层 |
+| booking.addLayer | Add layer | 添加膜层 |
+| booking.removeLayer | Remove layer {n} | 删除膜层 {n} |
+| booking.snapshot | Template {template} · version {version}. Units are saved with this record. | 模板 {template} · 版本 {version}。单位随本记录保存。 |
+| booking.notices | Equipment notices | 设备公告 |
+| booking.noNotices | No current notices for the selected equipment. | 所选设备暂无有效公告。 |
+| booking.pinned | Pinned | 置顶 |
+| booking.inbox | Inbox | 站内通知 |
+| booking.read | Mark as read | 标记已读 |
+| booking.readAlready | Read | 已读 |
+| booking.unread | Unread | 未读 |
+| booking.reservation_cancelled | Your reservation {id} was cancelled by a manager. | 管理员已取消您的预约 {id}。 |
+| booking.equipment_notice | Equipment notice {id} | 设备公告 {id} |
+| booking.open | Open | 查看 |
+| booking.private | Usage details are visible only to the owner, equipment manager and system administrator. | 详细台账仅本人、对应设备管理员及系统管理员可见。 |
+| booking.noInbox | No notifications. | 暂无通知。 |
+| booking.refresh | Refresh calendar | 刷新日历 |
+| booking.occupied | {n} reservations | {n} 条预约 |
+| booking.hours | {n} occupied h | 占用 {n} 小时 |
+| booking.loadError | Unable to load booking data. Retry to refresh. | 无法加载预约数据，请重试刷新。 |
+| booking.conflict | This action conflicts with the current equipment state or another reservation. Refresh and review the time or status before retrying. | 操作与设备当前状态或其他预约冲突。请刷新并核对时段或状态后重试。 |
+| booking.denied | You do not have permission for this equipment or record. | 您没有此设备或记录的操作权限。 |
+| booking.invalid | Check the required fields, numeric values and time interval. End must be after start; new bookings must be in the future. | 请核对必填字段、数值和时段。结束须晚于开始，新预约不能早于当前时间。 |
+| booking.failed | Unable to save. Your form is preserved; retry after checking your connection. | 保存失败。表单内容已保留，请检查连接后重试。 |
+| booking.endHint | Ending use preserves the original reserved time. Pending records do not prevent future bookings. | 结束使用保留原预约时段。待补填不会阻止后续预约。 |
+| booking.actualStart | Actual start | 实际开始 |
+| booking.actualEnd | Actual end | 实际结束 |
+| booking.reason | Reason | 原因 |
+| booking.manage | Equipment management | 设备管理 |
+| booking.glovebox | Glovebox environment | 手套箱环境 |
+| booking.ald | ALD | ALD |
+| booking.evaporation | Thermal evaporation | 热蒸发 |
+| booking.general | General usage | 通用使用 |
