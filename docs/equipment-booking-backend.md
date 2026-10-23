@@ -65,7 +65,9 @@ retain audited emergency actions. Account deactivation atomically pauses all
 equipment assigned to that manager and records an `equipment.pause` event.
 Reactivation does not automatically reopen units. Owners alone can start use
 and edit their ledger. Managers and system administrators can read the relevant
-ledger and pending list, and can end abandoned use with a reason.
+ledger and pending list, and can end abandoned use with a reason. Instructors can
+read any reservation detail, usage record and ledger entry for supervision; this
+does not grant mutation rights or fabrication access.
 
 State-changing booking operations own one transaction and share its connection
 with `repository.booking.BookingStore` and the existing audit writer. Equipment
@@ -103,7 +105,7 @@ in `Asia/Shanghai`.
 | PATCH `/reservations/{id}/time` | Owner reschedules a planned, not-yet-started booking, with conflict revalidation. |
 | POST `/reservations/{id}/actions` | Lifecycle command described below. |
 | GET / PUT `/reservations/{id}/usage` | Private usage snapshot. Read by owner/manager/administrator, written by owner only. PUT replaces the `fields` object and `notes`, with `submit=false` for drafts or `true` for completed-use submission/amendment. |
-| GET `/ledger` | Owner/assigned-manager/administrator scope is applied in SQL. Optional `equipment_id`, `pending`, `offset`; 1,000 rows per page. Pending means reservation completed and ledger not submitted. |
+| GET `/ledger` | Owners see their records; assigned managers see their equipment; instructors and administrators can read all records. Scope is applied in SQL. Optional `equipment_id`, `pending`, `offset`; 1,000 rows per page. Pending means reservation completed and ledger not submitted. |
 | GET / POST `/notices` | Read effective non-withdrawn notices, optionally by equipment and offset; create for managed equipment. POST accepts body, pinned, valid_from, valid_until, request_key and optional notify_until. |
 | PATCH `/notices/{id}` | Assigned manager/administrator pins/unpins or withdraws a notice. |
 | GET `/notifications` | Recipient's persistent inbox with offset paging, 1,000 rows per page. |

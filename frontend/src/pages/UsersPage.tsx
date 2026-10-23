@@ -1,5 +1,5 @@
 import { enumLabel, localizeAppText } from "../i18n";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
 import { useCallback, useState, type FormEvent } from "react";
 import { EmptyState } from "../components/EmptyState";
@@ -34,9 +34,10 @@ export function UsersPage() {
   const { refresh: refreshSession } = useSession();
   const loadUsers = useCallback(() => apiFetch<UserAccount[]>("/api/users"), []);
   const resource = useApiResource(loadUsers);
+  const loadGrants = useCallback(() => bookingPages<WorkflowGrant>("workflow-access"), []);
+  const grantResource = useApiResource(loadGrants);
   const [users, setUsers] = useState<UserAccount[] | null>(null);
   const rows = useMemo(() => sortAccounts(users ?? resource.data ?? []), [users, resource.data]);
-  const [grants, setGrants] = useState<WorkflowGrant[]>([]);
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
@@ -44,24 +45,10 @@ export function UsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    let alive = true;
-    void bookingPages<WorkflowGrant>("workflow-access")
-      .then((rows) => {
-        if (alive) setGrants(rows);
-      })
-      .catch(() => {
-        if (alive) setGrants([]);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [users]);
-
-  const workflowEnabled = useCallback(
-    (userId: number) => grants.some((grant) => grant.user_id === userId && !grant.revoked_at),
-    [grants],
-  );
+  function workflowEnabled(userId: number): boolean | null {
+    if (grantResource.status !== "success" || grantResource.data === null) return null;
+    return grantResource.data.some((grant) => grant.user_id === userId && !grant.revoked_at);
+  }
 
   function replaceUser(replacement: UserAccount) {
     setUsers((current) => sortAccounts((current ?? rows).some((account) => account.id === replacement.id)
@@ -140,6 +127,10 @@ export function UsersPage() {
           <h2 className="panel__title" id="account-directory-title">{tr("usersPage.accounts")}</h2>
           <span className="record-count">{rows.length} {tr("presetFilters.records")}</span>
         </div>
+        {grantResource.status === "loading" && <p role="status">{tr("usersPage.loadingWorkflowAccess")}</p>}
+        {grantResource.status === "error" && <ErrorState message={tr("usersPage.unableToLoadWorkflowAccess")} action={
+          <button className="button button--secondary" type="button" onClick={() => void grantResource.reload()}>{tr("versionHistory.retry")}</button>
+        } />}
         {rows.length === 0 ? <EmptyState title={tr("usersPage.noAccountsAreAvailable")} /> : (
           <div className="table-scroll">
             <table className="data-table account-table" aria-label={tr("usersPage.userAccounts")}>
@@ -149,14 +140,7 @@ export function UsersPage() {
                   const path = `workflow-access/${account.id}`;
                   try {
                     await apiFetch(`/api/booking/${path}`, { method: "PUT", body: { enabled } });
-                    setGrants((current) => {
-                      const rest = current.filter((grant) => grant.user_id !== account.id);
-                      return enabled
-                        ? [...rest, { user_id: account.id, granted_at: new Date().toISOString(), revoked_at: null }]
-                        : rest.length === current.length
-                          ? current.map((grant) => grant.user_id === account.id ? { ...grant, revoked_at: new Date().toISOString() } : grant)
-                          : rest;
-                    });
+                    await grantResource.reload();
                     await refreshSession();
                     show(tr("usersPage.workflowAccessUpdated"), "success");
                   } catch (caught) {
@@ -180,7 +164,7 @@ function AccountRow({
 }: {
   account: UserAccount;
   onChange: (account: UserAccount) => void;
-  workflowEnabled: boolean;
+  workflowEnabled: boolean | null;
   onWorkflowChange: (enabled: boolean) => Promise<void>;
 }) {
   useUiLanguage();
@@ -253,15 +237,18 @@ function AccountRow({
             <input
               type="checkbox"
               aria-label={tr("usersPage.workflowAccessForUsername", { "username": account.username })}
-              checked={workflowEnabled}
-              disabled={workflowBusy}
+              ref={(input) => { if (input) input.indeterminate = workflowEnabled === null; }}
+              checked={workflowEnabled ?? false}
+              disabled={workflowBusy || workflowEnabled === null}
               onChange={(event) => {
+                if (workflowBusy || workflowEnabled === null) return;
                 setWorkflowBusy(true);
                 void onWorkflowChange(event.target.checked).finally(() => setWorkflowBusy(false));
               }}
             />
             {tr("usersPage.workflowAccessLabel")}
           </label>
+          {workflowEnabled === null && <span className="muted">{tr("usersPage.workflowAccessUnknown")}</span>}
         </div>
       </td>
       <td>

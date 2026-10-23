@@ -4048,6 +4048,9 @@ export const businessMessages = {
     "Workflow access",
     "工艺区访问"
   ],
+  "usersPage.loadingWorkflowAccess": ["Loading workflow access…", "正在读取工作流访问权…"],
+  "usersPage.unableToLoadWorkflowAccess": ["Unable to read workflow access. Retry before changing permissions.", "无法读取工作流访问权，请重试后再修改授权。"],
+  "usersPage.workflowAccessUnknown": ["Unknown", "状态未知"],
   "usersPage.workflowAccessLabel": [
     "Fabrication workflow",
     "制备工作流"

@@ -15,7 +15,11 @@ relative to the selected equipment capacity. Selecting a day opens day view.
 All dates and datetime inputs use Asia/Shanghai independently of browser timezone.
 The intervals remain half-open, including events clipped across midnight.
 
-Equipment filters apply to the three calendar views, notices and personal ledger.
+Equipment filters apply to the three calendar views, notices, personal ledger and
+instructor supervision ledger. Instructors have a separate **Equipment usage
+records** tab on the booking page: it lists every user's records, includes the
+pending filter, and opens details without edit or lifecycle controls (including
+the instructor's own records). **My usage records** retains owner actions.
 The history disclosure can include cancelled bookings, no-shows and released
 maintenance; those states never appear as occupied blocks on the main calendar.
 Purple, cyan, green and amber represent reserved, in use, completed and maintenance.
@@ -27,7 +31,7 @@ in later. Actual times come from the server. Usage forms come from each record's
 template, version and units snapshot, including six separate glovebox values and
 repeatable evaporation layers. Completed drafts appear in the pending list and do
 not block new bookings. Managers can inspect their equipment's private records;
-editing another owner's usage remains forbidden. Submitted amendments remain
+instructors can inspect all records read-only. Editing another owner's usage remains forbidden. Submitted amendments remain
 audited by the backend.
 
 Booking and notice request keys survive a retry for the same form input. Controls
@@ -44,6 +48,12 @@ restricted to the manager's equipment or the system administrator.
 actions, notice publication/pinning/withdrawal, equipment ledgers and pending
 records. Ordinary equipment managers see only their assigned units. Only system
 administrators can assign managers or grant/revoke independent fabrication access.
+Fabrication grants are managed on the administrator-only user directory. Grant
+reads have an independent loading/error state: unknown permissions show a disabled
+indeterminate checkbox and a retry action after failure. Successful writes reload
+authoritative server state; older read responses cannot overwrite newer results.
+Account metadata edits do not reload grants. The management page remains reserved
+for administrators and assigned equipment managers.
 Manager actions never write another owner's usage fields. A force-ended record
 remains available for its owner to complete later. Deactivated managers' equipment
 is paused by the backend and does not reopen automatically after reactivation.

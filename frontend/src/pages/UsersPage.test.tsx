@@ -6,8 +6,10 @@ import { setLanguage } from "../i18n";
 
 const apiFetchMock = vi.hoisted(() => vi.fn());
 const refreshMock = vi.hoisted(() => vi.fn());
+const grantsMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../lib/api", () => ({ apiFetch: apiFetchMock }));
+vi.mock("../features/booking/api", () => ({ bookingPages: grantsMock }));
 vi.mock("../auth/session", () => ({
   useSession: () => ({ user: { id: 1, role: "administrator" }, refresh: refreshMock }),
 }));
@@ -42,17 +44,87 @@ function renderPage() {
 describe("UsersPage", () => {
   beforeEach(() => {
     apiFetchMock.mockReset();
+    refreshMock.mockReset();
+    grantsMock.mockReset().mockResolvedValue([
+      { user_id: 1, granted_at: "2026-08-01T08:00:00Z", revoked_at: null },
+    ]);
     apiFetchMock.mockImplementation((path: string, options?: { method?: string }) => {
-      if (path === "/api/booking/workflow-access") {
-        return Promise.resolve([
-          { user_id: 1, granted_at: "2026-08-01T08:00:00Z", revoked_at: null },
-        ]);
-      }
       if (path.startsWith("/api/booking/workflow-access/") && options?.method === "PUT") {
         return Promise.resolve({ user_id: 2, workflow_access: true });
       }
       return Promise.resolve([administrator, student]);
     });
+  });
+
+  it("keeps grants unknown and disabled until the initial read completes", async () => {
+    let finishRead!: (rows: unknown[]) => void;
+    grantsMock.mockReturnValue(new Promise((resolve) => { finishRead = resolve; }));
+    renderPage();
+    const checkbox = await screen.findByRole("checkbox", { name: "Fabrication workflow access for admin" });
+    expect(checkbox).toBeDisabled();
+    expect(checkbox).toBePartiallyChecked();
+    fireEvent.click(checkbox);
+    expect(apiFetchMock).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: "PUT" }));
+    await act(async () => finishRead([{ user_id: 1, revoked_at: null }]));
+    expect(checkbox).toBeEnabled();
+    expect(checkbox).toBeChecked();
+  });
+
+  it("shows read failures as unknown and retries before permitting edits", async () => {
+    grantsMock.mockRejectedValueOnce(new Error("read failed"));
+    renderPage();
+    const checkbox = await screen.findByRole("checkbox", { name: "Fabrication workflow access for admin" });
+    expect(await screen.findByText("Unable to read workflow access. Retry before changing permissions.")).toBeInTheDocument();
+    expect(checkbox).toBeDisabled();
+    expect(checkbox).toBePartiallyChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(checkbox).toBeEnabled());
+    expect(checkbox).toBeChecked();
+  });
+
+  it("ignores an older grant read after two concurrent successful writes", async () => {
+    let finishOlder!: (rows: unknown[]) => void;
+    let finishNewer!: (rows: unknown[]) => void;
+    grantsMock.mockResolvedValueOnce([])
+      .mockImplementationOnce(() => new Promise((resolve) => { finishOlder = resolve; }))
+      .mockImplementationOnce(() => new Promise((resolve) => { finishNewer = resolve; }));
+    renderPage();
+    const admin = await screen.findByRole("checkbox", { name: "Fabrication workflow access for admin" });
+    const student = screen.getByRole("checkbox", { name: "Fabrication workflow access for student-one" });
+    await waitFor(() => expect(admin).toBeEnabled());
+    fireEvent.click(admin);
+    fireEvent.click(student);
+    await waitFor(() => expect(grantsMock).toHaveBeenCalledTimes(3));
+    await act(async () => finishNewer([{ user_id: 1, revoked_at: null }, { user_id: 2, revoked_at: null }]));
+    expect(admin).toBeChecked();
+    expect(student).toBeChecked();
+    await act(async () => finishOlder([]));
+    expect(admin).toBeChecked();
+    expect(student).toBeChecked();
+  });
+
+  it("does not reread grants when saving account roles", async () => {
+    apiFetchMock.mockImplementation((_path: string, options?: { method?: string }) =>
+      options?.method === "PATCH" ? Promise.resolve(administrator) : Promise.resolve([administrator, student]));
+    renderPage();
+    await screen.findByText("Student One");
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: "Fabrication workflow access for admin" })).toBeChecked());
+    fireEvent.click(screen.getByRole("button", { name: "Save access for admin" }));
+    await screen.findByText("Account access updated.");
+    expect(grantsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks grants unknown if the read after a saved write fails", async () => {
+    grantsMock.mockReset().mockResolvedValueOnce([]).mockRejectedValueOnce(new Error("read failed"));
+    renderPage();
+    const checkbox = await screen.findByRole("checkbox", { name: "Fabrication workflow access for student-one" });
+    await waitFor(() => expect(checkbox).toBeEnabled());
+    fireEvent.click(checkbox);
+    await screen.findByText("Unable to read workflow access. Retry before changing permissions.");
+    expect(checkbox).toBeDisabled();
+    expect(checkbox).toBePartiallyChecked();
+    expect(apiFetchMock).toHaveBeenCalledWith("/api/booking/workflow-access/2", { method: "PUT", body: { enabled: true } });
+    expect(refreshMock).toHaveBeenCalled();
   });
 
   it("lists account metadata without rendering secret fields", async () => {

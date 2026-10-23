@@ -24,7 +24,8 @@ No production deployment, group invitation or real account grant is performed.
 | Main calendar hides released states; history retains them | Backend calendar tests, React split of occupied/history states, browser manager history and maintenance release |
 | Shanghai time independent of browser timezone; day/week/month and linked filters | Offset storage/query regression; calendar boundary/lane tests; real browser view/filter transitions and API timestamp comparison |
 | Notices support validity, pin, withdrawal and notification horizon; inbox/read persists and deduplicates | Backend notice/dedup tests; scoped historical access tests; browser publication/pin/unpin/withdraw and repeated recipient read assertions |
-| Private ledger is limited to owner, assigned manager and administrator | Backend cross-user/cross-equipment tests, frontend private-fetch/read-only tests; force-end preserves another owner's fields |
+| Ledger reads allow owner, assigned manager, instructors and administrator; editing remains owner-only | Backend cross-user/cross-equipment tests, frontend private-fetch/read-only tests; instructor supervision has a separate all-user ledger with equipment/pending filters and no writes |
+| Grant reads never imply revocation when pending or failed, and older responses cannot overwrite newer grants | User-directory regression tests cover unknown/disabled state, retry, overlapping writes and out-of-order reads, metadata independence and a failed read after a successful save |
 | Native bilingual behavior, units/material names unchanged, drafts retained and narrow layouts usable | Existing i18n regression; booking form language tests; real Chrome 320px flow; synthetic before/after screenshots |
 | Original fabrication behavior remains intact | Full Ubuntu and Windows regression workflows, frontend suite, static checks, Vite proxy, wheel and bundle-freshness checks |
 
