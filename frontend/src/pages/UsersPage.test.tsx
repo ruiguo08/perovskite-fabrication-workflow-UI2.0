@@ -5,8 +5,12 @@ import { UsersPage } from "./UsersPage";
 import { setLanguage } from "../i18n";
 
 const apiFetchMock = vi.hoisted(() => vi.fn());
+const refreshMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../lib/api", () => ({ apiFetch: apiFetchMock }));
+vi.mock("../auth/session", () => ({
+  useSession: () => ({ user: { id: 1, role: "administrator" }, refresh: refreshMock }),
+}));
 
 const administrator = {
   id: 1,
@@ -38,7 +42,17 @@ function renderPage() {
 describe("UsersPage", () => {
   beforeEach(() => {
     apiFetchMock.mockReset();
-    apiFetchMock.mockResolvedValue([administrator, student]);
+    apiFetchMock.mockImplementation((path: string, options?: { method?: string }) => {
+      if (path === "/api/booking/workflow-access") {
+        return Promise.resolve([
+          { user_id: 1, granted_at: "2026-08-01T08:00:00Z", revoked_at: null },
+        ]);
+      }
+      if (path.startsWith("/api/booking/workflow-access/") && options?.method === "PUT") {
+        return Promise.resolve({ user_id: 2, workflow_access: true });
+      }
+      return Promise.resolve([administrator, student]);
+    });
   });
 
   it("lists account metadata without rendering secret fields", async () => {

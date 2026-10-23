@@ -229,6 +229,7 @@ export function EquipmentEditor({
           />
           {t("booking.bookable")}
         </label>
+        <p className="booking-field--wide muted">{t("booking.deactivateHint")}</p>
       </fieldset>
       {error && (
         <p className="booking-error" role="alert">

@@ -1,5 +1,5 @@
 import { enumLabel, localizeAppText } from "../i18n";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { translate as tr, useLanguage as useUiLanguage } from "../i18n";
 import { useCallback, useState, type FormEvent } from "react";
 import { EmptyState } from "../components/EmptyState";
@@ -12,7 +12,15 @@ import { useToast } from "../components/Toast";
 import { apiFetch } from "../lib/api";
 import { formatDateTime, titleCase } from "../lib/format";
 import { useApiResource } from "../lib/useApiResource";
+import { useSession } from "../auth/session";
+import { bookingPages } from "../features/booking/api";
 import type { Role, UserAccount } from "../types/api";
+
+interface WorkflowGrant {
+  user_id: number;
+  granted_at: string;
+  revoked_at: string | null;
+}
 
 const ROLES: Role[] = ["student", "instructor", "administrator"];
 
@@ -23,16 +31,37 @@ function sortAccounts(accounts: UserAccount[]): UserAccount[] {
 export function UsersPage() {
   useUiLanguage();
   const { show } = useToast();
+  const { refresh: refreshSession } = useSession();
   const loadUsers = useCallback(() => apiFetch<UserAccount[]>("/api/users"), []);
   const resource = useApiResource(loadUsers);
   const [users, setUsers] = useState<UserAccount[] | null>(null);
   const rows = useMemo(() => sortAccounts(users ?? resource.data ?? []), [users, resource.data]);
+  const [grants, setGrants] = useState<WorkflowGrant[]>([]);
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("student");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    void bookingPages<WorkflowGrant>("workflow-access")
+      .then((rows) => {
+        if (alive) setGrants(rows);
+      })
+      .catch(() => {
+        if (alive) setGrants([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [users]);
+
+  const workflowEnabled = useCallback(
+    (userId: number) => grants.some((grant) => grant.user_id === userId && !grant.revoked_at),
+    [grants],
+  );
 
   function replaceUser(replacement: UserAccount) {
     setUsers((current) => sortAccounts((current ?? rows).some((account) => account.id === replacement.id)
@@ -114,9 +143,26 @@ export function UsersPage() {
         {rows.length === 0 ? <EmptyState title={tr("usersPage.noAccountsAreAvailable")} /> : (
           <div className="table-scroll">
             <table className="data-table account-table" aria-label={tr("usersPage.userAccounts")}>
-              <thead><tr><th>{tr("usersPage.user")}</th><th>{tr("usersPage.state")}</th><th>{tr("usersPage.access")}</th><th>{tr("usersPage.passwordReset")}</th><th>{tr("usersPage.activity")}</th></tr></thead>
+              <thead><tr><th>{tr("usersPage.user")}</th><th>{tr("usersPage.state")}</th><th>{tr("usersPage.access")}</th><th>{tr("usersPage.workflowAccess")}</th><th>{tr("usersPage.passwordReset")}</th><th>{tr("usersPage.activity")}</th></tr></thead>
               <tbody>
-                {rows.map((account) => <AccountRow key={account.id} account={account} onChange={replaceUser} />)}
+                {rows.map((account) => <AccountRow key={account.id} account={account} onChange={replaceUser} workflowEnabled={workflowEnabled(account.id)} onWorkflowChange={async (enabled) => {
+                  const path = `workflow-access/${account.id}`;
+                  try {
+                    await apiFetch(`/api/booking/${path}`, { method: "PUT", body: { enabled } });
+                    setGrants((current) => {
+                      const rest = current.filter((grant) => grant.user_id !== account.id);
+                      return enabled
+                        ? [...rest, { user_id: account.id, granted_at: new Date().toISOString(), revoked_at: null }]
+                        : rest.length === current.length
+                          ? current.map((grant) => grant.user_id === account.id ? { ...grant, revoked_at: new Date().toISOString() } : grant)
+                          : rest;
+                    });
+                    await refreshSession();
+                    show(tr("usersPage.workflowAccessUpdated"), "success");
+                  } catch (caught) {
+                    show(caught instanceof Error ? caught.message : tr("usersPage.workflowAccessFailed"), "error");
+                  }
+                }} />)}
               </tbody>
             </table>
           </div>
@@ -126,7 +172,17 @@ export function UsersPage() {
   );
 }
 
-function AccountRow({ account, onChange }: { account: UserAccount; onChange: (account: UserAccount) => void }) {
+function AccountRow({
+  account,
+  onChange,
+  workflowEnabled,
+  onWorkflowChange,
+}: {
+  account: UserAccount;
+  onChange: (account: UserAccount) => void;
+  workflowEnabled: boolean;
+  onWorkflowChange: (enabled: boolean) => Promise<void>;
+}) {
   useUiLanguage();
   const { show } = useToast();
   const [role, setRole] = useState<Role>(account.role);
@@ -135,6 +191,7 @@ function AccountRow({ account, onChange }: { account: UserAccount; onChange: (ac
   const [accessError, setAccessError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [workflowBusy, setWorkflowBusy] = useState(false);
 
   async function saveAccess() {
     setSubmitting(true);
@@ -189,6 +246,23 @@ function AccountRow({ account, onChange }: { account: UserAccount; onChange: (ac
           <button className="button button--secondary button--small" type="button" disabled={submitting} onClick={() => void saveAccess()}>{tr("usersPage.saveAccessFor")}{account.username}</button>
         </div>
         <InlineFormError message={localizeAppText(accessError ?? "")} />
+      </td>
+      <td>
+        <div className="account-access-controls">
+          <label className="checkbox-control">
+            <input
+              type="checkbox"
+              aria-label={tr("usersPage.workflowAccessForUsername", { "username": account.username })}
+              checked={workflowEnabled}
+              disabled={workflowBusy}
+              onChange={(event) => {
+                setWorkflowBusy(true);
+                void onWorkflowChange(event.target.checked).finally(() => setWorkflowBusy(false));
+              }}
+            />
+            {tr("usersPage.workflowAccessLabel")}
+          </label>
+        </div>
       </td>
       <td>
         <form className="password-reset-form" onSubmit={(event) => void resetPassword(event)}>
