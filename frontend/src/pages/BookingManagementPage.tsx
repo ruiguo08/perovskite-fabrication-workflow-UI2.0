@@ -164,6 +164,16 @@ export function BookingManagementPage() {
   }
   return (
     <div className="booking-page booking-management">
+      {!loading && !admin && equipment.length > 0 && managed.length === 0 ? (
+        <section className="panel">
+          <h1>{t("booking.manage")}</h1>
+          <p>{t("booking.manageDenied")}</p>
+          <Link className="button button--secondary" to="/booking">
+            {t("booking.back")}
+          </Link>
+        </section>
+      ) : (
+      <>
       <div className="booking-page__header">
         <div>
           <h1>{t("booking.manage")}</h1>
@@ -454,6 +464,8 @@ export function BookingManagementPage() {
           onClose={() => setOpen(null)}
           onSaved={reload}
         />
+      )}
+      </>
       )}
     </div>
   );

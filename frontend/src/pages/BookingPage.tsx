@@ -670,7 +670,8 @@ export function ReservationDialog({
   const canRead =
     row.user_id === user?.id ||
     equipment?.manager_id === user?.id ||
-    user?.role === "administrator";
+    user?.role === "administrator" ||
+    user?.role === "instructor";
   const [detail, setDetail] = useState<Reservation | null>(null),
     [usage, setUsage] = useState<Usage | null>(null);
   const [busy, setBusy] = useState(false),

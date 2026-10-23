@@ -41,7 +41,7 @@ class BookingOperations:
                 )
                 if actor is None:
                     raise AccessDenied("active account required")
-                yield store, actor["role"] == "administrator"
+                yield store, actor["role"] == "administrator", actor["role"]
         except DBAPIError as error:
             # Do not turn programming errors or unrelated integrity failures
             # into successful responses, and never expose driver diagnostics.
@@ -91,11 +91,11 @@ class BookingOperations:
         return row
 
     async def list_equipment(self):
-        async with self.transaction() as (store, _):
+        async with self.transaction() as (store, _, _):
             return await store.rows(equipment, order=[equipment.c.id])
 
     async def update_equipment(self, equipment_id, payload):
-        async with self.transaction() as (store, admin):
+        async with self.transaction() as (store, admin, role):
             changes = payload.model_dump(exclude_unset=True)
             # Match account-deactivation lock order: users, then equipment.
             manager = None
@@ -128,7 +128,7 @@ class BookingOperations:
             return result
 
     async def set_access(self, user_id, enabled):
-        async with self.transaction() as (store, admin):
+        async with self.transaction() as (store, admin, role):
             if not admin:
                 raise AccessDenied("system administrator required")
             if await store.one(users, users.c.id == user_id, lock=True) is None:
@@ -165,13 +165,13 @@ class BookingOperations:
             return {"user_id": user_id, "workflow_access": enabled}
 
     async def list_access(self, offset=0):
-        async with self.transaction() as (store, admin):
+        async with self.transaction() as (store, admin, role):
             if not admin:
                 raise AccessDenied("system administrator required")
             return await store.rows(workflow_access, order=[workflow_access.c.user_id], offset=offset)
 
     async def create_reservation(self, payload):
-        async with self.transaction() as (store, admin):
+        async with self.transaction() as (store, admin, role):
             row = await store.one(equipment, equipment.c.id == payload.equipment_id, lock=True)
             if row is None:
                 raise RecordNotFound("equipment not found")
@@ -264,7 +264,7 @@ class BookingOperations:
         return row, eq
 
     async def reschedule(self, identity, payload):
-        async with self.transaction() as (store, _):
+        async with self.transaction() as (store, _, _):
             row, _eq = await self.locked_reservation(store, identity)
             if row["user_id"] != self.actor_id or row["kind"] != "booking":
                 raise AccessDenied("only the reservation owner may reschedule")
@@ -295,7 +295,7 @@ class BookingOperations:
             return result
 
     async def action(self, identity, payload):
-        async with self.transaction() as (store, admin):
+        async with self.transaction() as (store, admin, role):
             row, eq = await self.locked_reservation(store, identity)
             owner = row["user_id"] == self.actor_id
             manager = admin or eq["manager_id"] == self.actor_id
@@ -432,7 +432,7 @@ class BookingOperations:
         return result
 
     async def update_usage(self, identity, payload):
-        async with self.transaction() as (store, _):
+        async with self.transaction() as (store, _, _):
             row, _eq = await self.locked_reservation(store, identity)
             if row["user_id"] != self.actor_id:
                 raise AccessDenied("only the reservation owner may edit usage")
@@ -443,30 +443,44 @@ class BookingOperations:
             )
 
     async def get_usage(self, identity):
-        async with self.transaction() as (store, admin):
+        async with self.transaction() as (store, admin, role):
             row, eq = await self.locked_reservation(store, identity)
-            if row["user_id"] != self.actor_id and not admin and eq["manager_id"] != self.actor_id:
-                raise AccessDenied("usage is private to its owner and equipment managers")
+            if (
+                row["user_id"] != self.actor_id
+                and not admin
+                and role != "instructor"
+                and eq["manager_id"] != self.actor_id
+            ):
+                raise AccessDenied(
+                    "usage is private to its owner, equipment managers and instructors"
+                )
             return await store.one(usage_record, usage_record.c.reservation_id == identity)
 
     async def reservation_detail(self, identity):
-        async with self.transaction() as (store, admin):
+        async with self.transaction() as (store, admin, role):
             row, eq = await self.locked_reservation(store, identity)
-            if row["user_id"] != self.actor_id and not admin and eq["manager_id"] != self.actor_id:
+            if (
+                row["user_id"] != self.actor_id
+                and not admin
+                and role != "instructor"
+                and eq["manager_id"] != self.actor_id
+            ):
                 raise AccessDenied(
-                    "reservation details are private to its owner and equipment managers"
+                    "reservation details are private to its owner, equipment managers and instructors"
                 )
             return row
 
     async def ledger(self, equipment_id=None, pending=False, offset=0):
-        async with self.transaction() as (store, admin):
-            return await store.ledger(self.actor_id, admin, equipment_id, pending, offset)
+        async with self.transaction() as (store, admin, role):
+            return await store.ledger(
+                self.actor_id, admin or role == "instructor", equipment_id, pending, offset
+            )
 
     async def calendar(self, starts_at, ends_at, equipment_id=None, history=False, offset=0):
         starts_at, ends_at = as_utc(starts_at), as_utc(ends_at)
         if ends_at <= starts_at or ends_at - starts_at > timedelta(days=93):
             raise InvalidInput("calendar range must be positive and at most 93 days")
-        async with self.transaction() as (store, _):
+        async with self.transaction() as (store, _, _):
             return await store.calendar(starts_at, ends_at, equipment_id, history, offset)
 
     async def notify(self, store, recipient_id, event, reservation_id=None, notice_id=None):
@@ -483,7 +497,7 @@ class BookingOperations:
             )
 
     async def create_notice(self, payload):
-        async with self.transaction() as (store, admin):
+        async with self.transaction() as (store, admin, role):
             await self.managed(store, payload.equipment_id, admin)
             key = f"{self.actor_id}:{payload.request_key}"
             old = await store.one(equipment_notice, equipment_notice.c.request_key == key)
@@ -538,7 +552,7 @@ class BookingOperations:
             return result
 
     async def update_notice(self, identity, payload):
-        async with self.transaction() as (store, admin):
+        async with self.transaction() as (store, admin, role):
             row = await store.one(equipment_notice, equipment_notice.c.id == identity)
             if row is None:
                 raise RecordNotFound("notice not found")
@@ -562,7 +576,7 @@ class BookingOperations:
             return result
 
     async def list_notices(self, equipment_id=None, offset=0, history=False):
-        async with self.transaction() as (store, admin):
+        async with self.transaction() as (store, admin, role):
             now = utc_now()
             criteria = [] if history else [
                 equipment_notice.c.withdrawn_at.is_(None),
@@ -586,7 +600,7 @@ class BookingOperations:
             )
 
     async def notice_detail(self, identity):
-        async with self.transaction() as (store, admin):
+        async with self.transaction() as (store, admin, role):
             row = await store.one(equipment_notice, equipment_notice.c.id == identity)
             if row is None:
                 raise RecordNotFound("notice not found")
@@ -607,7 +621,7 @@ class BookingOperations:
             return row
 
     async def notifications(self, identity=None, offset=0):
-        async with self.transaction() as (store, _):
+        async with self.transaction() as (store, _, _):
             if identity is not None:
                 row = await store.one(
                     user_notification,

@@ -145,8 +145,6 @@ class BookingTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(AccessDenied):
             await self.teacher.action(row["id"], ReservationAction(action="cancel", reason="No"))
         with self.assertRaises(AccessDenied):
-            await self.teacher.get_usage(row["id"])
-        with self.assertRaises(AccessDenied):
             await self.teacher.update_usage(row["id"], UsageUpdate(fields={}))
         with self.assertRaises(AccessDenied):
             await self.manager.update_equipment(self.other_eq, EquipmentUpdate(name="No"))
@@ -159,7 +157,11 @@ class BookingTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(AccessDenied):
             await self.manager.action(row["id"], ReservationAction(action="start"))
         await self.manager.get_usage(row["id"])
-        self.assertEqual(len(await self.teacher.ledger()), 0)
+        # Instructors supervise read-only: they may inspect any reservation
+        # and its usage record, and see the full equipment ledger.
+        await self.teacher.get_usage(row["id"])
+        await self.teacher.reservation_detail(row["id"])
+        self.assertEqual(len(await self.teacher.ledger()), 1)
         self.assertEqual(len(await self.manager.ledger()), 1)
 
     async def test_cancellation_notifies_once_and_requires_reason(self):

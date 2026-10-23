@@ -217,6 +217,10 @@ export const bookingMessages = {
   "booking.actualEnd": ["Actual end", "实际结束"],
   "booking.reason": ["Reason", "原因"],
   "booking.manage": ["Equipment management", "设备管理"],
+  "booking.manageDenied": [
+    "Only system administrators and assigned equipment managers can manage equipment.",
+    "仅系统管理员与被指派的设备管理员可以管理设备。",
+  ],
   "booking.glovebox": ["Glovebox environment", "手套箱环境"],
   "booking.ald": ["ALD", "ALD"],
   "booking.evaporation": ["Thermal evaporation", "热蒸发"],
