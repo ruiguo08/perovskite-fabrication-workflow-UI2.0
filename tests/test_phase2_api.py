@@ -548,11 +548,21 @@ class Phase2ApiTests(unittest.TestCase):
         )
         self.assertEqual(updated.status_code, 200, updated.text)
         self.assertEqual(updated.json()["role"], "student")
-        reset = self.client.post(
-            f"/api/users/{account_id}/password",
-            json={"password": "Replacement account password 2026"},
+        # The administrator no longer chooses passwords: recovery issues a
+        # one-time link that the holder redeems themselves.
+        link = self.client.post(f"/api/users/{account_id}/password-link")
+        self.assertEqual(link.status_code, 200, link.text)
+        token = link.json()["url"].split("#token=", 1)[1]
+        csrf = self.client.get("/api/auth/login-csrf").json()["login_csrf_token"]
+        redeemed = self.client.post(
+            "/api/auth/set-password",
+            json={
+                "token": token,
+                "password": "Replacement account password 2026",
+                "login_csrf": csrf,
+            },
         )
-        self.assertEqual(reset.status_code, 204, reset.text)
+        self.assertEqual(redeemed.status_code, 204, redeemed.text)
 
         self.logout()
         self.login(OWNER_USERNAME, OWNER_PASSWORD)

@@ -1323,10 +1323,9 @@
 | Loading accounts… | 正在加载账户… |
 | Unable to load accounts. | 无法加载账户。 |
 | User administration | 用户管理 |
-| Create local accounts, control role-based access, and reset passwords. | 创建本地账户、控制基于角色的访问并重置密码。 |
+| Create local accounts, control role-based access, and issue one-time password links. | 创建本地账户、控制基于角色的访问并发放一次性密码链接。 |
 | Create account | 创建账户 |
-| Username / Display name / Temporary password / Role | 用户名 / 显示名称 / 临时密码 / 角色 |
-| Use at least 12 characters. | 至少使用 12 个字符。 |
+| Username / Display name / Role | 用户名 / 显示名称 / 角色 |
 | Student / Instructor / Administrator | 学生 / 导师 / 管理员 |
 | Creating… / Create account | 创建中… / 创建账户 |
 | Account created. | 账户已创建。 |
@@ -1334,7 +1333,7 @@
 | Accounts | 账户 |
 | No accounts are available. | 暂无可用账户。 |
 | User accounts | 用户账户 |
-| User / State / Access / Password reset / Activity（表头） | 用户 / 状态 / 权限 / 密码重置 / 活动 |
+| User / State / Access / Password link / Activity（表头） | 用户 / 状态 / 权限 / 密码链接 / 活动 |
 | active / inactive（chip） | 启用 / 停用 |
 | Active / Inactive（文本） | 启用 / 停用 |
 | Role for {username} | {username} 的角色 |
@@ -1343,11 +1342,25 @@
 | Save access for {username} | 保存 {username} 的权限 |
 | Account access updated. | 账户权限已更新。 |
 | Unable to update account access. | 无法更新账户权限。 |
-| New password for {username} | {username} 的新密码 |
-| Reset password for {username} | 重置 {username} 的密码 |
-| Password reset for {username}. | {username} 的密码已重置。 |
-| Unable to reset the password. | 无法重置密码。 |
+| Generate a one-time password link for {username} | 为 {username} 生成一次性密码链接 |
+| Generate link for {username}（按钮可见文本） | 生成链接： {username} |
+| Unable to generate the password link. | 无法生成密码链接。 |
 | Last login / Password changed / Locked until | 上次登录 / 密码修改时间 / 锁定至 |
+| Change password（顶栏入口） | 修改密码 |
+| Set your password（恢复页标题） | 设置本人密码 |
+| Current password / New password / Confirm new password | 当前密码 / 新密码 / 确认新密码 |
+| Save password | 保存密码 |
+| Use at least 12 characters. Saving signs out all existing sessions. | 至少使用 12 个字符。保存后所有已有会话失效。 |
+| Set your own password using the one-time link provided by your administrator. | 通过管理员提供的一次性链接设置本人密码。 |
+| Password saved. Sign in with your new password. | 密码已保存，请使用新密码登录。 |
+| Sign in again | 重新登录 |
+| Passwords do not match. | 两次输入的密码不一致。 |
+| This link is incomplete or missing its token. Ask your administrator for a new link. | 链接不完整或缺少令牌，请联系管理员重新获取。 |
+| Share this link privately with this account holder. It expires in 30 minutes; generating another link invalidates this one. The link is shown only here. | 请将此链接私下交给本人，30 分钟内有效。生成新链接将使旧链接失效；此链接仅在此处展示。 |
+| One-time password link / Copy / Copied | 一次性密码链接 / 复制 / 已复制 |
+| Current password is incorrect or the account is locked. | 当前密码不正确，或账号处于锁定状态。 |
+| This password link is invalid or expired. | 密码链接无效或已过期。 |
+| Account credentials changed. Please sign in again. | 账号凭据已变更，请重新登录。 |
 
 ## 20. 版本历史（通用组件）
 

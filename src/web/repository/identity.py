@@ -7,7 +7,7 @@ from typing import Any, Mapping
 
 from sqlalchemy import and_, case, delete, func, insert, or_, select, text, update
 
-from ..database import sessions, users
+from ..database import password_reset_tokens, sessions, users
 from .helpers import (
     _add_audit_event,
     _as_utc,
@@ -47,7 +47,16 @@ class UsersMixin:
         role: UserRole,
         actor_user_id: int | None = None,
         client_ip: str | None = None,
+        activation_token_hash: str | None = None,
+        activation_expires_at: datetime | None = None,
     ) -> UserRecord:
+        """Create an account, optionally with its first activation link.
+
+        When ``activation_token_hash`` is provided the token row and both
+        audit events commit in the same transaction as the account itself:
+        either the account exists with a usable activation link, or nothing
+        is created and the administrator can simply retry.
+        """
         normalized_display_name = _normalize_display_name(display_name)
         now = _utc_now()
         async with self.database.begin() as connection:
@@ -65,6 +74,15 @@ class UsersMixin:
                 )
             )
             user_id = _inserted_id(result)
+            if activation_token_hash is not None and activation_expires_at is not None:
+                await connection.execute(
+                    insert(password_reset_tokens).values(
+                        user_id=user_id,
+                        token_hash=activation_token_hash,
+                        issued_at=now,
+                        expires_at=activation_expires_at,
+                    )
+                )
             await _add_audit_event(
                 connection,
                 actor_user_id=actor_user_id,
@@ -74,6 +92,16 @@ class UsersMixin:
                 details={"username": username, "role": role.value},
                 client_ip=client_ip,
             )
+            if activation_token_hash is not None:
+                await _add_audit_event(
+                    connection,
+                    actor_user_id=actor_user_id,
+                    action="user.password_link",
+                    entity_type="user",
+                    entity_id=str(user_id),
+                    details={},
+                    client_ip=client_ip,
+                )
         return await self.get_user(user_id)
 
     async def get_user(self, user_id: int) -> UserRecord:
@@ -371,6 +399,12 @@ class UsersMixin:
                         details={'reason': 'manager deactivated', 'manager_id': user_id}, client_ip=client_ip,
                     )
                 await connection.execute(delete(sessions).where(sessions.c.user_id == user_id))
+                # A deactivated account must not redeem a pending link later.
+                await connection.execute(
+                    delete(password_reset_tokens).where(
+                        password_reset_tokens.c.user_id == user_id
+                    )
+                )
             await _add_audit_event(
                 connection,
                 actor_user_id=actor_user_id,
@@ -406,6 +440,7 @@ class UsersMixin:
             if result.rowcount != 1:
                 raise KeyError(f"unknown user id: {user_id}")
             await connection.execute(delete(sessions).where(sessions.c.user_id == user_id))
+            await connection.execute(delete(password_reset_tokens).where(password_reset_tokens.c.user_id == user_id))
             await _add_audit_event(
                 connection,
                 actor_user_id=actor_user_id,

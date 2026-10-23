@@ -12,10 +12,14 @@ class AlembicGraphTests(unittest.TestCase):
         script = ScriptDirectory.from_config(config)
         revisions = list(script.walk_revisions())
 
-        self.assertEqual(script.get_heads(), ["0017_equipment_booking"])
+        self.assertEqual(script.get_heads(), ["0018_password_self_service"])
         self.assertEqual(
             [(revision.revision, revision.down_revision) for revision in revisions],
             [
+                (
+                    "0018_password_self_service",
+                    "0017_equipment_booking",
+                ),
                 ("0017_equipment_booking", "0016_device_scan_stats"),
                 (
                     "0016_device_scan_stats",
@@ -35,6 +39,29 @@ class AlembicGraphTests(unittest.TestCase):
                 ("0007_fabrication_batches", None),
             ],
         )
+
+    def test_password_token_schema_matches_the_frozen_contract(self) -> None:
+        """Migration 0018 builds its table through the same frozen builder the
+        runtime metadata uses, under the same naming convention — so Alembic
+        and create_all emit identical DDL (the alembic-check baseline)."""
+
+        import sqlalchemy as sa
+
+        from web.account_schema_v1 import password_token_table
+        from web.database import NAMING_CONVENTION, metadata, password_reset_tokens
+
+        migration_metadata = sa.MetaData(naming_convention=NAMING_CONVENTION)
+        sa.Table("users", migration_metadata, sa.Column("id", sa.Integer, primary_key=True))
+        frozen = password_token_table(migration_metadata)
+
+        def create_ddl(table: sa.Table) -> str:
+            compiled = str(
+                sa.schema.CreateTable(table).compile(dialect=sa.dialects.sqlite.dialect())
+            )
+            return " ".join(line.strip() for line in compiled.splitlines())
+
+        self.assertEqual(create_ddl(frozen), create_ddl(password_reset_tokens))
+        self.assertIn("password_reset_tokens", metadata.tables)
 
     def test_deviation_type_metadata_matches_the_integrity_contract(self) -> None:
         """The model metadata (the alembic-check baseline) carries the typed

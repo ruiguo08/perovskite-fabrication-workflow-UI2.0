@@ -73,6 +73,17 @@ class SessionInfoResponse(ApiModel):
     workflow_access: bool = False
 
 
+class PasswordChangePayload(ApiModel):
+    current_password: str = Field(min_length=1, max_length=128)
+    password: str = Field(min_length=12, max_length=128)
+
+
+class PasswordLinkPayload(ApiModel):
+    token: str = Field(min_length=32, max_length=128)
+    password: str = Field(min_length=12, max_length=128)
+    login_csrf: str = Field(min_length=1, max_length=128)
+
+
 class UserCreatePayload(ApiModel):
     """Administrator request for a new local account."""
 
@@ -80,7 +91,7 @@ class UserCreatePayload(ApiModel):
     display_name: str = Field(
         ..., min_length=1, max_length=DISPLAY_NAME_MAX_LENGTH
     )
-    password: str = Field(..., min_length=1, max_length=128)
+    password: str | None = Field(default=None, min_length=1, max_length=128)
     role: Literal["student", "instructor", "administrator"]
 
 
@@ -89,12 +100,6 @@ class UserUpdatePayload(ApiModel):
 
     role: Literal["student", "instructor", "administrator"]
     is_active: bool
-
-
-class UserPasswordResetPayload(ApiModel):
-    """Administrator request to replace one account password."""
-
-    password: str = Field(..., min_length=1, max_length=128)
 
 
 class UserResponse(ApiModel):
@@ -110,6 +115,26 @@ class UserResponse(ApiModel):
     password_changed_at: str
     created_at: str
     updated_at: str
+
+
+class UserCreatedResponse(UserResponse):
+    """Account creation result.
+
+    ``activation_url`` carries the one-time setup link in its URL fragment
+    when the account was created without a password. It appears in the
+    creation response only — never in listings or any later response — and
+    the response middleware marks every API response no-store.
+    """
+
+    activation_url: str | None = None
+    activation_expires_at: str | None = None
+
+
+class PasswordLinkResponse(ApiModel):
+    """One-time password link for an account, shown to the administrator once."""
+
+    url: str
+    expires_at: str
 
 
 class DepositionRecipePayload(ApiModel):

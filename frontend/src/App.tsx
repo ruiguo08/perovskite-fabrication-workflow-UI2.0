@@ -25,6 +25,7 @@ import { MaterialsPage } from "./pages/MaterialsPage";
 import { LayerPresetsPage } from "./pages/LayerPresetsPage";
 import { BaselinesPage } from "./pages/BaselinesPage";
 import { UsersPage } from "./pages/UsersPage";
+import { PasswordPage } from "./pages/PasswordPage";
 import { ExperimentsPage } from "./pages/ExperimentsPage";
 import { ExperimentDetailPage } from "./pages/ExperimentDetailPage";
 import { ExperimentBuilderPage } from "./pages/ExperimentBuilderPage";
@@ -124,11 +125,13 @@ export default function App() {
           <ErrorBoundary>
             <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/set-password" element={<PasswordPage recovery />} />
             <Route element={<RequireAuth />}>
               <Route element={<AppShell />}>
                 <Route index element={<Home />} />
                 <Route path="booking" element={<BookingPage />} />
                 <Route path="booking/manage" element={<BookingManagementPage />} />
+                <Route path="account/password" element={<PasswordPage />} />
                 <Route element={<RequireWorkflow />}>
                 <Route path="workflow" element={<WorkflowGuidePage />} />
                 <Route

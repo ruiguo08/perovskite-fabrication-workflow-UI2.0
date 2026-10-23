@@ -22,6 +22,10 @@ DUMMY_PASSWORD_HASH = PASSWORD_HASH.hash("not-a-real-account-password")
 USERNAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]{2,63}$")
 PASSWORD_MIN_LENGTH = 12
 PASSWORD_MAX_LENGTH = 128
+# One-time activation/recovery links stay valid for this many minutes. They
+# are handed over out of band by an administrator, so the window must cover
+# realistic hand-over delay while remaining short enough to limit exposure.
+PASSWORD_LINK_TTL_MINUTES = 30
 
 # Argon2 verification is CPU-heavy (tens to hundreds of milliseconds); it
 # must not run on the event loop, and unbounded concurrent hashing would let

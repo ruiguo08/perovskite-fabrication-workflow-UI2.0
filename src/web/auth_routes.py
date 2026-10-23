@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import secrets
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from sqlalchemy.exc import IntegrityError
 
+from .audit_trail import utc_now
 from .auth import (
     AuthContext,
     AuthSettings,
@@ -27,11 +29,21 @@ from .auth import (
 )
 from .models import (
     LoginRequest,
+    PasswordChangePayload,
+    PasswordLinkPayload,
+    PasswordLinkResponse,
     SessionInfoResponse,
+    UserCreatedResponse,
     UserCreatePayload,
-    UserPasswordResetPayload,
     UserResponse,
     UserUpdatePayload,
+)
+from .operations.passwords import (
+    change_password,
+    issue_reset_link,
+    new_link_values,
+    redeem_password_link,
+    reset_path,
 )
 from .repository import UserRole, WebRepository
 
@@ -180,7 +192,7 @@ def create_auth_router(repository: WebRepository) -> APIRouter:
 
     @router.post(
         "/api/users",
-        response_model=UserResponse,
+        response_model=UserCreatedResponse,
         status_code=status.HTTP_201_CREATED,
         dependencies=[Depends(require_csrf)],
     )
@@ -191,13 +203,28 @@ def create_auth_router(repository: WebRepository) -> APIRouter:
             AuthContext,
             Depends(require_role(UserRole.ADMINISTRATOR)),
         ],
-    ) -> UserResponse:
+    ) -> UserCreatedResponse:
         try:
             username = normalize_username(payload.username)
             display_name = payload.display_name.strip()
             if not display_name:
                 raise ValueError("display name must not be blank")
-            password_hash = await hash_password_async(payload.password, username=username)
+            if payload.password is None:
+                # No administrator-chosen password: seed the account with the
+                # hash of a discarded random secret so it cannot be signed
+                # into until the holder redeems the activation link that is
+                # created in the same transaction below.
+                seeded = secrets.token_urlsafe(48)
+                password_hash = await hash_password_async(seeded, username=username)
+                token, token_hash, expires_at = new_link_values(utc_now())
+                activation_url: str | None = reset_path(token)
+            else:
+                password_hash = await hash_password_async(
+                    payload.password, username=username
+                )
+                token_hash = None
+                expires_at = None
+                activation_url = None
             user = await repository.create_user(
                 username=username,
                 display_name=display_name,
@@ -205,6 +232,8 @@ def create_auth_router(repository: WebRepository) -> APIRouter:
                 role=UserRole(payload.role),
                 actor_user_id=auth_context.user.id,
                 client_ip=_client_ip(request),
+                activation_token_hash=token_hash,
+                activation_expires_at=expires_at,
             )
         except IntegrityError as error:
             raise HTTPException(
@@ -216,7 +245,13 @@ def create_auth_router(repository: WebRepository) -> APIRouter:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(error),
             ) from error
-        return _user_response(user)
+        return UserCreatedResponse(
+            **_user_response(user).model_dump(),
+            activation_url=activation_url,
+            activation_expires_at=(
+                expires_at.isoformat() if expires_at is not None else None
+            ),
+        )
 
     @router.patch(
         "/api/users/{user_id}",
@@ -252,42 +287,66 @@ def create_auth_router(repository: WebRepository) -> APIRouter:
             ) from error
         return _user_response(user)
 
+    # The legacy administrator password reset endpoint
+    # (POST /api/users/{user_id}/password) was removed with the self-service
+    # flow: administrators no longer choose or learn account passwords. The
+    # password-link endpoint below is the supported administrative recovery
+    # path, and the administrator CLI keeps its direct database access.
+
+    @router.post("/api/auth/password", status_code=204, dependencies=[Depends(require_csrf)])
+    async def change_own_password(
+        request: Request, payload: PasswordChangePayload,
+        auth: Annotated[AuthContext, Depends(require_user)],
+    ) -> Response:
+        try:
+            await change_password(
+                repository, request.app.state.auth_settings, auth,
+                payload.current_password, payload.password, _client_ip(request),
+            )
+        except PermissionError as error:
+            raise HTTPException(403, str(error)) from None
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from None
+        # The operation revoked every session of this account; drop the
+        # caller's cookies so the SPA returns to the sign-in screen.
+        response = Response(status_code=status.HTTP_204_NO_CONTENT)
+        clear_session_cookies(response, request.app.state.auth_settings)
+        return response
+
     @router.post(
-        "/api/users/{user_id}/password",
-        response_model=None,
-        status_code=status.HTTP_204_NO_CONTENT,
+        "/api/users/{user_id}/password-link",
+        response_model=PasswordLinkResponse,
         dependencies=[Depends(require_csrf)],
     )
-    async def reset_user_password_json(
-        request: Request,
-        user_id: int,
-        payload: UserPasswordResetPayload,
+    async def password_link(
+        request: Request, user_id: int,
         auth_context: Annotated[
             AuthContext,
             Depends(require_role(UserRole.ADMINISTRATOR)),
         ],
-    ) -> Response:
+    ) -> PasswordLinkResponse:
         try:
-            user = await repository.get_user(user_id)
-            await repository.reset_password(
-                user_id,
-                password_hash=await hash_password_async(
-                    payload.password,
-                    username=user.username,
-                ),
-                actor_user_id=auth_context.user.id,
+            link = await issue_reset_link(
+                repository, user_id,
+                actor_id=auth_context.user.id,
                 client_ip=_client_ip(request),
             )
-        except KeyError as error:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=str(error),
-            ) from error
+        except KeyError:
+            raise HTTPException(404, "active account not found") from None
+        return PasswordLinkResponse(**link)
+
+    @router.post("/api/auth/set-password", status_code=204)
+    async def set_password(request: Request, payload: PasswordLinkPayload) -> Response:
+        if not has_valid_login_csrf(request, payload.login_csrf):
+            raise HTTPException(403, "The page expired. Please try again.")
+        try:
+            await redeem_password_link(
+                repository, payload.token, payload.password, _client_ip(request),
+            )
+        except PermissionError as error:
+            raise HTTPException(403, str(error)) from None
         except ValueError as error:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(error),
-            ) from error
+            raise HTTPException(422, str(error)) from None
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     return router

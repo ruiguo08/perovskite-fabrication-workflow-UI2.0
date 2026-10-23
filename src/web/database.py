@@ -29,6 +29,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 
+from .account_schema_v1 import password_token_table
 from .booking_schema_v1 import booking_tables
 from .condition_snapshot import CONDITION_RECIPE_SCHEMA_VERSION
 from .execution_snapshots import (
@@ -82,6 +83,8 @@ users = Table(
     ),
     CheckConstraint("failed_login_count >= 0", name="nonnegative_login_failures"),
 )
+
+password_reset_tokens = password_token_table(metadata)
 
 sessions = Table(
     "sessions",
