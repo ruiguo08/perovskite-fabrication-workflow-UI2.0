@@ -161,6 +161,19 @@ def validate_fields(template: str, version: int, fields: dict, *, submit: bool) 
     return result
 
 
+class EquipmentCreate(BookingModel):
+    """Administrator registration of a new closed equipment unit."""
+
+    code: str = Field(min_length=1, max_length=24)
+    name: str = Field(min_length=1, max_length=160)
+    group_code: str = Field(min_length=1, max_length=40)
+    equipment_type: str = Field(min_length=1, max_length=40)
+    location: str = Field(min_length=1, max_length=80)
+    template: Template
+    description: str = Field(default="", max_length=4000)
+    units: dict[str, str] | None = None
+
+
 class EquipmentUpdate(BookingModel):
     name: str | None = Field(default=None, min_length=1, max_length=160)
     description: str | None = Field(default=None, max_length=4000)

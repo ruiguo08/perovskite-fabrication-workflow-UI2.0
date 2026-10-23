@@ -12,6 +12,7 @@ from ..booking_models import (
     AccessResponse,
     AccessUpdate,
     CalendarRow,
+    EquipmentCreate,
     EquipmentResponse,
     EquipmentUpdate,
     Interval,
@@ -73,6 +74,15 @@ def create_booking_router() -> APIRouter:
     @router.get("/equipment", response_model=list[EquipmentResponse])
     async def list_equipment(op: Ops):
         return await op.list_equipment()
+
+    @router.post(
+        "/equipment",
+        status_code=201,
+        dependencies=write,
+        response_model=EquipmentResponse,
+    )
+    async def create_equipment(payload: EquipmentCreate, op: Ops):
+        return await op.create_equipment(payload)
 
     @router.patch("/equipment/{equipment_id}", dependencies=write, response_model=EquipmentResponse)
     async def update_equipment(equipment_id: int, payload: EquipmentUpdate, op: Ops):

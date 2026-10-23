@@ -94,6 +94,42 @@ class BookingOperations:
         async with self.transaction() as (store, _, _):
             return await store.rows(equipment, order=[equipment.c.id])
 
+    async def create_equipment(self, payload):
+        async with self.transaction() as (store, admin, _):
+            if not admin:
+                raise AccessDenied("system administrator required")
+            if await store.one(equipment, equipment.c.code == payload.code, lock=True):
+                raise StateConflict("equipment code already exists")
+            units = payload.units or DEFAULT_UNITS[payload.template].copy()
+            validate_units(payload.template, units)
+            row = await store.add(
+                equipment,
+                code=payload.code,
+                name=payload.name,
+                group_code=payload.group_code,
+                equipment_type=payload.equipment_type,
+                location=payload.location,
+                manager_id=None,
+                bookable=False,
+                template=payload.template,
+                template_version=1,
+                units=units,
+                description=payload.description,
+                updated_at=utc_now(),
+            )
+            await self.audit(
+                store,
+                "equipment.create",
+                equipment,
+                row["id"],
+                changes={
+                    "code": payload.code,
+                    "template": payload.template,
+                    "bookable": False,
+                },
+            )
+            return row
+
     async def update_equipment(self, equipment_id, payload):
         async with self.transaction() as (store, admin, role):
             changes = payload.model_dump(exclude_unset=True)
