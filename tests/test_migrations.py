@@ -12,10 +12,11 @@ class AlembicGraphTests(unittest.TestCase):
         script = ScriptDirectory.from_config(config)
         revisions = list(script.walk_revisions())
 
-        self.assertEqual(script.get_heads(), ["0016_device_scan_stats"])
+        self.assertEqual(script.get_heads(), ["0017_equipment_booking"])
         self.assertEqual(
             [(revision.revision, revision.down_revision) for revision in revisions],
             [
+                ("0017_equipment_booking", "0016_device_scan_stats"),
                 (
                     "0016_device_scan_stats",
                     "0015_drop_experiments_recipe_blob",

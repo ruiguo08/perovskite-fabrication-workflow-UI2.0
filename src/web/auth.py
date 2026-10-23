@@ -227,6 +227,26 @@ async def require_user(request: Request) -> AuthContext:
     )
 
 
+async def has_workflow_access(repository: WebRepository, user_id: int) -> bool:
+    from .database import BOOKING_TABLES
+    from .repository.booking import BookingStore
+    table = BOOKING_TABLES['workflow_access']
+    async with repository.database.engine.connect() as connection:
+        return await BookingStore(connection).one(
+            table, table.c.user_id == user_id, table.c.revoked_at.is_(None)
+        ) is not None
+
+
+async def require_workflow_access(
+    request: Request, auth: Annotated[AuthContext, Depends(require_user)],
+) -> AuthContext:
+    # Query current authorization on every request. No role implies access,
+    # and revocation applies to sessions that were issued before the change.
+    if not await has_workflow_access(request.app.state.repository, auth.user.id):
+        raise HTTPException(403, detail='workflow access is required')
+    return auth
+
+
 def require_role(minimum_role: UserRole) -> Any:
     async def role_dependency(
         auth_context: Annotated[AuthContext, Depends(require_user)],

@@ -22,6 +22,7 @@ from .database import Database, is_postgresql_url, normalize_database_url
 from .middleware import configure_middleware
 from .repository import UserRole, WebRepository
 from .routes import create_router
+from .routes.booking import create_booking_router
 from .version import __version__
 
 STATIC_APP_DIR = Path(__file__).parent / "static-app"
@@ -129,6 +130,7 @@ def create_app(
     default_campaign_id = configured_campaign_id
     _register_legacy_redirects(app)
     app.include_router(create_auth_router(repository))
+    app.include_router(create_booking_router())
     app.include_router(
         create_router(repository, default_campaign_id=default_campaign_id)
     )
@@ -270,12 +272,21 @@ async def _create_test_user(
     normalized_username = normalize_username(username)
     if await repository.get_user_by_username(normalized_username) is not None:
         return
-    await repository.create_user(
+    user = await repository.create_user(
         username=normalized_username,
         display_name="Test User",
         password_hash=hash_password(password, username=normalized_username),
         role=role,
     )
+    # Explicit isolated-test fixture grant; never run for production users.
+    from sqlalchemy import insert
+
+    from .audit_trail import utc_now
+    from .database import BOOKING_TABLES
+    async with repository.database.begin() as connection:
+        await connection.execute(insert(BOOKING_TABLES['workflow_access']).values(
+            user_id=user.id, granted_at=utc_now(), source='administrator',
+        ))
 
 
 def _boolean_env(name: str, default: bool) -> bool:

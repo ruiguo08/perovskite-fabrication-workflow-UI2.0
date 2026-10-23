@@ -14,6 +14,7 @@ from perovskite_bo import DepositionRecipe, deposition_recipe_from_process
 from tests.layout_fixtures import seed_standard_layouts_async
 from tests.recipe_fixtures import FACTORY_LAYER_PRESETS as LAYER_PRESETS
 from tests.test_web_app import complete_guided_setup
+from tests.workflow_access_fixtures import grant_user
 from web import create_app
 from web.auth import hash_password, normalize_username
 from web.database import (
@@ -383,6 +384,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                     },
                 )
                 self.assertEqual(response.status_code, 200, response.text)
+                client.portal.call(grant_user, client.app.state.database, response.json()["id"])
                 client.headers["X-CSRF-Token"] = client.cookies.get(
                     "perovskite_csrf"
                 )
@@ -594,6 +596,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                     },
                 )
                 self.assertEqual(response.status_code, 200, response.text)
+                client.portal.call(grant_user, client.app.state.database, response.json()["id"])
                 client.headers["X-CSRF-Token"] = client.cookies.get(
                     "perovskite_csrf"
                 )
@@ -2221,6 +2224,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                     },
                 )
                 self.assertEqual(response.status_code, 200, response.text)
+                client.portal.call(grant_user, client.app.state.database, response.json()["id"])
                 client.headers["X-CSRF-Token"] = client.cookies.get(
                     "perovskite_csrf"
                 )
@@ -2740,6 +2744,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                     },
                 )
                 self.assertEqual(response.status_code, 200, response.text)
+                client.portal.call(grant_user, client.app.state.database, response.json()["id"])
                 client.headers["X-CSRF-Token"] = client.cookies.get(
                     "perovskite_csrf"
                 )

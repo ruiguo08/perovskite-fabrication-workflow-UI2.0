@@ -21,6 +21,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select, update
 
 from tests.test_fabrication_batches import _create_released_experiment_with_conditions
+from tests.workflow_access_fixtures import grant_created_workflow_user
 from web import create_app
 from web.database import (
     audit_events,
@@ -36,6 +37,8 @@ from web.repository import (
 
 TEST_USERNAME = "device-scans-admin"
 TEST_PASSWORD = "correct horse battery staple"
+
+
 
 
 def repeat_scan_csv(
@@ -461,6 +464,7 @@ class DeviceScanStatsTests(unittest.TestCase):
             "username": username, "display_name": "Metrics peer",
             "password": password, "role": "student",
         })
+        grant_created_workflow_user(self.client, created)
         self.assertEqual(created.status_code, 201, created.text)
         self.assertEqual(self.client.post("/api/auth/logout").status_code, 204)
         token = self.client.get("/api/auth/login-csrf").json()["login_csrf_token"]

@@ -25,6 +25,7 @@ from fastapi.testclient import TestClient
 from tests.cdp_driver import evaluate, launch_chrome_with_viewport, wait_for_expression
 from tests.layout_fixtures import seed_standard_layouts
 from tests.test_browser_builder import should_skip_browser_tests
+from tests.workflow_access_fixtures import grant_created_workflow_user
 from web import create_app
 from web.repository import UserRole
 
@@ -34,6 +35,8 @@ STUDENT_USERNAME = "run-sheet-student"
 STUDENT_PASSWORD = "Run sheet student password 2026!"
 OTHER_USERNAME = "run-sheet-other"
 OTHER_PASSWORD = "Run sheet other password 2026!"
+
+
 
 
 def available_port() -> int:
@@ -178,6 +181,7 @@ class RunSheetBrowserTests(unittest.TestCase):
                     "role": "student",
                 },
             )
+            grant_created_workflow_user(client, created_student)
             assert created_student.status_code == 201, created_student.text
             created_other = client.post(
                 "/api/users",
@@ -188,6 +192,7 @@ class RunSheetBrowserTests(unittest.TestCase):
                     "role": "student",
                 },
             )
+            grant_created_workflow_user(client, created_other)
             assert created_other.status_code == 201, created_other.text
 
             cls.experiment_id = owned_released_experiment(

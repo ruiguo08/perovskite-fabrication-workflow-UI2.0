@@ -70,6 +70,7 @@ class SessionInfoResponse(ApiModel):
     display_name: str
     role: str
     csrf_available: bool
+    workflow_access: bool = False
 
 
 class UserCreatePayload(ApiModel):

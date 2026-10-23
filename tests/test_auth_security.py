@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from perovskite_bo import deposition_recipe_from_process
 from tests.recipe_fixtures import FACTORY_LAYER_PRESETS as LAYER_PRESETS
+from tests.workflow_access_fixtures import grant_created_workflow_user
 
 
 def _create_shared_preset(client, name: str) -> dict:
@@ -109,6 +110,7 @@ class AuthenticationSecurityTests(unittest.TestCase):
                 "role": role.value,
             },
         )
+        grant_created_workflow_user(self.client, response)
         self.assertEqual(response.status_code, 201, response.text)
 
     def create_result_batch(self) -> tuple[int, int]:
@@ -887,6 +889,7 @@ class AuthenticationSecurityTests(unittest.TestCase):
                 "role": UserRole.STUDENT.value,
             },
         )
+        grant_created_workflow_user(self.client, user)
 
         self.assertEqual(campaign.status_code, 422)
         self.assertEqual(baseline.status_code, 422)
