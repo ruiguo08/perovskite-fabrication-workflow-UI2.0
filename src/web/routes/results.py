@@ -62,6 +62,29 @@ from .common import (
 )
 
 
+async def _devices_per_substrate_by_group(
+    repository: WebRepository,
+    batch_id: int,
+) -> dict[str, int] | None:
+    """Map batch-condition id -> devices per substrate for uniformity grids.
+
+    The uniformity schematic derives its cell grid from the frozen layout
+    snapshot of each batch condition; conditions without a usable snapshot
+    are omitted and the renderer falls back to the legacy six-cell grid for
+    their groups.
+    """
+
+    counts: dict[str, int] = {}
+    for condition in await repository.get_fabrication_batch_conditions(batch_id):
+        snapshot = condition.device_layout_snapshot
+        if not isinstance(snapshot, dict):
+            continue
+        value = snapshot.get("devices_per_substrate")
+        if isinstance(value, int) and not isinstance(value, bool) and value >= 1:
+            counts[str(condition.id)] = value
+    return counts or None
+
+
 def create_results_router(
     repository: WebRepository,
     *,
@@ -214,6 +237,9 @@ def create_results_router(
         if figure_kind not in {"jv", "boxplot", "uniformity"}:
             raise HTTPException(status_code=404, detail="unknown figure type")
         detail = await _result_detail_response(repository, result)
+        layout_counts = await _devices_per_substrate_by_group(
+            repository, int(result["fabrication_batch_id"])
+        )
         try:
             content = await run_in_threadpool(
                 render_publication_figure,
@@ -230,6 +256,7 @@ def create_results_router(
                 device_ids=device_id,
                 excluded_device_ids=excluded_device_id if preview_exclusions else None,
                 flagged_device_ids=flagged_device_id,
+                devices_per_substrate_by_group=layout_counts,
             )
         except PlotInputError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
