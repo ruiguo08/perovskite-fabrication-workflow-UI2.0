@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Iterable, Mapping
 
 from sqlalchemy import insert, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from ..database import CAMPAIGN_CODE_MAX_LENGTH, campaign_members, campaigns, users
@@ -202,17 +202,26 @@ class CampaignsMixin:
         sessions immediately.
         """
         async with self.database.engine.connect() as connection:
-            rows = (
-                await connection.execute(
-                    select(
-                        campaign_members.c.campaign_code,
-                        campaign_members.c.role,
-                    ).where(
-                        campaign_members.c.user_id == user_id,
-                        campaign_members.c.revoked_at.is_(None),
+            try:
+                rows = (
+                    await connection.execute(
+                        select(
+                            campaign_members.c.campaign_code,
+                            campaign_members.c.role,
+                        ).where(
+                            campaign_members.c.user_id == user_id,
+                            campaign_members.c.revoked_at.is_(None),
+                        )
                     )
-                )
-            ).all()
+                ).all()
+            except (ProgrammingError, OperationalError) as error:
+                # Pre-0019 schema: no memberships exist (see
+                # _active_role_on); authorization degrades to system roles.
+                if "campaign_members" not in str(
+                    getattr(error, "orig", None) or error
+                ):
+                    raise
+                return {}
         return {
             str(row.campaign_code): CampaignMembershipRole(str(row.role))
             for row in rows
@@ -386,17 +395,33 @@ async def connection_campaign_role(
     """Active membership role on the caller's transaction connection.
 
     In-transaction authorization checks (repository ``apply_*`` functions)
-    use this so the decision rides the write's transaction.
+    use this so the decision rides the write's transaction. Below
+    migration 0019 the campaign_members table does not exist, which
+    truthfully means nobody holds a campaign role: authorization degrades
+    to the system role and the experiment-owner boundary, exactly the
+    behavior those schema revisions shipped with.
     """
-    role = (
-        await connection.execute(
-            select(campaign_members.c.role).where(
-                campaign_members.c.campaign_code == campaign_code,
-                campaign_members.c.user_id == user_id,
-                campaign_members.c.revoked_at.is_(None),
-            )
-        )
-    ).scalar_one_or_none()
+    try:
+        # The savepoint keeps the caller's transaction usable when the
+        # table is absent: PostgreSQL aborts the whole transaction on a
+        # failed statement, so swallowing the error alone is not enough.
+        async with connection.begin_nested():
+            role = (
+                await connection.execute(
+                    select(campaign_members.c.role).where(
+                        campaign_members.c.campaign_code == campaign_code,
+                        campaign_members.c.user_id == user_id,
+                        campaign_members.c.revoked_at.is_(None),
+                    )
+                )
+            ).scalar_one_or_none()
+    except (ProgrammingError, OperationalError) as error:
+        # A SELECT can only name campaign_members in its error when the
+        # table itself is absent (PostgreSQL: relation does not exist;
+        # SQLite: no such table). Any other failure propagates.
+        if "campaign_members" not in str(getattr(error, "orig", None) or error):
+            raise
+        return None
     return CampaignMembershipRole(role) if role is not None else None
 
 
