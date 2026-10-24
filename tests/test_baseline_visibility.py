@@ -580,7 +580,9 @@ class BaselineVisibilityTests(unittest.TestCase):
                 "planned_substrate_count": condition["planned_substrate_count"],
             },
         )
-        self.assertEqual(updated.status_code, 404, updated.text)
+        # The instructor manages the campaign but never edits members'
+        # experiment content: visible and denied (403), not hidden.
+        self.assertEqual(updated.status_code, 403, updated.text)
 
         new_condition = self.client.post(
             f"/api/experiments/{experiment_id}/conditions",
@@ -593,7 +595,7 @@ class BaselineVisibilityTests(unittest.TestCase):
                 "planned_substrate_count": 3,
             },
         )
-        self.assertEqual(new_condition.status_code, 404, new_condition.text)
+        self.assertEqual(new_condition.status_code, 403, new_condition.text)
 
     def test_owner_can_add_condition_using_own_personal_baseline(self) -> None:
         _, version_id, condition = self._create_personal_baseline_and_experiment("v1")

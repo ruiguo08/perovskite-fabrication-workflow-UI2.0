@@ -21,12 +21,15 @@ from .helpers import _add_audit_event
 from .material import _material_record
 from .preset import _layer_preset_record, _layer_preset_statement
 from .records import (
+    CAMPAIGN_MEMBERSHIP_ROLES,
     DEVIATION_TYPES,
     MATERIAL_CATEGORIES,
     MATERIAL_STATUSES,
     ROLE_RANK,
     AuditEventRecord,
     BatchStatus,
+    CampaignMemberRecord,
+    CampaignMembershipRole,
     CampaignRecord,
     CampaignStatus,
     ConditionRecord,
@@ -69,6 +72,9 @@ __all__ = [
     "experiments",
     "AuditEventRecord",
     "BatchStatus",
+    "CAMPAIGN_MEMBERSHIP_ROLES",
+    "CampaignMemberRecord",
+    "CampaignMembershipRole",
     "CampaignRecord",
     "CampaignStatus",
     "ConditionRecord",

@@ -32,6 +32,7 @@ const activeCampaign = {
   created_at: "2026-08-01T08:00:00Z",
   updated_at: "2026-08-02T08:00:00Z",
   closed_at: null,
+  my_role: null as string | null,
 };
 
 function renderPage() {
@@ -96,11 +97,14 @@ describe("CampaignsPage", () => {
     await waitFor(() => expect(screen.getByLabelText(/^Campaign code/)).toHaveValue(""));
   });
 
-  it("lets an instructor update Campaign status", async () => {
+  it("lets a campaign manager update Campaign status", async () => {
     sessionState.role = "instructor";
     apiFetchMock.mockImplementation((path: string, options?: { method?: string }) => {
       if (path === "/api/campaigns/stability-2026" && options?.method === "PATCH") {
-        return Promise.resolve({ ...activeCampaign, status: "closed" });
+        return Promise.resolve({ ...activeCampaign, status: "closed", my_role: "manager" });
+      }
+      if (path === "/api/campaigns") {
+        return Promise.resolve([{ ...activeCampaign, my_role: "manager" }]);
       }
       return Promise.resolve([activeCampaign]);
     });

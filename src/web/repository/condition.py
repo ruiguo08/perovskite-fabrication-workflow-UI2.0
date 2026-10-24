@@ -28,6 +28,7 @@ from ..services.catalog_service import get_device_layout
 from ..services.catalog_service import (
     resolve_layout as _resolve_layout,
 )
+from .campaign import connection_campaign_role
 from .helpers import (
     _actor_role,
     _add_audit_event,
@@ -38,7 +39,7 @@ from .helpers import (
     _validate_baseline_version_for_condition,
 )
 from .records import (
-    ROLE_RANK,
+    CampaignMembershipRole,
     ConditionRecord,
     ConditionRole,
     ExceptionDecision,
@@ -263,8 +264,16 @@ def _next_condition_code(
 def _validate_plan_transition(
     current: PlanStatus,
     target: PlanStatus,
-    actor_role: UserRole,
+    *,
+    is_owner: bool,
+    is_reviewer: bool,
 ) -> None:
+    """Mechanical transition map plus the owner/reviewer split.
+
+    Owner transitions: submit for approval, withdraw/start/finish the
+    owner's own plan. Reviewer transitions: approve and release (campaign
+    managers and administrators). Cancellation is available to both.
+    """
     allowed = {
         PlanStatus.DRAFT: {
             PlanStatus.PENDING_APPROVAL,
@@ -284,11 +293,22 @@ def _validate_plan_transition(
         raise ValueError(
             f"plan status cannot change from {current.value} to {target.value}"
         )
+    if not (is_owner or is_reviewer):
+        raise PermissionError(
+            "only the experiment owner or a campaign manager may change this plan"
+        )
+    if target in (PlanStatus.APPROVED, PlanStatus.RELEASED) and not is_reviewer:
+        raise PermissionError(
+            "campaign manager access is required to approve or release a plan"
+        )
     if (
-        target == PlanStatus.APPROVED
-        and ROLE_RANK[actor_role] < ROLE_RANK[UserRole.INSTRUCTOR]
+        target
+        not in (PlanStatus.APPROVED, PlanStatus.RELEASED, PlanStatus.CANCELLED)
+        and not is_owner
     ):
-        raise PermissionError("instructor access is required to approve a plan")
+        raise PermissionError(
+            "only the experiment owner may change this plan's lifecycle"
+        )
 
 async def _require_fabrication_batches(
     connection: AsyncConnection,
@@ -1108,6 +1128,7 @@ async def apply_plan_status_update(
         await connection.execute(
             select(
                 experiments.c.created_by_id,
+                experiments.c.campaign_id,
                 experiments.c.plan_type,
                 experiments.c.plan_status,
             )
@@ -1118,17 +1139,29 @@ async def apply_plan_status_update(
     if plan is None:
         raise KeyError(f"unknown experiment id: {experiment_id}")
     actor_role = await _actor_role(connection, actor_user_id)
-    if (
-        actor_role == UserRole.STUDENT
-        and plan.created_by_id != actor_user_id
-    ):
-        raise PermissionError("students can modify only their own plans")
+    member_role = (
+        await connection_campaign_role(
+            connection, plan.campaign_id, actor_user_id
+        )
+        if plan.campaign_id is not None
+        else None
+    )
+    is_owner = plan.created_by_id == actor_user_id
+    is_reviewer = (
+        actor_role == UserRole.ADMINISTRATOR
+        or member_role == CampaignMembershipRole.MANAGER
+    )
+    if not (is_owner or is_reviewer or member_role is not None):
+        # Non-members learn nothing: the uniform unknown-id denial.
+        raise KeyError(f"unknown experiment id: {experiment_id}")
     current = (
         PlanStatus(plan.plan_status)
         if plan.plan_status is not None
         else PlanStatus.DRAFT
     )
-    _validate_plan_transition(current, plan_status, actor_role)
+    _validate_plan_transition(
+        current, plan_status, is_owner=is_owner, is_reviewer=is_reviewer
+    )
     await _validate_plan_conditions(
         connection,
         experiment_id,
@@ -1262,16 +1295,12 @@ async def apply_substrate_exception_decision(
     canonical-hash capture, audit — all on the caller's transaction."""
 
     now = _utc_now()
-    actor_role = await _actor_role(connection, decided_by_id)
-    if ROLE_RANK[actor_role] < ROLE_RANK[UserRole.INSTRUCTOR]:
-        raise PermissionError(
-            "instructor access is required to decide substrate exceptions"
-        )
     exception = (
         await connection.execute(
             select(
                 condition_substrate_exceptions.c.decision,
                 experiment_conditions.c.canonical_hash,
+                experiments.c.campaign_id,
             )
             .select_from(condition_substrate_exceptions)
             .join(
@@ -1279,12 +1308,32 @@ async def apply_substrate_exception_decision(
                 experiment_conditions.c.id
                 == condition_substrate_exceptions.c.condition_id,
             )
+            .join(
+                experiments,
+                experiments.c.id == experiment_conditions.c.experiment_id,
+            )
             .where(condition_substrate_exceptions.c.id == exception_id)
             .with_for_update()
         )
     ).one_or_none()
     if exception is None:
         raise KeyError(f"unknown substrate exception id: {exception_id}")
+    # Reviewers: the campaign's managers and system administrators.
+    actor_role = await _actor_role(connection, decided_by_id)
+    member_role = (
+        await connection_campaign_role(
+            connection, exception.campaign_id, decided_by_id
+        )
+        if exception.campaign_id is not None
+        else None
+    )
+    if not (
+        actor_role == UserRole.ADMINISTRATOR
+        or member_role == CampaignMembershipRole.MANAGER
+    ):
+        raise PermissionError(
+            "campaign manager access is required to decide substrate exceptions"
+        )
     if exception.decision != ExceptionDecision.PENDING.value:
         raise ValueError(
             f"substrate exception {exception_id} is not pending"

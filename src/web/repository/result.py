@@ -5,9 +5,9 @@ from __future__ import annotations
 import hashlib
 from copy import deepcopy
 from datetime import datetime
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
-from sqlalchemy import delete, func, insert, select, update
+from sqlalchemy import delete, false, func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from perovskite_bo import ExperimentStatus
@@ -32,6 +32,7 @@ from ..jv_parser import (
     normalize_laser_mark,
 )
 from .helpers import (
+    _actor_role,
     _add_audit_event,
     _as_utc,
     _inserted_id,
@@ -304,6 +305,7 @@ def _result_summary_statement(
     owner_user_id: int | None,
     experiment_id: int | None = None,
     fabrication_batch_id: int | None = None,
+    campaign_ids: Iterable[str] | None = None,
 ) -> Any:
     """SELECT for lightweight role-scoped result summaries.
 
@@ -315,6 +317,12 @@ def _result_summary_statement(
     conditions = []
     if owner_user_id is not None:
         conditions.append(experiments.c.created_by_id == owner_user_id)
+    if campaign_ids is not None:
+        values = list(campaign_ids)
+        # An empty membership set matches nothing.
+        conditions.append(
+            experiments.c.campaign_id.in_(values) if values else false()
+        )
     if experiment_id is not None:
         conditions.append(result_files.c.experiment_id == experiment_id)
     if fabrication_batch_id is not None:
@@ -429,6 +437,13 @@ class ResultsMixin:
         content_hash = hashlib.sha256(content).hexdigest()
         async with self.database.begin() as connection:
             experiment_row = await _locked_experiment(connection, experiment_id)
+            # Owner-only upload: the route's visibility pre-check keeps
+            # non-members at 404; visible non-owners get 403 here.
+            await _actor_role(connection, actor_user_id)
+            if experiment_row["created_by_id"] != actor_user_id:
+                raise PermissionError(
+                    "only the experiment owner may upload results"
+                )
             current_status = ExperimentStatus(experiment_row["status"])
             if current_status not in {
                 ExperimentStatus.SUGGESTED,
@@ -927,19 +942,21 @@ class ResultsMixin:
         *,
         experiment_id: int | None = None,
         fabrication_batch_id: int | None = None,
+        campaign_ids: Iterable[str] | None = None,
     ) -> list[dict[str, Any]]:
-        """Role-scoped result summaries with experiment and batch codes.
+        """Access-scoped result summaries with experiment and batch codes.
 
-        Students are restricted to results of their own experiments; instructors
-        and administrators receive every result. Optional experiment and batch
-        filters narrow the result set. The statement builder deliberately omits
-        the large ``analysis`` JSON document.
+        Callers pass either an owner filter (legacy) or the campaign codes the
+        actor can see (membership-based; ``None`` means unrestricted). Optional
+        experiment and batch filters narrow the result set. The statement
+        builder deliberately omits the large ``analysis`` JSON document.
         """
 
         statement = _result_summary_statement(
             owner_user_id=owner_user_id,
             experiment_id=experiment_id,
             fabrication_batch_id=fabrication_batch_id,
+            campaign_ids=campaign_ids,
         )
         async with self.database.engine.connect() as connection:
             rows = (await connection.execute(statement)).mappings().all()
@@ -1026,6 +1043,14 @@ async def apply_result_assignment(
     experiment_row = await _locked_experiment(
         connection, int(identified.experiment_id)
     )
+    # Authoritative owner re-check under the experiment row lock: the
+    # operation pre-checks visibility/ownership, but this is the write's
+    # own decision (docs/campaign-access-matrix.md).
+    await _actor_role(connection, actor_user_id)
+    if experiment_row["created_by_id"] != actor_user_id:
+        raise PermissionError(
+            "only the experiment owner may save this experiment's analysis"
+        )
     # Serialize laser-mark association on the parent batch row so two
     # concurrent uploads cannot bind the same physical glass mark to
     # two database substrates within one batch.

@@ -39,6 +39,8 @@ ADMIN_PASSWORD = "Results administrator password 2026!"
 STUDENT_USERNAME = "results-student"
 STUDENT_PASSWORD = "Results student password 2026!"
 OTHER_USERNAME = "results-other"
+ISOLATED_USERNAME = "results-isolated"
+ISOLATED_PASSWORD = "Results isolated password 2026"
 OTHER_PASSWORD = "Results other password 2026!"
 
 
@@ -503,7 +505,10 @@ class ResultBrowserTests(unittest.TestCase):
                 pass
 
     def test_student_receives_404_for_another_students_result(self) -> None:
-        # Upload a result as the other student, then try to view it as the first student.
+        # Upload a result as the other student, then try to view it as a
+        # student with workflow access but no campaign membership:
+        # same-campaign peers share records, so the uniform 404 belongs to
+        # the non-member.
         with TestClient(self.app) as client:
             csrf = client.get("/api/auth/login-csrf").json()["login_csrf_token"]
             client.post(
@@ -518,12 +523,41 @@ class ResultBrowserTests(unittest.TestCase):
             )
             assert uploaded.status_code == 201, uploaded.text
             other_result_id = int(uploaded.json()["id"])
+            client.headers.pop("X-CSRF-Token", None)
+            client.post("/api/auth/logout")
+            csrf = client.get("/api/auth/login-csrf").json()["login_csrf_token"]
+            client.post(
+                "/api/auth/login",
+                json={
+                    "username": ADMIN_USERNAME,
+                    "password": ADMIN_PASSWORD,
+                    "login_csrf": csrf,
+                },
+            )
+            client.headers["X-CSRF-Token"] = client.cookies.get(
+                "perovskite_csrf"
+            )
+            isolated = client.post(
+                "/api/users",
+                json={
+                    "username": ISOLATED_USERNAME,
+                    "display_name": "Results Isolated",
+                    "password": ISOLATED_PASSWORD,
+                    "role": "student",
+                },
+            )
+            assert isolated.status_code == 201, isolated.text
+            from tests.workflow_access_fixtures import grant_user
+
+            client.portal.call(
+                grant_user, client.app.state.database, isolated.json()["id"]
+            )
 
         profile = str(Path(self.temporary_directory.name) / "chrome-404")
         process, session = self._open("/app/login", profile)
         try:
             wait_for_expression(session, "Boolean(document.querySelector('#root'))")
-            self._login(session, STUDENT_USERNAME, STUDENT_PASSWORD)
+            self._login(session, ISOLATED_USERNAME, ISOLATED_PASSWORD)
             self._navigate(session, f"/app/results/{other_result_id}")
             wait_for_expression(
                 session,
@@ -539,37 +573,63 @@ class ResultBrowserTests(unittest.TestCase):
                 pass
 
     def test_workbench_compares_all_conditions_and_renders_overlay_at_320px(self) -> None:
-        # The w-prefixed case runs after the existing student tests and owns
-        # its result uploads; it never relies on another test's result IDs.
+        # The w-prefixed case owns its uploads: each experiment's owner
+        # uploads their result (owner-only boundary), and the workbench is
+        # then viewed by the administrator, who reads the whole campaign.
+        filenames = ["workbench-alpha.csv", "workbench-beta.csv"]
+        result_ids = []
+        details = []
+        with TestClient(self.app) as client:
+            for username, password, experiment_id, batch_id, filename, current in (
+                (
+                    STUDENT_USERNAME, STUDENT_PASSWORD,
+                    self.experiment_id, self.batch.id, filenames[0], 24.0,
+                ),
+                (
+                    OTHER_USERNAME, OTHER_PASSWORD,
+                    self.other_experiment_id, self.other_batch.id, filenames[1], 20.0,
+                ),
+            ):
+                csrf = client.get("/api/auth/login-csrf").json()["login_csrf_token"]
+                logged_in = client.post(
+                    "/api/auth/login",
+                    json={
+                        "username": username,
+                        "password": password,
+                        "login_csrf": csrf,
+                    },
+                )
+                assert logged_in.status_code == 200, logged_in.text
+                client.headers["X-CSRF-Token"] = client.cookies.get(
+                    "perovskite_csrf"
+                )
+                uploaded = client.post(
+                    f"/api/experiments/{experiment_id}/results",
+                    files={
+                        "result_file": (
+                            filename,
+                            multi_device_csv(
+                                [current, current, current - 1, current - 1]
+                            ).encode("utf-8"),
+                            "text/csv",
+                        )
+                    },
+                    data={"fabrication_batch_id": str(batch_id)},
+                )
+                assert uploaded.status_code == 201, uploaded.text
+                result_ids.append(int(uploaded.json()["id"]))
+                details.append(
+                    client.get(f"/api/experiments/{experiment_id}").json()
+                )
+                logged_out = client.post("/api/auth/logout")
+                assert logged_out.status_code == 204, logged_out.text
+                client.headers.pop("X-CSRF-Token", None)
+
         profile = str(Path(self.temporary_directory.name) / "chrome-workbench")
         process, session = self._open("/app/login", profile)
         try:
             wait_for_expression(session, "Boolean(document.querySelector('#root'))")
             self._login(session, ADMIN_USERNAME, ADMIN_PASSWORD)
-            result_ids = []
-            details = []
-            filenames = ["workbench-alpha.csv", "workbench-beta.csv"]
-            for experiment_id, batch_id, filename, current in (
-                (self.experiment_id, self.batch.id, filenames[0], 24.0),
-                (self.other_experiment_id, self.other_batch.id, filenames[1], 20.0),
-            ):
-                uploaded = evaluate(
-                    session,
-                    "(async function() { const body = new FormData(); "
-                    "body.append('fabrication_batch_id', " + _js_escape(str(batch_id)) + "); "
-                    "body.append('result_file', new File([" + _js_escape(multi_device_csv([
-                        current, current, current - 1, current - 1,
-                    ])) + "], " + _js_escape(filename) + ", {type:'text/csv'})); "
-                    "const csrf = document.cookie.split('; ').find(c => c.startsWith('perovskite_csrf=')).split('=')[1]; "
-                    "const response = await fetch('/api/experiments/" + str(experiment_id) + "/results', "
-                    "{method:'POST', headers:{'X-CSRF-Token':decodeURIComponent(csrf)}, body}); "
-                    "return {status:response.status, body:await response.json()}; })()",
-                )
-                self.assertEqual(uploaded["status"], 201, uploaded)
-                result_ids.append(int(uploaded["body"]["id"]))
-                details.append(evaluate(
-                    session, f"fetch('/api/experiments/{experiment_id}').then(r => r.json())",
-                ))
 
             self._navigate(session, "/app/analysis")
             wait_for_expression(session, "Boolean(document.querySelector('input[type=checkbox]'))")

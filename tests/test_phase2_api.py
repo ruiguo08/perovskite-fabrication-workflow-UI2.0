@@ -20,7 +20,8 @@ from tests.recipe_fixtures import FACTORY_LAYER_PRESETS as LAYER_PRESETS
 from tests.test_web_app import complete_guided_setup
 from tests.workflow_access_fixtures import grant_created_workflow_user
 from web import create_app
-from web.repository import UserRole
+from web.auth import hash_password
+from web.repository import UserRole, WebRepository
 
 ADMIN_USERNAME = "phase2-admin"
 ADMIN_PASSWORD = "Phase 2 administrator password 2026"
@@ -252,20 +253,45 @@ class Phase2ApiTests(unittest.TestCase):
             6000,
         )
 
-    def test_student_cannot_read_another_students_experiment_detail(self) -> None:
+    def test_same_campaign_peer_reads_but_nonmember_gets_404(self) -> None:
         experiment_id, _ = self.create_student_experiment()
+
+        # A same-campaign participant reads the shared campaign records...
         self.logout()
         self.login(OTHER_USERNAME, OTHER_PASSWORD)
-
         detail = self.client.get(f"/api/experiments/{experiment_id}")
         exceptions = self.client.get(
             f"/api/experiments/{experiment_id}/substrate-exceptions"
         )
+        self.assertEqual(detail.status_code, 200, detail.text)
+        self.assertEqual(exceptions.status_code, 200, exceptions.text)
 
-        self.assertEqual(detail.status_code, 404, detail.text)
-        self.assertEqual(exceptions.status_code, 404, exceptions.text)
-        self.assertIn("unknown experiment id", detail.json()["detail"])
-        self.assertIn("unknown experiment id", exceptions.json()["detail"])
+        # ...but never writes them (owner-only content boundary)...
+        submit = self.client.patch(
+            f"/api/experiments/{experiment_id}/plan-status",
+            json={"status": "pending_approval"},
+        )
+        self.assertEqual(submit.status_code, 403, submit.text)
+        self.assertIn("only the experiment owner", submit.json()["detail"])
+
+        # ...and a student with no membership sees the uniform 404.
+        repository: WebRepository = self.app.state.repository
+        outsider = asyncio.run(
+            repository.create_user(
+                username="phase2-outsider",
+                display_name="Phase 2 Outsider",
+                password_hash=hash_password(OTHER_PASSWORD),
+                role=UserRole.STUDENT,
+            )
+        )
+        from tests.workflow_access_fixtures import grant_user
+
+        asyncio.run(grant_user(self.app.state.database, outsider.id))
+        self.logout()
+        self.login("phase2-outsider", OTHER_PASSWORD)
+        hidden = self.client.get(f"/api/experiments/{experiment_id}")
+        self.assertEqual(hidden.status_code, 404, hidden.text)
+        self.assertIn("unknown experiment id", hidden.json()["detail"])
 
     def test_layer_preset_versions_are_immutable_and_owner_scoped(self) -> None:
         self.logout()

@@ -481,7 +481,7 @@ class CampaignApiTests(unittest.TestCase):
 
     # -- Campaign listing and status -----------------------------------
 
-    def test_student_sees_only_active_campaigns(self) -> None:
+    def test_student_sees_only_membership_campaigns(self) -> None:
         self.client.post(
             "/api/campaigns",
             json={"code": "active1", "display_name": "Active", "description": ""},
@@ -495,13 +495,23 @@ class CampaignApiTests(unittest.TestCase):
             json={"status": "closed"},
         )
         self._create_user("stu2", UserRole.STUDENT, "Stud3nt!pass")
+        # The directory is membership-based: granted campaigns are visible
+        # regardless of status; everything else is invisible.
+        from tests.campaign_access_fixtures import grant_campaign_member
+
+        stu2 = asyncio.run(
+            self.client.app.state.repository.get_user_by_username("stu2")
+        )
+        assert stu2 is not None
+        grant_campaign_member(self.client, "closed1", stu2.id, "reader")
         self._logout()
         self._login("stu2", "Stud3nt!pass")
         response = self.client.get("/api/campaigns")
         self.assertEqual(response.status_code, 200)
         codes = {item["code"] for item in response.json()}
-        self.assertIn("active1", codes)
-        self.assertNotIn("closed1", codes)
+        self.assertIn("closed1", codes)
+        self.assertIn("usual_v1", codes)
+        self.assertNotIn("active1", codes)
 
     def test_admin_sees_all_campaign_statuses(self) -> None:
         self.client.post(

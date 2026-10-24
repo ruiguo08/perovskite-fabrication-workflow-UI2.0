@@ -38,6 +38,17 @@ class CampaignStatus(StrEnum):
     ARCHIVED = "archived"
 
 
+class CampaignMembershipRole(StrEnum):
+    READER = "reader"
+    PARTICIPANT = "participant"
+    MANAGER = "manager"
+
+
+CAMPAIGN_MEMBERSHIP_ROLES = frozenset(
+    {role.value for role in CampaignMembershipRole}
+)
+
+
 class ConditionRole(StrEnum):
     CONTROL = "control"
     TARGET = "target"
@@ -72,6 +83,19 @@ class CampaignRecord:
     updated_at: datetime
     closed_at: datetime | None
     created_by_id: int | None
+
+
+@dataclass(frozen=True)
+class CampaignMemberRecord:
+    campaign_code: str
+    user_id: int
+    username: str
+    display_name: str
+    system_role: UserRole
+    role: CampaignMembershipRole
+    granted_by_user_id: int | None
+    granted_at: datetime
+    revoked_at: datetime | None
 
 
 @dataclass(frozen=True)

@@ -107,11 +107,14 @@ class CampaignAnalysisApiTests(unittest.TestCase):
         )
 
     def _completed_batch(
-        self, experiment_id: int, substrates_per_condition: int = 1
+        self,
+        experiment_id: int,
+        substrates_per_condition: int = 1,
+        actor_user_id: int = 1,
     ) -> int:
         batch = asyncio.run(
             self.repository.create_fabrication_batch(
-                experiment_id, actor_user_id=1
+                experiment_id, actor_user_id=actor_user_id
             )
         )
         for preparation in asyncio.run(
@@ -122,7 +125,7 @@ class CampaignAnalysisApiTests(unittest.TestCase):
                     preparation.id,
                     status=PreparationStatus.DISCARDED,
                     fabrication_batch_id=batch.id,
-                    actor_user_id=1,
+                    actor_user_id=actor_user_id,
                 )
             )
         for execution in asyncio.run(
@@ -133,7 +136,7 @@ class CampaignAnalysisApiTests(unittest.TestCase):
                     execution.id,
                     status=ExecutionStatus.CANCELLED,
                     fabrication_batch_id=batch.id,
-                    actor_user_id=1,
+                    actor_user_id=actor_user_id,
                 )
             )
         conditions = asyncio.run(
@@ -141,12 +144,12 @@ class CampaignAnalysisApiTests(unittest.TestCase):
         )
         asyncio.run(
             self.repository.update_fabrication_batch_status(
-                batch.id, BatchStatus.READY, actor_user_id=1
+                batch.id, BatchStatus.READY, actor_user_id=actor_user_id
             )
         )
         asyncio.run(
             self.repository.update_fabrication_batch_status(
-                batch.id, BatchStatus.IN_PROGRESS, actor_user_id=1
+                batch.id, BatchStatus.IN_PROGRESS, actor_user_id=actor_user_id
             )
         )
         asyncio.run(
@@ -160,7 +163,7 @@ class CampaignAnalysisApiTests(unittest.TestCase):
                     (condition.id, "Test setup: fewer measured substrates.")
                     for condition in conditions
                 ],
-                actor_user_id=1,
+                actor_user_id=actor_user_id,
             )
         )
         return batch.id
@@ -667,13 +670,14 @@ class CampaignAnalysisApiTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 422)
 
-    def test_student_sees_only_own_experiments(self) -> None:
+    def test_members_see_the_whole_campaign_analysis(self) -> None:
         owner_id = self._create_student(STUDENT_USERNAME, STUDENT_PASSWORD)
         other_id = self._create_student(OTHER_USERNAME, OTHER_PASSWORD)
-        # Approving a release requires an instructor, so the fixture creates
-        # the plans as the administrator in scratch campaigns; adopting the
-        # rows into the shared campaign with student ownership reproduces
-        # student-owned plans for the scoping predicate under test.
+        outsider_id = self._create_student(
+            "campaign-analysis-outsider", "campaign analysis outsider password"
+        )
+        # Scratch-campaign plans adopted into the shared campaign with
+        # student ownership reproduce member-owned plans.
         owner_experiment = asyncio.run(
             _create_released_experiment_with_conditions(
                 self.repository, f"{CAMPAIGN}-owner"
@@ -701,51 +705,53 @@ class CampaignAnalysisApiTests(unittest.TestCase):
 
         asyncio.run(_adopt(owner_experiment, owner_id, 2))
         asyncio.run(_adopt(other_experiment, other_id, 3))
-        owner_batch = self._completed_batch(owner_experiment)
-        other_batch = self._completed_batch(other_experiment)
-        owner_upload = self._upload(
-            owner_experiment, owner_batch, multi_device_csv([-20.0, -18.0])
-        )
-        self._assign(
-            owner_upload,
-            {"A001": self._condition_ids(owner_batch)["control"]},
-        )
-        other_upload = self._upload(
-            other_experiment, other_batch, multi_device_csv([-40.0, -38.0])
-        )
-        self._assign(
-            other_upload,
-            {"A001": self._condition_ids(other_batch)["control"]},
-        )
 
+        from tests.campaign_access_fixtures import grant_campaign_member
+
+        grant_campaign_member(self.client, CAMPAIGN, owner_id, "participant")
+        grant_campaign_member(self.client, CAMPAIGN, other_id, "participant")
+
+        uploads = {}
+        for username, password, student_id, experiment in (
+            (STUDENT_USERNAME, STUDENT_PASSWORD, owner_id, owner_experiment),
+            (OTHER_USERNAME, OTHER_PASSWORD, other_id, other_experiment),
+        ):
+            self._login_as(username, password)
+            batch = self._completed_batch(experiment, actor_user_id=student_id)
+            upload = self._upload(
+                experiment, batch, multi_device_csv([-20.0, -18.0])
+            )
+            self._assign(
+                upload, {"A001": self._condition_ids(batch)["control"]}
+            )
+            uploads[username] = upload
+
+        self._login_as(ADMIN_USERNAME, ADMIN_PASSWORD)
         instructor_payload = self._analysis()
         self.assertEqual(instructor_payload["experiment_count"], 3)
         self.assertEqual(len(instructor_payload["summaries"]), 4)
 
+        # Members see the whole campaign — their own and peers' records —
+        # with the identical digest the administrator computes.
         self._login_as(STUDENT_USERNAME, STUDENT_PASSWORD)
         owner_payload = self._analysis()
-        self.assertEqual(owner_payload["experiment_count"], 1)
+        self.assertEqual(owner_payload["experiment_count"], 3)
+        self.assertEqual(
+            owner_payload["content_digest"], instructor_payload["content_digest"]
+        )
         owner_file_ids = {
             entry["result_file_id"] for entry in owner_payload["measurements"]
         }
-        self.assertEqual(owner_file_ids, {owner_upload})
-        self.assertNotIn(
-            other_upload,
-            [entry["result_file_id"] for entry in owner_payload["measurements"]],
-        )
-        # The digest covers only the visible inputs: it must differ from the
-        # instructor digest and must not leak other students' file identity.
-        self.assertNotEqual(
-            owner_payload["content_digest"], instructor_payload["content_digest"]
-        )
+        self.assertIn(uploads[STUDENT_USERNAME], owner_file_ids)
+        self.assertIn(uploads[OTHER_USERNAME], owner_file_ids)
 
-        self._login_as(OTHER_USERNAME, OTHER_PASSWORD)
-        other_payload = self._analysis()
-        self.assertEqual(other_payload["experiment_count"], 1)
-        other_file_ids = {
-            entry["result_file_id"] for entry in other_payload["measurements"]
-        }
-        self.assertEqual(other_file_ids, {other_upload})
+        # A student with no membership gets the uniform 404.
+        self._login_as(
+            "campaign-analysis-outsider", "campaign analysis outsider password"
+        )
+        hidden = self.client.get(f"/api/campaigns/{CAMPAIGN}/analysis")
+        self.assertEqual(hidden.status_code, 404, hidden.text)
+        del outsider_id
 
     def test_batch_filter_narrows_scope(self) -> None:
         batch_id = self._completed_batch(self.experiment_id)

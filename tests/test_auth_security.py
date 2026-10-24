@@ -298,6 +298,23 @@ class AuthenticationSecurityTests(unittest.TestCase):
             json={"status": "closed"},
         )
         self.assertEqual(updated.status_code, 200, updated.text)
+        # Membership-based directory: the student sees the campaign they
+        # were granted (any status) and nothing else — closed campaigns they
+        # belong to stay visible, non-memberships stay invisible.
+        from tests.campaign_access_fixtures import grant_campaign_member
+
+        directory_student = asyncio.run(
+            self.app.state.repository.get_user_by_username(
+                "campaign-directory-student"
+            )
+        )
+        assert directory_student is not None
+        grant_campaign_member(
+            self.client,
+            "student-hidden-campaign",
+            directory_student.id,
+            "reader",
+        )
         self.logout()
 
         self.login("campaign-directory-student", student_password)
@@ -306,11 +323,11 @@ class AuthenticationSecurityTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         campaigns = response.json()
         self.assertIn(
-            "student-visible-campaign",
+            "student-hidden-campaign",
             {campaign["code"] for campaign in campaigns},
         )
         self.assertNotIn(
-            "student-hidden-campaign",
+            "student-visible-campaign",
             {campaign["code"] for campaign in campaigns},
         )
         forbidden = self.client.post(
@@ -355,6 +372,23 @@ class AuthenticationSecurityTests(unittest.TestCase):
         )
         self.assertEqual(baseline.status_code, 201, baseline.text)
         baseline_version_id = baseline.json()["current_version_id"]
+        from tests.campaign_access_fixtures import grant_campaign_member
+
+        experiment_owner = asyncio.run(
+            self.app.state.repository.get_user_by_username("experiment-owner")
+        )
+        campaign_manager = asyncio.run(
+            self.app.state.repository.get_user_by_username(
+                "experiment-instructor"
+            )
+        )
+        assert experiment_owner is not None and campaign_manager is not None
+        grant_campaign_member(
+            self.client, "owner-private-series", experiment_owner.id, "participant"
+        )
+        grant_campaign_member(
+            self.client, "owner-private-series", campaign_manager.id, "manager"
+        )
         self.logout()
 
         self.login("experiment-owner", owner_password)
@@ -936,6 +970,11 @@ class AuthenticationSecurityTests(unittest.TestCase):
                 )
 
         asyncio.run(assign_owner())
+        from tests.campaign_access_fixtures import grant_campaign_member
+
+        grant_campaign_member(
+            self.client, "student-owned-batch", owner.id, "participant"
+        )
         own_batch = asyncio.run(
             self.app.state.repository.create_fabrication_batch(
                 own_experiment_id, actor_user_id=owner.id
@@ -964,7 +1003,9 @@ class AuthenticationSecurityTests(unittest.TestCase):
             f"/api/fabrication-batches/{own_batch.id}/status",
             json={"status": "cancelled"},
         )
-        self.assertEqual(cancelled.status_code, 403, cancelled.text)
+        # The owner may cancel their own batch (docs/campaign-access-matrix.md);
+        # manager/administrator cancellation stays available for review.
+        self.assertEqual(cancelled.status_code, 204, cancelled.text)
         self.assertEqual(
             self.client.get(f"/api/fabrication-batches/{foreign_batch.id}").status_code,
             404,

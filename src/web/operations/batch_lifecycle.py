@@ -11,8 +11,9 @@ from __future__ import annotations
 
 from typing import Mapping, Sequence
 
+from ..access import ActorCampaignAccess, require_experiment_visible
 from ..repository.batch import apply_batch_status_update
-from ..repository.records import BatchStatus, FabricationBatchRecord, UserRole
+from ..repository.records import BatchStatus, FabricationBatchRecord
 from .errors import AccessDenied, InvalidInput, RecordNotFound
 
 
@@ -25,28 +26,28 @@ async def update_batch_status(
     client_ip: str | None = None,
     actual_substrate_counts: Mapping[int, int] | None = None,
     shortfall_deviations: Sequence[tuple[int, str]] | None = None,
-    actor_role: UserRole | None,
+    actor_access: ActorCampaignAccess | None,
 ) -> FabricationBatchRecord:
     """Authorize and apply one batch status transition.
 
-    ``actor_role`` is the authenticated role of the caller; ``None`` is only
-    used by the deprecated repository delegate, which keeps that method's
-    original no-pre-check semantics (the transaction still enforces role and
-    ownership through the batch row lock).
+    ``actor_access`` is the caller's resolved campaign standing; ``None`` is
+    only used by the deprecated repository delegate, which keeps that
+    method's original no-pre-check semantics (the transaction still
+    enforces ownership and reviewer standing through the batch row lock).
     """
 
-    # --- Existence and ownership pre-checks -----------------------------
-    # A missing batch and a batch of another student's experiment report
-    # the same error so the response never reveals existence.
+    # --- Existence and visibility pre-checks ----------------------------
+    # A missing batch and a batch the caller cannot see report the same
+    # error so the response never reveals existence. The owner/reviewer
+    # split for the transition itself is the in-transaction check.
     try:
         batch = await repository.get_fabrication_batch(batch_id)
     except KeyError as error:
         raise RecordNotFound(*error.args) from error
-    if actor_role is not None:
-        owner_scope = actor_user_id if actor_role == UserRole.STUDENT else None
+    if actor_access is not None:
         try:
-            await repository.get_experiment(
-                int(batch.experiment_id), owner_user_id=owner_scope
+            await require_experiment_visible(
+                repository, int(batch.experiment_id), actor=actor_access
             )
         except KeyError as error:
             raise RecordNotFound(*error.args) from error

@@ -12,6 +12,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..access import (
+    ActorCampaignAccess,
+    require_experiment_owner,
+    require_experiment_visible,
+)
 from ..condition_snapshot import (
     canonical_hash as condition_canonical_hash,
 )
@@ -28,23 +33,25 @@ from ..repository.condition import (
     apply_substrate_exception_request,
 )
 from ..repository.records import (
-    ROLE_RANK,
     ConditionRole,
     ExceptionDecision,
     PlanStatus,
-    UserRole,
 )
 from .errors import AccessDenied, InvalidInput, RecordNotFound, StateConflict
 
 
-def _owner_scope(
-    actor_role: UserRole | None, actor_user_id: int | None
-) -> int | None:
-    """Students are scoped to their own experiments; staff see the lab."""
-
-    if actor_role is None:
-        return None
-    return actor_user_id if actor_role == UserRole.STUDENT else None
+async def _require_condition_experiment_owner(
+    repository, experiment_id: int, actor: ActorCampaignAccess
+):
+    """404 when invisible, 403 when visible but not the owner."""
+    try:
+        return await require_experiment_owner(
+            repository, experiment_id, actor=actor
+        )
+    except KeyError as error:
+        raise RecordNotFound(*error.args) from error
+    except PermissionError as error:
+        raise AccessDenied(str(error)) from error
 
 
 async def create_condition(
@@ -61,22 +68,20 @@ async def create_condition(
     requires_manual_review: bool = False,
     actor_user_id: int | None,
     client_ip: str | None = None,
-    actor_role: UserRole | None = None,
+    actor_access: ActorCampaignAccess | None = None,
 ):
     """Authorize, validate, and persist one new condition snapshot."""
 
     # --- Authorization ---------------------------------------------------
-    # Role-provided callers keep the historical route order: existence and
-    # ownership are checked before input validation (404 first). The
-    # delegate path (actor_role=None) skips pre-check reads entirely and
-    # keeps the repository's historical contract of reporting input
-    # problems first.
-    if actor_role is not None:
-        owner_scope = _owner_scope(actor_role, actor_user_id)
-        try:
-            await repository.get_experiment(experiment_id, owner_user_id=owner_scope)
-        except KeyError as error:
-            raise RecordNotFound(*error.args) from error
+    # Access-provided callers keep the historical route order: existence and
+    # access are checked before input validation (404 first, then the
+    # owner-only 403). The delegate path (actor_access=None) skips
+    # pre-check reads entirely and keeps the repository's historical
+    # contract of reporting input problems first.
+    if actor_access is not None:
+        await _require_condition_experiment_owner(
+            repository, experiment_id, actor_access
+        )
 
     # --- Input and snapshot validation ---------------------------------
     normalized_role = ConditionRole(role)
@@ -133,28 +138,24 @@ async def update_condition(
     planned_substrate_count: int,
     actor_user_id: int | None,
     client_ip: str | None = None,
-    actor_role: UserRole | None = None,
+    actor_access: ActorCampaignAccess | None = None,
 ):
     """Authorize, validate, and persist one condition edit."""
 
     # --- Authorization ---------------------------------------------------
-    # Role-provided callers keep the historical route order: existence and
-    # ownership are checked before input validation (404 first). The
-    # delegate path (actor_role=None) skips pre-check reads entirely and
-    # keeps the repository's historical contract of reporting input
-    # problems first.
-    if actor_role is not None:
+    # Access-provided callers keep the historical route order: existence and
+    # access are checked before input validation (404 first, then the
+    # owner-only 403). The delegate path (actor_access=None) skips
+    # pre-check reads entirely and keeps the repository's historical
+    # contract of reporting input problems first.
+    if actor_access is not None:
         try:
             condition = await repository.get_condition(condition_id)
         except KeyError as error:
             raise RecordNotFound(*error.args) from error
-        owner_scope = _owner_scope(actor_role, actor_user_id)
-        try:
-            await repository.get_experiment(
-                int(condition.experiment_id), owner_user_id=owner_scope
-            )
-        except KeyError as error:
-            raise RecordNotFound(*error.args) from error
+        await _require_condition_experiment_owner(
+            repository, int(condition.experiment_id), actor_access
+        )
 
     # --- Input and snapshot validation ---------------------------------
     normalized_name = condition_name.strip()
@@ -201,26 +202,22 @@ async def delete_condition(
     *,
     actor_user_id: int | None,
     client_ip: str | None = None,
-    actor_role: UserRole | None = None,
+    actor_access: ActorCampaignAccess | None = None,
 ) -> None:
     """Authorize and delete one draft condition."""
 
     # --- Authorization -------------------------------------------------
-    # Role-provided callers get existence + ownership before the
+    # Access-provided callers get existence + access before the
     # transaction; the delegate path goes straight to the apply function,
     # whose in-transaction check raises the historical KeyError lineage.
-    if actor_role is not None:
+    if actor_access is not None:
         try:
             condition = await repository.get_condition(condition_id)
         except KeyError as error:
             raise RecordNotFound(*error.args) from error
-        owner_scope = _owner_scope(actor_role, actor_user_id)
-        try:
-            await repository.get_experiment(
-                int(condition.experiment_id), owner_user_id=owner_scope
-            )
-        except KeyError as error:
-            raise RecordNotFound(*error.args) from error
+        await _require_condition_experiment_owner(
+            repository, int(condition.experiment_id), actor_access
+        )
 
     # --- Transaction -----------------------------------------------------
     try:
@@ -244,16 +241,19 @@ async def update_plan_status(
     *,
     actor_user_id: int | None,
     client_ip: str | None = None,
-    actor_role: UserRole | None = None,
+    actor_access: ActorCampaignAccess | None = None,
     expected_approval_digest: str | None = None,
 ) -> None:
     """Authorize and apply one plan-status transition."""
 
     # --- Authorization -------------------------------------------------
-    if actor_role is not None:
-        owner_scope = _owner_scope(actor_role, actor_user_id)
+    # Visibility only: the owner/reviewer split per transition is decided
+    # by the in-transaction check (the authoritative gate).
+    if actor_access is not None:
         try:
-            await repository.get_experiment(experiment_id, owner_user_id=owner_scope)
+            await require_experiment_visible(
+                repository, experiment_id, actor=actor_access
+            )
         except KeyError as error:
             raise RecordNotFound(*error.args) from error
 
@@ -294,28 +294,24 @@ async def request_substrate_exception(
     reason: str,
     requested_by_id: int | None,
     client_ip: str | None = None,
-    actor_role: UserRole | None = None,
+    actor_access: ActorCampaignAccess | None = None,
 ):
     """Authorize, validate, and persist one substrate-count exception request."""
 
     # --- Authorization ---------------------------------------------------
-    # Role-provided callers keep the historical route order: existence and
-    # ownership are checked before input validation (404 first). The
-    # delegate path (actor_role=None) skips pre-check reads entirely and
-    # keeps the repository's historical contract of reporting input
-    # problems first.
-    if actor_role is not None:
+    # Access-provided callers keep the historical route order: existence and
+    # access are checked before input validation (404 first, then the
+    # owner-only 403). The delegate path (actor_access=None) skips
+    # pre-check reads entirely and keeps the repository's historical
+    # contract of reporting input problems first.
+    if actor_access is not None:
         try:
             condition = await repository.get_condition(condition_id)
         except KeyError as error:
             raise RecordNotFound(*error.args) from error
-        owner_scope = _owner_scope(actor_role, requested_by_id)
-        try:
-            await repository.get_experiment(
-                int(condition.experiment_id), owner_user_id=owner_scope
-            )
-        except KeyError as error:
-            raise RecordNotFound(*error.args) from error
+        await _require_condition_experiment_owner(
+            repository, int(condition.experiment_id), actor_access
+        )
 
     # --- Input validation -----------------------------------------------
     if not reason.strip():
@@ -354,16 +350,29 @@ async def decide_substrate_exception(
     decided_by_id: int | None,
     decision_note: str = "",
     client_ip: str | None = None,
-    actor_role: UserRole | None = None,
+    actor_access: ActorCampaignAccess | None = None,
 ):
-    """Authorize and record one instructor decision on an exception."""
+    """Authorize and record one reviewer decision on an exception.
+
+    Reviewers are the campaign's managers and system administrators
+    (docs/campaign-access-matrix.md); the apply function re-checks the
+    reviewer standing inside the row lock (the authoritative gate).
+    """
 
     # --- Authorization -------------------------------------------------
-    # The route also carries require_role(INSTRUCTOR); the operation checks
-    # the role up front and the apply function re-checks it inside the row
-    # lock (the authoritative gate).
-    if actor_role is not None and ROLE_RANK[actor_role] < ROLE_RANK[UserRole.INSTRUCTOR]:
-        raise AccessDenied("instructor access is required to decide substrate exceptions")
+    if actor_access is not None:
+        try:
+            exception = await repository.get_substrate_exception(exception_id)
+            condition = await repository.get_condition(int(exception.condition_id))
+            experiment = await require_experiment_visible(
+                repository, int(condition.experiment_id), actor=actor_access
+            )
+        except KeyError as error:
+            raise RecordNotFound(*error.args) from error
+        if not actor_access.can_review_in(experiment.campaign_id):
+            raise AccessDenied(
+                "campaign manager access is required to decide substrate exceptions"
+            )
 
     # --- Input validation -----------------------------------------------
     # Validation first: the delegate path keeps the historical repository

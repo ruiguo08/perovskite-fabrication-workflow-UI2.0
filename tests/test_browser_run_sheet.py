@@ -34,6 +34,8 @@ ADMIN_PASSWORD = "Run sheet administrator password 2026!"
 STUDENT_USERNAME = "run-sheet-student"
 STUDENT_PASSWORD = "Run sheet student password 2026!"
 OTHER_USERNAME = "run-sheet-other"
+ISOLATED_USERNAME = "run-sheet-isolated"
+ISOLATED_PASSWORD = "Run sheet isolated password 2026"
 OTHER_PASSWORD = "Run sheet other password 2026!"
 
 
@@ -374,12 +376,14 @@ class RunSheetBrowserTests(unittest.TestCase):
         wait_for_expression(session, "Boolean(document.querySelector('#root'))")
         wait_for_expression(session, "Boolean(document.querySelector('.shell'))")
 
-    def test_admin_records_prep_split_deviation_vcd_and_transitions_at_320px(self) -> None:
-        profile = str(Path(self.temporary_directory.name) / "chrome-admin")
+    def test_owner_records_prep_split_deviation_vcd_and_transitions_at_320px(self) -> None:
+        profile = str(Path(self.temporary_directory.name) / "chrome-owner")
         process, session = self._open("/app/login", profile)
         try:
             wait_for_expression(session, "Boolean(document.querySelector('#root'))")
-            self._login(session, ADMIN_USERNAME, ADMIN_PASSWORD)
+            # Recording execution records is the experiment owner's job;
+            # managers and administrators review but never edit content.
+            self._login(session, STUDENT_USERNAME, STUDENT_PASSWORD)
             self._navigate(session, "/app/fabrication-batches")
             wait_for_expression(
                 session,
@@ -513,7 +517,8 @@ class RunSheetBrowserTests(unittest.TestCase):
         process, session = self._open("/app/login", profile)
         try:
             wait_for_expression(session, "Boolean(document.querySelector('#root'))")
-            self._login(session, ADMIN_USERNAME, ADMIN_PASSWORD)
+            # Checklist recording belongs to the experiment owner.
+            self._login(session, STUDENT_USERNAME, STUDENT_PASSWORD)
             self._navigate(session, path)
             wait_for_expression(session, "Boolean(document.querySelector('[data-runsheet-table]'))")
             self._assert_viewport(session, 320)
@@ -674,11 +679,41 @@ class RunSheetBrowserTests(unittest.TestCase):
                 pass
 
     def test_student_run_sheet_hides_another_students_batch(self) -> None:
+        # Same-campaign peers share records now; the uniform 404 belongs to
+        # a student with workflow access but no membership of the campaign.
+        with TestClient(self.app) as client:
+            csrf = client.get("/api/auth/login-csrf").json()["login_csrf_token"]
+            client.post(
+                "/api/auth/login",
+                json={
+                    "username": ADMIN_USERNAME,
+                    "password": ADMIN_PASSWORD,
+                    "login_csrf": csrf,
+                },
+            )
+            client.headers["X-CSRF-Token"] = client.cookies.get(
+                "perovskite_csrf"
+            )
+            created = client.post(
+                "/api/users",
+                json={
+                    "username": ISOLATED_USERNAME,
+                    "display_name": "Run Sheet Isolated",
+                    "password": ISOLATED_PASSWORD,
+                    "role": "student",
+                },
+            )
+            assert created.status_code == 201, created.text
+            from tests.workflow_access_fixtures import grant_user
+
+            client.portal.call(
+                grant_user, client.app.state.database, created.json()["id"]
+            )
         profile = str(Path(self.temporary_directory.name) / "chrome-404")
         process, session = self._open("/app/login", profile)
         try:
             wait_for_expression(session, "Boolean(document.querySelector('#root'))")
-            self._login(session, STUDENT_USERNAME, STUDENT_PASSWORD)
+            self._login(session, ISOLATED_USERNAME, ISOLATED_PASSWORD)
             self._navigate(
                 session,
                 f"/app/experiments/{self.other_experiment_id}/batches/{self.other_batch.id}",

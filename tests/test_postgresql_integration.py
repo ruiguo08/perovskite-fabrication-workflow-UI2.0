@@ -120,7 +120,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                         assignments=[ResultAssignmentInput("A001", control_id)],
                         exclusions=[ResultExclusionInput(device_id, "Rejected outlier")] if excluded else [],
                         group_assignment=None, correction_reason="Review measurement exclusions",
-                        actor_user_id=actor.id, actor_role=actor.role,
+                        actor_user_id=actor.id, actor_access=None,
                     )
 
                 async def check(pce: float | None, jsc: float | None) -> None:
@@ -405,6 +405,13 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 },
             )
             self.assertEqual(campaign.status_code, 201, campaign.text)
+            # The campaign's creator is its manager; the participating
+            # owner needs an explicit membership under campaign ACLs.
+            granted = client.put(
+                f"/api/campaigns/{campaign_code}/members/{accounts['owner'][0]}",
+                json={"role": "participant"},
+            )
+            self.assertEqual(granted.status_code, 200, granted.text)
             device_recipe, deposition_process = complete_guided_setup()
             baseline = client.post(
                 "/api/baselines",
@@ -624,6 +631,13 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 },
             )
             self.assertEqual(campaign.status_code, 201, campaign.text)
+            # The campaign's creator is its manager; the participating
+            # owner needs an explicit membership under campaign ACLs.
+            granted = client.put(
+                f"/api/campaigns/{campaign_code}/members/{accounts['owner'][0]}",
+                json={"role": "participant"},
+            )
+            self.assertEqual(granted.status_code, 200, granted.text)
             baseline = client.post(
                 "/api/baselines",
                 json={
@@ -1432,12 +1446,13 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                     username=f"pg-assign-{suffix}",
                     display_name="PostgreSQL Assignment Repair Instructor",
                     password_hash=hash_password(f"assign secret {suffix}"),
-                    role=UserRole.INSTRUCTOR,
+                    role=UserRole.ADMINISTRATOR,
                 )
                 experiment_id = await _create_released_experiment_with_conditions(
                     repository,
                     f"pg-assign-{suffix}",
                     actor_user_id=instructor.id,
+                    with_campaign_membership=False,
                 )
                 batch = await repository.create_fabrication_batch(
                     experiment_id,
@@ -1629,6 +1644,8 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             command.upgrade(alembic_config, "head")
             asyncio.run(verify(context))
         finally:
+            # A failed seed must not leave the shared database below head.
+            command.upgrade(alembic_config, "head")
             if previous_url is None:
                 os.environ.pop("PEROVSKITE_DATABASE_URL", None)
             else:
@@ -1675,12 +1692,13 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                     username=f"pg-cycle-{suffix}",
                     display_name="PostgreSQL Cycle Instructor",
                     password_hash=hash_password(f"cycle secret {suffix}"),
-                    role=UserRole.INSTRUCTOR,
+                    role=UserRole.ADMINISTRATOR,
                 )
                 experiment_id = await _create_released_experiment_with_conditions(
                     repository,
                     f"pg-cycle-{suffix}",
                     actor_user_id=instructor.id,
+                    with_campaign_membership=False,
                 )
                 batch = await repository.create_fabrication_batch(
                     experiment_id,
@@ -1920,6 +1938,8 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             command.upgrade(alembic_config, "head")
             asyncio.run(verify(context))
         finally:
+            # A failed seed must not leave the shared database below head.
+            command.upgrade(alembic_config, "head")
             if previous_url is None:
                 os.environ.pop("PEROVSKITE_DATABASE_URL", None)
             else:
@@ -2182,16 +2202,25 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         }
         setup_database = Database(url)
         try:
-            async def seed_users() -> None:
+            async def seed_users() -> int:
+                repository = WebRepository(setup_database)
                 for username, password, role in accounts.values():
-                    await WebRepository(setup_database).create_user(
+                    await repository.create_user(
                         username=username,
                         display_name=username,
                         password_hash=hash_password(password, username=username),
                         role=role,
                     )
+                # Resolve within the same event loop: the engine's pool is
+                # bound to it, and a second asyncio.run would hand out
+                # futures attached to a different loop.
+                owner = await repository.get_user_by_username(
+                    accounts['owner'][0]
+                )
+                assert owner is not None
+                return owner.id
 
-            asyncio.run(seed_users())
+            owner_id = asyncio.run(seed_users())
         finally:
             asyncio.run(setup_database.dispose())
 
@@ -2270,6 +2299,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 },
             )
             self.assertEqual(campaign.status_code, 201, campaign.text)
+            granted = client.put(
+                f"/api/campaigns/pg3-race-{suffix}/members/{accounts['owner'][0]}",
+                json={"role": "participant"},
+            )
+            self.assertEqual(granted.status_code, 200, granted.text)
             baseline = client.post(
                 "/api/baselines",
                 json={
@@ -2437,7 +2471,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                             grouped,
                             substrate_assignments={"A001": condition_id},
                             group_assignment="concurrent race",
-                            actor_user_id=1,
+                            actor_user_id=owner_id,
                         )
 
                 return await asyncio.gather(
@@ -2713,16 +2747,25 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         }
         setup_database = Database(url)
         try:
-            async def seed_users() -> None:
+            async def seed_users() -> int:
+                repository = WebRepository(setup_database)
                 for username, password, role in accounts.values():
-                    await WebRepository(setup_database).create_user(
+                    await repository.create_user(
                         username=username,
                         display_name=username,
                         password_hash=hash_password(password, username=username),
                         role=role,
                     )
+                # Resolve within the same event loop: the engine's pool is
+                # bound to it, and a second asyncio.run would hand out
+                # futures attached to a different loop.
+                owner = await repository.get_user_by_username(
+                    accounts['owner'][0]
+                )
+                assert owner is not None
+                return owner.id
 
-            asyncio.run(seed_users())
+            owner_id = asyncio.run(seed_users())
         finally:
             asyncio.run(setup_database.dispose())
 
@@ -2790,6 +2833,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 },
             )
             self.assertEqual(campaign.status_code, 201, campaign.text)
+            granted = client.put(
+                f"/api/campaigns/pg3-lockorder-{suffix}/members/{accounts['owner'][0]}",
+                json={"role": "participant"},
+            )
+            self.assertEqual(granted.status_code, 200, granted.text)
             baseline = client.post(
                 "/api/baselines",
                 json={

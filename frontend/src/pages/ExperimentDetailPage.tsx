@@ -17,30 +17,33 @@ import { useToast } from "../components/Toast";
 import { ApiError, apiFetch } from "../lib/api";
 import { formatDateTime } from "../lib/format";
 import { useApiResource } from "../lib/useApiResource";
-import type { ExperimentDetail, FabricationBatchSummary, SubstrateException } from "../types/api";
+import type { Campaign, ExperimentDetail, FabricationBatchSummary, SubstrateException } from "../types/api";
 interface PlanAction {
   status: "pending_approval" | "approved" | "released" | "in_progress" | "completed" | "cancelled";
   label: string;
   tone: "primary" | "danger";
 }
 
-function primaryPlanAction(detail: ExperimentDetail, canApprove: boolean): PlanAction | null {
+function primaryPlanAction(detail: ExperimentDetail, isOwner: boolean, canApprove: boolean): PlanAction | null {
   const status = detail.experiment.plan_status;
-  if (status === "draft") {
+  // Ownership and review split (docs/campaign-access-matrix.md): the owner
+  // drives submit/start/finish; the campaign manager (or administrator)
+  // approves and releases. The server re-checks every transition.
+  if (status === "draft" && isOwner) {
     // Strict approval workflow: a draft can only be submitted for approval.
-    // Releasing requires an explicit instructor approval step first.
+    // Releasing requires an explicit manager approval step first.
     return { status: "pending_approval", label: tr("experimentDetailPage.submitForApproval"), tone: "primary" };
   }
   if (status === "pending_approval" && canApprove) {
     return { status: "approved", label: tr("experimentDetailPage.approvePlan"), tone: "primary" };
   }
-  if (status === "approved") {
+  if (status === "approved" && canApprove) {
     return { status: "released", label: tr("experimentDetailPage.releaseApprovedPlan"), tone: "primary" };
   }
-  if (status === "released") {
+  if (status === "released" && isOwner) {
     return { status: "in_progress", label: tr("experimentDetailPage.startFabrication"), tone: "primary" };
   }
-  if (status === "in_progress") {
+  if (status === "in_progress" && isOwner) {
     return { status: "completed", label: tr("experimentDetailPage.completeFabrication"), tone: "primary" };
   }
   return null;
@@ -52,9 +55,14 @@ export function ExperimentDetailPage() {
   const id = Number(experimentId);
   const { user } = useSession();
   const { show } = useToast();
-  const canApprove = user?.role === "instructor" || user?.role === "administrator";
   const loadDetail = useCallback(() => apiFetch<ExperimentDetail>(`/api/experiments/${id}`), [id]);
   const resource = useApiResource(loadDetail);
+  // The caller's campaign memberships decide review rights; the listing
+  // carries my_role per campaign. While it loads, review actions stay
+  // hidden rather than assumed (the backend remains authoritative).
+  const campaignsResource = useApiResource(
+    useCallback(() => apiFetch<Campaign[]>("/api/campaigns"), []),
+  );
   const [localDetail, setLocalDetail] = useState<ExperimentDetail | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [batchNotes, setBatchNotes] = useState("");
@@ -203,12 +211,23 @@ export function ExperimentDetailPage() {
   }
 
   const experiment = activeDetail.experiment;
-  const action = primaryPlanAction(activeDetail, canApprove);
+  const isOwner = user !== null && experiment.created_by_id === user.id;
+  // A malformed or failed campaigns payload degrades to "unknown role":
+  // review actions stay hidden, never assumed.
+  const myRole = Array.isArray(campaignsResource.data)
+    ? campaignsResource.data.find(
+        (campaign) => campaign.code === experiment.campaign_id,
+      )?.my_role
+    : undefined;
+  const canApprove = myRole === "manager" || user?.role === "administrator";
+  const action = primaryPlanAction(activeDetail, isOwner, canApprove);
   const terminal = experiment.plan_status === "completed" || experiment.plan_status === "cancelled";
   // Batches can be frozen while released (normal path) or while fabrication
   // is already in progress (recovery when the student started without one).
+  // Only the owner authors execution records.
   const canFreezeBatches =
-    experiment.plan_status === "released" || experiment.plan_status === "in_progress";
+    isOwner &&
+    (experiment.plan_status === "released" || experiment.plan_status === "in_progress");
   const missingBatches = canFreezeBatches && activeDetail.fabrication_batches.length === 0;
   // The device stack comes from the control (or standalone) condition
   // snapshot: the authoritative, hash-verified configuration.
@@ -249,6 +268,9 @@ export function ExperimentDetailPage() {
       {!terminal ? (
         <section className="panel plan-actions" aria-labelledby="plan-actions-title">
           <h2 className="panel__title" id="plan-actions-title">{tr("experimentDetailPage.planActions")}</h2>
+          {!isOwner && !canApprove ? (
+            <p className="inline-warning" role="status">{tr("experimentDetailPage.readOnlyMemberView")}</p>
+          ) : null}
           <div className="button-row">
             {action ? (
               <button
@@ -260,7 +282,9 @@ export function ExperimentDetailPage() {
                 {action.label}
               </button>
             ) : null}
-            <button className="button button--danger" type="button" disabled={submitting} onClick={() => void changePlanStatus({ status: "cancelled", label: tr("experimentDetailPage.cancelPlan"), tone: "danger" })}>{tr("experimentDetailPage.cancelPlan")}</button>
+            {isOwner || canApprove ? (
+              <button className="button button--danger" type="button" disabled={submitting} onClick={() => void changePlanStatus({ status: "cancelled", label: tr("experimentDetailPage.cancelPlan"), tone: "danger" })}>{tr("experimentDetailPage.cancelPlan")}</button>
+            ) : null}
           </div>
           {staleScope ? (
             <p className="inline-warning" role="alert">

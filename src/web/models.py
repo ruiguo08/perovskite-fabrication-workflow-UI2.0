@@ -277,6 +277,9 @@ class ExperimentResponse(ApiModel):
     plan_type: str | None = None
     plan_status: str | None = None
     device_summary: str | None = None
+    # The single principal owner; the UI derives read-only states from it
+    # while the backend re-checks on every write.
+    created_by_id: int | None = None
     # Measured data pulled forward (D1): best forward-scan PCE/Jsc across the
     # experiment's batches, None until characterization results exist.
     best_pce: float | None = None
@@ -645,8 +648,27 @@ class CampaignUpdatePayload(ApiModel):
     )
 
 
+class CampaignMemberPayload(ApiModel):
+    """REST payload for granting or changing one campaign membership."""
+
+    role: Literal["reader", "participant", "manager"]
+
+
+class CampaignMemberResponse(ApiModel):
+    """REST representation of one active campaign membership."""
+
+    user_id: int
+    username: str
+    display_name: str
+    system_role: Literal["student", "instructor", "administrator"]
+    role: Literal["reader", "participant", "manager"]
+    granted_by_user_id: int | None
+    granted_at: str
+
+
 class CampaignResponse(ApiModel):
-    """REST representation of a campaign."""
+    """REST representation of a campaign; ``my_role`` carries the calling
+    user's membership when listing (absent on create/update responses)."""
 
     id: int
     code: str
@@ -656,6 +678,7 @@ class CampaignResponse(ApiModel):
     created_at: str
     updated_at: str
     closed_at: str | None = None
+    my_role: Literal["reader", "participant", "manager"] | None = None
 
 
 class ConditionCreatePayload(ApiModel):

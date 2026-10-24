@@ -146,6 +146,8 @@ export interface Experiment {
   plan_type: string | null;
   plan_status: string | null;
   device_summary: string | null;
+  /** The single principal owner; drives the read-only UI (server re-checks). */
+  created_by_id: number | null;
   /** Best forward-scan PCE (%) / Jsc (mA/cm²) across the experiment's batches (D1). */
   best_pce: number | null;
   best_jsc: number | null;
@@ -315,6 +317,18 @@ export interface Campaign {
   created_at: string;
   updated_at: string;
   closed_at: string | null;
+  /** The calling user's membership role in campaign listings (null: none/administrator view). */
+  my_role?: "reader" | "participant" | "manager" | null;
+}
+
+export interface CampaignMember {
+  user_id: number;
+  username: string;
+  display_name: string;
+  system_role: "student" | "instructor" | "administrator";
+  role: "reader" | "participant" | "manager";
+  granted_by_user_id: number | null;
+  granted_at: string;
 }
 
 export interface DeviceLayout {

@@ -107,6 +107,7 @@ def _experiment_record(row: Mapping[str, Any]) -> ExperimentRecord:
         series_version=int(row["series_version"]),
         plan_type=row.get("plan_type"),
         plan_status=row.get("plan_status"),
+        created_by_id=row["created_by_id"],
     )
 
 def _has_reconstructable_recipe_predicate() -> Any:
@@ -199,6 +200,7 @@ class ExperimentsMixin:
         statuses: Iterable[ExperimentStatus] | None = None,
         *,
         owner_user_id: int | None = None,
+        campaign_ids: Iterable[str] | None = None,
     ) -> list[ExperimentRecord]:
         statement = (
             select(experiments)
@@ -208,6 +210,13 @@ class ExperimentsMixin:
         )
         if owner_user_id is not None:
             statement = statement.where(experiments.c.created_by_id == owner_user_id)
+        if campaign_ids is not None:
+            values = list(campaign_ids)
+            # An empty membership set must list nothing; in_([]) would
+            # otherwise emit invalid SQL on some dialects.
+            if not values:
+                return []
+            statement = statement.where(experiments.c.campaign_id.in_(values))
         if statuses is not None:
             values = [item.value for item in statuses]
             if not values:

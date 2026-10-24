@@ -47,6 +47,7 @@ from ..publication_plots import (
 )
 from ..repository import WebRepository
 from .common import (
+    _actor_access,
     _batch_for_actor_or_404,
     _client_ip,
     _flat_metrics_from_analysis,  # underscore name: not re-exported by *
@@ -57,7 +58,6 @@ from .common import (
     _result_detail_response,
     _result_for_actor_or_404,
     _result_list_item_response,
-    _student_owner_id,
     validate_result_upload_metadata,
 )
 
@@ -134,6 +134,12 @@ def create_results_router(
                 client_ip=_client_ip(request),
                 complete_experiment=False,
             )
+        except PermissionError as error:
+            # Visible but not the owner: the owner-only upload boundary.
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=str(error),
+            ) from error
         except (
             TypeError,
             ValueError,
@@ -164,12 +170,14 @@ def create_results_router(
             await _get_record_or_404(repository, experiment_id, auth_context)
         if fabrication_batch_id is not None:
             await _batch_for_actor_or_404(repository, fabrication_batch_id, auth_context)
+        access = await _actor_access(repository, auth_context)
         return [
             _result_list_item_response(item)
             for item in await repository.list_results_for_actor(
-                _student_owner_id(auth_context),
+                None,
                 experiment_id=experiment_id,
                 fabrication_batch_id=fabrication_batch_id,
+                campaign_ids=access.visible_campaign_codes(),
             )
         ]
     @router.get(
@@ -348,7 +356,7 @@ def create_results_router(
                 group_assignment=None,
                 correction_reason=payload.correction_reason,
                 actor_user_id=auth_context.user.id,
-                actor_role=auth_context.user.role,
+                actor_access=await _actor_access(repository, auth_context),
                 client_ip=_client_ip(request),
             )
         except OperationError as error:
