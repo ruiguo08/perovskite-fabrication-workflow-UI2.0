@@ -1182,8 +1182,7 @@ select.text-input {
   font-size: var(--text-sm);
 }
 
-.account-access-controls,
-.password-reset-form {
+.account-access-controls {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
@@ -1197,8 +1196,23 @@ select.text-input {
   white-space: nowrap;
 }
 
-.password-reset-form label {
-  flex: 1 1 11rem;
+/* One-time activation/recovery link display in the accounts table. */
+.password-link {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.password-link__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: center;
+}
+
+.password-link__row input {
+  flex: 1 1 14rem;
+  min-width: 0;
 }
 
 .account-activity {

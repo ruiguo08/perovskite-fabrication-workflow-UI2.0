@@ -773,18 +773,18 @@ class AuthenticationSecurityTests(unittest.TestCase):
                 )
             )
 
-    def test_password_reset_revokes_existing_sessions(self) -> None:
+    def test_self_password_change_revokes_existing_sessions(self) -> None:
         self.login()
-        repository: WebRepository = self.app.state.repository
-        admin = asyncio.run(repository.get_user_by_username(TEST_USERNAME))
-        assert admin is not None
-        reset = self.client.post(
-            f"/api/users/{admin.id}/password",
-            json={"password": "a-brand-new-password-123"},
+        change = self.client.post(
+            "/api/auth/password",
+            json={
+                "current_password": TEST_PASSWORD,
+                "password": "a-brand-new-password-123",
+            },
         )
-        self.assertEqual(reset.status_code, 204, reset.text)
+        self.assertEqual(change.status_code, 204, change.text)
 
-        # The reset wiped the sessions, so the old cookie is rejected...
+        # The change wiped the sessions, so the old cookie is rejected...
         self.assertEqual(self.client.get("/api/experiments").status_code, 401)
         # ...and the new password works.
         self.login(password="a-brand-new-password-123")
@@ -983,6 +983,471 @@ class AuthenticationSecurityTests(unittest.TestCase):
             },
         )
         self.assertEqual(foreign_deviation.status_code, 404, foreign_deviation.text)
+
+
+class PasswordSelfServiceTests(unittest.TestCase):
+    """One-time activation/recovery links and authenticated self-changes."""
+
+    def setUp(self) -> None:
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        self.database_path = Path(self.temporary_directory.name) / "passwords.sqlite3"
+        self.app = create_app(
+            self.database_path,
+            secure_cookies=False,
+            _test_user=(TEST_USERNAME, TEST_PASSWORD, UserRole.ADMINISTRATOR),
+        )
+        self.client_context = TestClient(self.app)
+        self.client = self.client_context.__enter__()
+        self.login()
+
+    def tearDown(self) -> None:
+        self.client_context.__exit__(None, None, None)
+        self.temporary_directory.cleanup()
+
+    def login(self, username: str = TEST_USERNAME, password: str = TEST_PASSWORD) -> None:
+        csrf = self.client.get("/api/auth/login-csrf")
+        self.assertEqual(csrf.status_code, 200)
+        response = self.client.post(
+            "/api/auth/login",
+            json={
+                "username": username,
+                "password": password,
+                "login_csrf": csrf.json()["login_csrf_token"],
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.client.headers["X-CSRF-Token"] = self.client.cookies.get("perovskite_csrf")
+
+    def logout(self) -> None:
+        response = self.client.post("/api/auth/logout")
+        self.assertEqual(response.status_code, 204)
+        self.client.headers.pop("X-CSRF-Token", None)
+
+    def redeem(self, token: str, password: str, *, csrf: str | None = None):
+        if csrf is None:
+            csrf = self.client.get("/api/auth/login-csrf").json()["login_csrf_token"]
+        return self.client.post(
+            "/api/auth/set-password",
+            json={"token": token, "password": password, "login_csrf": csrf},
+        )
+
+    def create_linkless_account(self, username: str, role: UserRole) -> int:
+        """Create an account without a password (activation-link flow)."""
+        created = self.client.post(
+            "/api/users",
+            json={
+                "username": username,
+                "display_name": username.title(),
+                "role": role.value,
+            },
+        )
+        self.assertEqual(created.status_code, 201, created.text)
+        self.assertIn("activation_url", created.json())
+        return int(created.json()["id"])
+
+    def audit_rows(self) -> list[tuple[str, str]]:
+        with closing(sqlite3.connect(self.database_path)) as connection:
+            return connection.execute(
+                "SELECT action, COALESCE(details, '') FROM audit_events"
+            ).fetchall()
+
+    def test_create_without_password_returns_one_time_activation_link(self) -> None:
+        created = self.client.post(
+            "/api/users",
+            json={
+                "username": "activate-me",
+                "display_name": "Activate Me",
+                "role": "student",
+            },
+        )
+        self.assertEqual(created.status_code, 201, created.text)
+        body = created.json()
+        self.assertTrue(body["activation_url"].startswith("/app/set-password#token="))
+        self.assertIn("activation_expires_at", body)
+        # Secret-bearing responses must never be cacheable.
+        self.assertEqual(created.headers.get("cache-control"), "no-store")
+        # The account cannot be signed into: the seeded hash is of a secret
+        # nobody knows, and no usable password was transmitted anywhere.
+        csrf = self.client.get("/api/auth/login-csrf").json()["login_csrf_token"]
+        probe = self.client.post(
+            "/api/auth/login",
+            json={
+                "username": "activate-me",
+                "password": "activate-me",
+                "login_csrf": csrf,
+            },
+        )
+        self.assertEqual(probe.status_code, 401)
+        # The raw token is nowhere in the database; only its SHA-256 hash is.
+        token = body["activation_url"].split("#token=", 1)[1]
+        with closing(sqlite3.connect(self.database_path)) as connection:
+            stored = connection.execute(
+                "SELECT token_hash FROM password_reset_tokens"
+            ).fetchall()
+        self.assertEqual(len(stored), 1)
+        self.assertNotEqual(stored[0][0], token)
+        self.assertEqual(len(stored[0][0]), 64)
+        # Listings and later responses never repeat the secret.
+        listed = self.client.get("/api/users")
+        self.assertEqual(listed.status_code, 200)
+        self.assertNotIn("activation_url", listed.json()[0])
+
+    def test_activation_link_redeem_sets_password_and_is_one_time(self) -> None:
+        user_id = self.create_linkless_account("activate-me", UserRole.STUDENT)
+        created = self.client.get("/api/users").json()
+        target = next(item for item in created if item["username"] == "activate-me")
+        self.assertIsNone(target["locked_until"])
+
+        # Issue a fresh link through the administrative endpoint.
+        link = self.client.post(f"/api/users/{user_id}/password-link")
+        self.assertEqual(link.status_code, 200, link.text)
+        token = link.json()["url"].split("#token=", 1)[1]
+        self.assertEqual(link.headers.get("cache-control"), "no-store")
+
+        redeemed = self.redeem(token, "Activated account password 2026")
+        self.assertEqual(redeemed.status_code, 204, redeemed.text)
+        # The token row is consumed...
+        with closing(sqlite3.connect(self.database_path)) as connection:
+            remaining = connection.execute(
+                "SELECT COUNT(*) FROM password_reset_tokens"
+            ).fetchone()[0]
+        self.assertEqual(remaining, 0)
+        # ...the new password signs in...
+        self.client.headers.pop("X-CSRF-Token", None)
+        self.login("activate-me", "Activated account password 2026")
+        # ...and replaying the link is rejected.
+        self.client.headers.pop("X-CSRF-Token", None)
+        replay = self.redeem(token, "Another account password 2026")
+        self.assertEqual(replay.status_code, 403)
+
+        actions = [row[0] for row in self.audit_rows()]
+        self.assertIn("user.password_link", actions)
+        self.assertIn("user.recover_password", actions)
+
+    def test_reissuing_a_link_invalidates_the_previous_one(self) -> None:
+        user_id = self.create_linkless_account("rotate-me", UserRole.STUDENT)
+        first = self.client.post(f"/api/users/{user_id}/password-link").json()
+        second = self.client.post(f"/api/users/{user_id}/password-link").json()
+        self.assertNotEqual(first["url"], second["url"])
+
+        old_token = first["url"].split("#token=", 1)[1]
+        new_token = second["url"].split("#token=", 1)[1]
+        self.assertEqual(self.redeem(old_token, "First account password 2026").status_code, 403)
+        self.assertEqual(self.redeem(new_token, "Second account password 2026").status_code, 204)
+
+    def test_expired_link_is_rejected(self) -> None:
+        user_id = self.create_linkless_account("late-me", UserRole.STUDENT)
+        link = self.client.post(f"/api/users/{user_id}/password-link").json()
+        token = link["url"].split("#token=", 1)[1]
+        with closing(sqlite3.connect(self.database_path)) as connection:
+            connection.execute(
+                "UPDATE password_reset_tokens"
+                " SET expires_at = '2000-01-01 00:00:00.000000'"
+            )
+            connection.commit()
+        self.assertEqual(self.redeem(token, "Much too late password 2026").status_code, 403)
+
+    def test_deactivating_an_account_clears_pending_links_and_sessions(self) -> None:
+        user_id = self.create_linkless_account("pause-me", UserRole.STUDENT)
+        link = self.client.post(f"/api/users/{user_id}/password-link").json()
+        token = link["url"].split("#token=", 1)[1]
+
+        patched = self.client.patch(
+            f"/api/users/{user_id}", json={"role": "student", "is_active": False}
+        )
+        self.assertEqual(patched.status_code, 200, patched.text)
+        with closing(sqlite3.connect(self.database_path)) as connection:
+            remaining = connection.execute(
+                "SELECT COUNT(*) FROM password_reset_tokens"
+            ).fetchone()[0]
+        self.assertEqual(remaining, 0)
+        self.assertEqual(self.redeem(token, "Disabled account password 2026").status_code, 403)
+        # Reissuing for a deactivated account is also refused.
+        self.assertEqual(
+            self.client.post(f"/api/users/{user_id}/password-link").status_code, 404
+        )
+
+    def test_issuing_a_link_leaves_credentials_and_sessions_alone(self) -> None:
+        repository: WebRepository = self.app.state.repository
+        admin = asyncio.run(repository.get_user_by_username(TEST_USERNAME))
+        assert admin is not None
+        link = self.client.post(f"/api/users/{admin.id}/password-link")
+        self.assertEqual(link.status_code, 200, link.text)
+        # The authenticated session issued before the link still works...
+        self.assertEqual(self.client.get("/api/session").status_code, 200)
+        # ...and the current password still signs in.
+        self.client.headers.pop("X-CSRF-Token", None)
+        self.login()
+
+    def test_self_change_rejects_wrong_current_password_and_locks_on_repeats(self) -> None:
+        for _ in range(4):
+            wrong = self.client.post(
+                "/api/auth/password",
+                json={
+                    "current_password": "not-the-current-password",
+                    "password": "Replacement account password 2026",
+                },
+            )
+            self.assertEqual(wrong.status_code, 403, wrong.text)
+        # The fifth wrong current password locks the account, exactly like
+        # the login screen; even the correct current password is refused now.
+        fifth = self.client.post(
+            "/api/auth/password",
+            json={
+                "current_password": "not-the-current-password",
+                "password": "Replacement account password 2026",
+            },
+        )
+        self.assertEqual(fifth.status_code, 403)
+        locked = self.client.post(
+            "/api/auth/password",
+            json={
+                "current_password": TEST_PASSWORD,
+                "password": "Replacement account password 2026",
+            },
+        )
+        self.assertEqual(locked.status_code, 403)
+        with closing(sqlite3.connect(self.database_path)) as connection:
+            lock = connection.execute(
+                "SELECT locked_until FROM users WHERE username = ?", (TEST_USERNAME,)
+            ).fetchone()
+        self.assertIsNotNone(lock[0])
+
+    def test_self_change_rejects_weak_passwords_and_missing_csrf(self) -> None:
+        weak = self.client.post(
+            "/api/auth/password",
+            json={"current_password": TEST_PASSWORD, "password": "short"},
+        )
+        self.assertEqual(weak.status_code, 422, weak.text)
+        contains_username = self.client.post(
+            "/api/auth/password",
+            json={
+                "current_password": TEST_PASSWORD,
+                "password": f"{TEST_USERNAME} cannot be the password",
+            },
+        )
+        self.assertEqual(contains_username.status_code, 422, contains_username.text)
+        self.client.headers.pop("X-CSRF-Token", None)
+        missing_csrf = self.client.post(
+            "/api/auth/password",
+            json={"current_password": TEST_PASSWORD, "password": "Valid replacement 2026"},
+        )
+        self.assertEqual(missing_csrf.status_code, 403)
+
+    def test_self_change_revokes_every_session_of_the_account(self) -> None:
+        repository: WebRepository = self.app.state.repository
+        admin = asyncio.run(repository.get_user_by_username(TEST_USERNAME))
+        assert admin is not None
+        # A second, independent session for the same account.
+        asyncio.run(
+            repository.create_session(
+                token_hash=hashlib.sha256(b"second-session-token").hexdigest(),
+                csrf_token_hash=hashlib.sha256(b"second-session-csrf").hexdigest(),
+                user_id=admin.id,
+                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+                client_ip=None,
+                user_agent=None,
+                password_changed_at=admin.password_changed_at,
+            )
+        )
+        change = self.client.post(
+            "/api/auth/password",
+            json={"current_password": TEST_PASSWORD, "password": "Valid replacement 2026"},
+        )
+        self.assertEqual(change.status_code, 204, change.text)
+        with closing(sqlite3.connect(self.database_path)) as connection:
+            remaining = connection.execute(
+                "SELECT COUNT(*) FROM sessions WHERE user_id = ?", (admin.id,)
+            ).fetchone()[0]
+        self.assertEqual(remaining, 0)
+
+    def test_booking_only_account_can_change_its_own_password(self) -> None:
+        """Accounts without fabrication workflow access still manage their
+        own credentials; the password page is not behind the workflow gate."""
+        self.create_linkless_account("booker", UserRole.STUDENT)
+        listed = self.client.get("/api/users")
+        booker = next(item for item in listed.json() if item["username"] == "booker")
+        issued = self.client.post(f"/api/users/{booker['id']}/password-link").json()
+        token = issued["url"].split("#token=", 1)[1]
+        self.assertEqual(
+            self.redeem(token, "Booking only password 2026").status_code, 204
+        )
+        self.client.headers.pop("X-CSRF-Token", None)
+        self.login("booker", "Booking only password 2026")
+        # No workflow grant: fabrication data is forbidden...
+        self.assertEqual(self.client.get("/api/experiments").status_code, 403)
+        # ...but the account can still change its own password.
+        change = self.client.post(
+            "/api/auth/password",
+            json={
+                "current_password": "Booking only password 2026",
+                "password": "Booking only password 2027",
+            },
+        )
+        self.assertEqual(change.status_code, 204, change.text)
+        self.client.headers.pop("X-CSRF-Token", None)
+        self.login("booker", "Booking only password 2027")
+
+    def test_password_link_endpoint_boundaries(self) -> None:
+        self.assertEqual(self.client.post("/api/users/9999/password-link").status_code, 404)
+        # Missing CSRF is rejected before any lookup.
+        self.client.headers.pop("X-CSRF-Token", None)
+        self.assertEqual(
+            self.client.post("/api/users/1/password-link").status_code, 403
+        )
+        self.client.headers["X-CSRF-Token"] = self.client.cookies.get("perovskite_csrf")
+        # A non-administrator cannot issue links for anyone.
+        user_id = self.create_linkless_account("plain-student", UserRole.STUDENT)
+        issued = self.client.post(f"/api/users/{user_id}/password-link").json()
+        token = issued["url"].split("#token=", 1)[1]
+        self.assertEqual(self.redeem(token, "Plain student password 2026").status_code, 204)
+        self.logout()
+        self.login("plain-student", "Plain student password 2026")
+        self.assertEqual(
+            self.client.post(f"/api/users/{user_id}/password-link").status_code, 403
+        )
+
+    def test_legacy_administrator_reset_endpoint_is_gone(self) -> None:
+        """The administrator no longer chooses account passwords."""
+        user_id = self.create_linkless_account("legacy-me", UserRole.STUDENT)
+        removed = self.client.post(
+            f"/api/users/{user_id}/password", json={"password": "Administrator chosen 2026"}
+        )
+        self.assertEqual(removed.status_code, 404)
+
+    def test_secrets_never_reach_audit_logs_or_storage(self) -> None:
+        user_id = self.create_linkless_account("audit-me", UserRole.STUDENT)
+        link = self.client.post(f"/api/users/{user_id}/password-link").json()
+        token = link["url"].split("#token=", 1)[1]
+        password = "Audited account password 2026"
+        self.assertEqual(self.redeem(token, password).status_code, 204)
+
+        haystack = " ".join(f"{action} {details}" for action, details in self.audit_rows())
+        self.assertNotIn(token, haystack)
+        self.assertNotIn(password, haystack)
+        self.assertNotIn("set-password", haystack)
+        with closing(sqlite3.connect(self.database_path)) as connection:
+            blob = " ".join(
+                str(row) for row in connection.execute(
+                    "SELECT action, entity_id, COALESCE(details,''), COALESCE(client_ip,'')"
+                    " FROM audit_events"
+                ).fetchall()
+            )
+        self.assertNotIn(token, blob)
+
+    def test_concurrent_redemption_succeeds_exactly_once(self) -> None:
+        async def exercise(database_path: Path) -> tuple[bool, bool]:
+            from web.operations.passwords import (
+                issue_reset_link,
+                redeem_password_link,
+            )
+
+            database = Database(database_path, create_schema=True)
+            repository = WebRepository(database)
+            try:
+                await database.initialize()
+                user = await repository.create_user(
+                    username="race-me",
+                    display_name="Race Me",
+                    password_hash=hash_password("Race account password 2026"),
+                    role=UserRole.STUDENT,
+                )
+                link = await issue_reset_link(repository, user.id, user.id, None)
+                token = link["url"].split("#token=", 1)[1]
+
+                async def attempt(password: str) -> bool:
+                    try:
+                        await redeem_password_link(repository, token, password, None)
+                        return True
+                    except PermissionError:
+                        return False
+
+                first, second = await asyncio.gather(
+                    attempt("First race password 2026"),
+                    attempt("Second race password 2026"),
+                )
+                return first, second
+            finally:
+                await database.dispose()
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            first, second = asyncio.run(
+                exercise(Path(temporary_directory) / "race.sqlite3")
+            )
+        self.assertNotEqual(first, second)
+        self.assertTrue(first or second)
+
+    def test_redeem_vs_administrator_reset_race_stays_consistent(self) -> None:
+        """Whichever write wins, the account ends with exactly one active
+        password, no sessions, and no surviving tokens."""
+
+        async def exercise(database_path: Path) -> tuple[bool, str]:
+            from web.operations.passwords import (
+                issue_reset_link,
+                redeem_password_link,
+            )
+
+            database = Database(database_path, create_schema=True)
+            repository = WebRepository(database)
+            try:
+                await database.initialize()
+                user = await repository.create_user(
+                    username="reset-race",
+                    display_name="Reset Race",
+                    password_hash=hash_password("Reset race password 2026"),
+                    role=UserRole.STUDENT,
+                )
+                link = await issue_reset_link(repository, user.id, user.id, None)
+                token = link["url"].split("#token=", 1)[1]
+
+                async def redeem() -> bool:
+                    try:
+                        await redeem_password_link(
+                            repository, token, "Redeemed race password 2026", None
+                        )
+                        return True
+                    except PermissionError:
+                        return False
+
+                async def reset() -> None:
+                    await repository.reset_password(
+                        user.id,
+                        password_hash=hash_password("Administrator race password 2026"),
+                        actor_user_id=user.id,
+                        client_ip=None,
+                    )
+
+                redeemed, _ = await asyncio.gather(redeem(), reset())
+                final = await repository.get_user(user.id)
+                # Argon2 hashes are salted, so verify rather than compare.
+                from web.auth import PASSWORD_HASH
+
+                verified = [
+                    candidate
+                    for candidate in (
+                        "Redeemed race password 2026",
+                        "Administrator race password 2026",
+                    )
+                    if PASSWORD_HASH.verify(candidate, final.password_hash)
+                ]
+                async with database.engine.connect() as connection:
+                    from sqlalchemy import text as sa_text
+
+                    tokens_left = int(
+                        await connection.scalar(
+                            sa_text("SELECT COUNT(*) FROM password_reset_tokens")
+                        )
+                    )
+                return redeemed, len(verified) == 1 and tokens_left == 0
+            finally:
+                await database.dispose()
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            redeemed, consistent = asyncio.run(
+                exercise(Path(temporary_directory) / "reset-race.sqlite3")
+            )
+        self.assertIsInstance(redeemed, bool)
+        self.assertTrue(consistent)
 
 
 class LoginAttemptReservationTests(unittest.TestCase):

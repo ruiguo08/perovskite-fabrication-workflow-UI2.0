@@ -4001,8 +4001,8 @@ export const businessMessages = {
     "用户管理"
   ],
   "usersPage.createLocalAccountsControlRoleBasedAccessAndReset": [
-    "Create local accounts, control role-based access, and reset passwords.",
-    "创建本地账户、控制基于角色的访问并重置密码。"
+    "Create local accounts, control role-based access, and issue one-time password links.",
+    "创建本地账户、控制基于角色的访问并发放一次性密码链接。"
   ],
   "usersPage.createAccount": [
     "Create account",
@@ -4011,14 +4011,6 @@ export const businessMessages = {
   "usersPage.username": [
     "Username",
     "用户名"
-  ],
-  "usersPage.temporaryPassword": [
-    "Temporary password",
-    "临时密码"
-  ],
-  "usersPage.useAtLeastCharacters": [
-    "Use at least 12 characters.",
-    "至少使用 12 个字符。"
   ],
   "usersPage.accounts": [
     "Accounts",
@@ -4067,9 +4059,21 @@ export const businessMessages = {
     "Unable to update workflow access.",
     "无法更新工作流访问权。"
   ],
-  "usersPage.passwordReset": [
-    "Password reset",
-    "密码重置"
+  "usersPage.passwordLink": [
+    "Password link",
+    "密码链接"
+  ],
+  "usersPage.generateLinkFor": [
+    "Generate link for ",
+    "生成链接： "
+  ],
+  "usersPage.generateLinkForUsername": [
+    "Generate a one-time password link for {username}",
+    "为 {username} 生成一次性密码链接"
+  ],
+  "usersPage.linkFailed": [
+    "Unable to generate the password link.",
+    "无法生成密码链接。"
   ],
   "usersPage.activity": [
     "Activity",
@@ -4090,18 +4094,6 @@ export const businessMessages = {
   "usersPage.saveAccessFor": [
     "Save access for ",
     "保存以下用户的权限： "
-  ],
-  "usersPage.newPasswordFor": [
-    "New password for ",
-    "以下用户的新密码： "
-  ],
-  "usersPage.newPasswordForUsername": [
-    "New password for {username}",
-    "{username} 的新密码"
-  ],
-  "usersPage.resetPasswordFor": [
-    "Reset password for ",
-    "重置以下用户的密码： "
   ],
   "usersPage.lastLogin": [
     "Last login",

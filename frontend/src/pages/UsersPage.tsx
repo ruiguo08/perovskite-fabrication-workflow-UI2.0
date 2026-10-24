@@ -15,6 +15,7 @@ import { useApiResource } from "../lib/useApiResource";
 import { useSession } from "../auth/session";
 import { bookingPages } from "../features/booking/api";
 import type { Role, UserAccount } from "../types/api";
+import { PasswordLink } from "./PasswordPage";
 
 interface WorkflowGrant {
   user_id: number;
@@ -40,7 +41,7 @@ export function UsersPage() {
   const rows = useMemo(() => sortAccounts(users ?? resource.data ?? []), [users, resource.data]);
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [password, setPassword] = useState("");
+  const [activationUrl, setActivationUrl] = useState<string | null>(null);
   const [role, setRole] = useState<Role>("student");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -61,16 +62,17 @@ export function UsersPage() {
     setSubmitting(true);
     setError(null);
     try {
-      const created = await apiFetch<UserAccount>("/api/users", {
+      setActivationUrl(null);
+      const created = await apiFetch<UserAccount & { activation_url?: string }>("/api/users", {
         method: "POST",
         body: {
           username: username.trim(),
           display_name: displayName.trim(),
-          password,
           role,
         },
       });
       replaceUser(created);
+      setActivationUrl(created.activation_url ?? null);
       setUsername("");
       setDisplayName("");
       setRole("student");
@@ -78,7 +80,6 @@ export function UsersPage() {
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to create the account.");
     } finally {
-      setPassword("");
       setSubmitting(false);
     }
   }
@@ -107,9 +108,6 @@ export function UsersPage() {
           <FormField label={tr("campaignsPage.displayName")} htmlFor="new-display-name" required>
             <input id="new-display-name" className="text-input" required maxLength={120} value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
           </FormField>
-          <FormField label={tr("usersPage.temporaryPassword")} htmlFor="new-password" required hint={tr("usersPage.useAtLeastCharacters")}>
-            <input id="new-password" className="text-input" type="password" required minLength={12} maxLength={128} autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
-          </FormField>
           <FormField label={tr("reviewPanel.role")} htmlFor="new-role" required>
             <select id="new-role" className="text-input" value={role} onChange={(event) => setRole(event.target.value as Role)}>
               {ROLES.map((value) => <option key={value} value={value}>{enumLabel(titleCase(value))}</option>)}
@@ -120,6 +118,7 @@ export function UsersPage() {
           </div>
         </form>
         <InlineFormError message={localizeAppText(error ?? "")} />
+        {activationUrl && <PasswordLink url={activationUrl} />}
       </section>
 
       <section className="panel" aria-labelledby="account-directory-title">
@@ -134,7 +133,7 @@ export function UsersPage() {
         {rows.length === 0 ? <EmptyState title={tr("usersPage.noAccountsAreAvailable")} /> : (
           <div className="table-scroll">
             <table className="data-table account-table" aria-label={tr("usersPage.userAccounts")}>
-              <thead><tr><th>{tr("usersPage.user")}</th><th>{tr("usersPage.state")}</th><th>{tr("usersPage.access")}</th><th>{tr("usersPage.workflowAccess")}</th><th>{tr("usersPage.passwordReset")}</th><th>{tr("usersPage.activity")}</th></tr></thead>
+              <thead><tr><th>{tr("usersPage.user")}</th><th>{tr("usersPage.state")}</th><th>{tr("usersPage.access")}</th><th>{tr("usersPage.workflowAccess")}</th><th>{tr("usersPage.passwordLink")}</th><th>{tr("usersPage.activity")}</th></tr></thead>
               <tbody>
                 {rows.map((account) => <AccountRow key={account.id} account={account} onChange={replaceUser} workflowEnabled={workflowEnabled(account.id)} onWorkflowChange={async (enabled) => {
                   const path = `workflow-access/${account.id}`;
@@ -171,7 +170,7 @@ function AccountRow({
   const { show } = useToast();
   const [role, setRole] = useState<Role>(account.role);
   const [isActive, setIsActive] = useState(account.is_active);
-  const [password, setPassword] = useState("");
+  const [resetUrl, setResetUrl] = useState<string | null>(null);
   const [accessError, setAccessError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -194,20 +193,18 @@ function AccountRow({
     }
   }
 
-  async function resetPassword(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function resetPassword() {
     setSubmitting(true);
     setPasswordError(null);
+    setResetUrl(null);
     try {
-      await apiFetch<void>(`/api/users/${account.id}/password`, {
+      const link = await apiFetch<{ url: string }>(`/api/users/${account.id}/password-link`, {
         method: "POST",
-        body: { password },
       });
-      show(`Password reset for ${account.username}.`, "success");
+      setResetUrl(link.url);
     } catch (caught) {
-      setPasswordError(caught instanceof Error ? caught.message : "Unable to reset the password.");
+      setPasswordError(caught instanceof Error ? caught.message : "Unable to generate the password link.");
     } finally {
-      setPassword("");
       setSubmitting(false);
     }
   }
@@ -252,23 +249,18 @@ function AccountRow({
         </div>
       </td>
       <td>
-        <form className="password-reset-form" onSubmit={(event) => void resetPassword(event)}>
-          <label>
-            <span className="visually-hidden">{tr("usersPage.newPasswordFor")}{account.username}</span>
-            <input
-              className="text-input"
-              type="password"
-              aria-label={tr("usersPage.newPasswordForUsername", { "username": account.username })}
-              minLength={12}
-              maxLength={128}
-              autoComplete="new-password"
-              required
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          </label>
-          <button className="button button--secondary button--small" type="submit" disabled={submitting}>{tr("usersPage.resetPasswordFor")}{account.username}</button>
-        </form>
+        <div className="account-access-controls">
+          <button
+            className="button button--secondary button--small"
+            type="button"
+            aria-label={tr("usersPage.generateLinkForUsername", { "username": account.username })}
+            disabled={submitting}
+            onClick={() => void resetPassword()}
+          >
+            {tr("usersPage.generateLinkFor")}{account.username}
+          </button>
+        </div>
+        {resetUrl && <PasswordLink url={resetUrl} />}
         <InlineFormError message={localizeAppText(passwordError ?? "")} />
       </td>
       <td className="account-activity">

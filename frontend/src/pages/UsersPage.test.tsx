@@ -134,8 +134,7 @@ describe("UsersPage", () => {
     expect(screen.getByText("Inactive")).toBeInTheDocument();
     expect(screen.queryByText(/password_hash/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/failed_login_count/i)).not.toBeInTheDocument();
-    expect(screen.getAllByLabelText(/new password for/i)).toHaveLength(2);
-    expect(screen.getByLabelText("New password for student-one")).toHaveValue("");
+    expect(screen.getAllByLabelText(/generate a one-time password link for/i)).toHaveLength(2);
   });
 
   it("renders activity labels separately from their timestamp values", async () => {
@@ -146,10 +145,13 @@ describe("UsersPage", () => {
     expect(screen.getAllByText("Password changed")).toHaveLength(2);
   });
 
-  it("creates an account and clears the temporary password", async () => {
+  it("creates an account without a password and shows the one-time activation link", async () => {
     apiFetchMock.mockImplementation((path: string, options?: { method?: string }) => {
       if (path === "/api/users" && options?.method === "POST") {
-        return Promise.resolve({ ...student, id: 3, username: "new-student", display_name: "New Student", is_active: true });
+        return Promise.resolve({
+          ...student, id: 3, username: "new-student", display_name: "New Student", is_active: true,
+          activation_url: "/app/set-password#token=abc123", activation_expires_at: "2026-08-12T09:00:00Z",
+        });
       }
       return Promise.resolve([administrator, student]);
     });
@@ -158,7 +160,6 @@ describe("UsersPage", () => {
     await screen.findByText("Student One");
     fireEvent.change(screen.getByLabelText(/^Username/), { target: { value: "new-student" } });
     fireEvent.change(screen.getByLabelText(/^Display name/), { target: { value: "New Student" } });
-    fireEvent.change(screen.getByLabelText(/^Temporary password/), { target: { value: "Temporary password 2026" } });
     fireEvent.click(screen.getByRole("button", { name: "Create account" }));
 
     expect(await screen.findByText("New Student")).toBeInTheDocument();
@@ -167,11 +168,11 @@ describe("UsersPage", () => {
       body: {
         username: "new-student",
         display_name: "New Student",
-        password: "Temporary password 2026",
         role: "student",
       },
     });
-    expect(screen.getByLabelText(/^Temporary password/)).toHaveValue("");
+    const linkField = await screen.findByLabelText("One-time password link");
+    expect(linkField).toHaveValue(`${window.location.origin}/app/set-password#token=abc123`);
   });
 
   it("keeps Chinese role choices as API enums and retains an unsaved form across language changes", async () => {
@@ -187,7 +188,6 @@ describe("UsersPage", () => {
     const username = screen.getByLabelText(/^用户名/);
     fireEvent.change(username, { target: { value: "new-instructor" } });
     fireEvent.change(screen.getByLabelText(/^显示名称/), { target: { value: "Control NiOx" } });
-    fireEvent.change(screen.getByLabelText(/^临时密码/), { target: { value: "Temporary password 2026" } });
     const roleInput = screen.getByLabelText(/^角色/);
     fireEvent.change(roleInput, { target: { value: "instructor" } });
     const requestsBeforeSwitch = apiFetchMock.mock.calls.length;
@@ -198,7 +198,7 @@ describe("UsersPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create account" }));
     await waitFor(() => expect(apiFetchMock).toHaveBeenCalledWith("/api/users", {
       method: "POST", body: {
-        username: "new-instructor", display_name: "Control NiOx", password: "Temporary password 2026", role: "instructor",
+        username: "new-instructor", display_name: "Control NiOx", role: "instructor",
       },
     }));
     expect(await screen.findByText("Control NiOx")).toBeInTheDocument();
@@ -231,24 +231,44 @@ describe("UsersPage", () => {
     expect(await within(adminRow).findByRole("alert")).toHaveTextContent("you cannot deactivate your own account");
   });
 
-  it("resets a password and immediately clears the field", async () => {
+  it("generates a one-time link and replaces it when generated again", async () => {
+    let issued = 0;
     apiFetchMock.mockImplementation((path: string, options?: { method?: string }) => {
-      if (path === "/api/users/2/password" && options?.method === "POST") {
-        return Promise.resolve(undefined);
+      if (path === "/api/users/2/password-link" && options?.method === "POST") {
+        issued += 1;
+        return Promise.resolve({ url: `/app/set-password#token=issue-${issued}`, expires_at: "2026-08-12T09:00:00Z" });
       }
       return Promise.resolve([administrator, student]);
     });
     renderPage();
 
     const studentRow = await screen.findByRole("row", { name: /Student One/ });
-    const input = within(studentRow).getByLabelText("New password for student-one");
-    fireEvent.change(input, { target: { value: "Replacement password 2026" } });
-    fireEvent.click(within(studentRow).getByRole("button", { name: "Reset password for student-one" }));
+    fireEvent.click(within(studentRow).getByRole("button", { name: "Generate a one-time password link for student-one" }));
 
-    await waitFor(() => expect(apiFetchMock).toHaveBeenCalledWith("/api/users/2/password", {
-      method: "POST",
-      body: { password: "Replacement password 2026" },
-    }));
-    expect(input).toHaveValue("");
+    await waitFor(() => expect(apiFetchMock).toHaveBeenCalledWith("/api/users/2/password-link", { method: "POST" }));
+    expect(await within(studentRow).findByLabelText("One-time password link"))
+      .toHaveValue(`${window.location.origin}/app/set-password#token=issue-1`);
+
+    fireEvent.click(within(studentRow).getByRole("button", { name: "Generate a one-time password link for student-one" }));
+    await waitFor(() =>
+      expect(within(studentRow).getByLabelText("One-time password link"))
+        .toHaveValue(`${window.location.origin}/app/set-password#token=issue-2`));
+    expect(within(studentRow).getAllByLabelText("One-time password link")).toHaveLength(1);
+  });
+
+  it("shows an inline error when link generation fails", async () => {
+    apiFetchMock.mockImplementation((path: string, options?: { method?: string }) => {
+      if (path === "/api/users/2/password-link" && options?.method === "POST") {
+        return Promise.reject(new Error("active account not found"));
+      }
+      return Promise.resolve([administrator, student]);
+    });
+    renderPage();
+
+    const studentRow = await screen.findByRole("row", { name: /Student One/ });
+    fireEvent.click(within(studentRow).getByRole("button", { name: "Generate a one-time password link for student-one" }));
+
+    expect(await within(studentRow).findByRole("alert")).toHaveTextContent("active account not found");
+    expect(within(studentRow).queryByLabelText("One-time password link")).not.toBeInTheDocument();
   });
 });

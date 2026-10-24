@@ -160,6 +160,7 @@ export function AppShell() {
             {t(`role.${user.role}`)}
           </span>
           <span className="topbar__user">{user.display_name}</span>
+          <Link className="button button--secondary button--small" to="/account/password">{t("account.changePassword")}</Link>
           <LogoutButton />
         </header>
         {user.workflow_access && <PipelineHeader />}
