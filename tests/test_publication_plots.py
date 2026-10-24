@@ -39,6 +39,23 @@ def device(device_id: str, position: int, group_id: str = "control") -> dict:
     }
 
 
+import matplotlib.pyplot as plt
+
+
+def _uniformity_rects(figure) -> list[tuple[float, float, float, float]]:
+    return sorted(
+        (round(patch.get_x(), 6), round(patch.get_y(), 6), round(patch.get_width(), 6), round(patch.get_height(), 6))
+        for patch in figure.axes[0].patches
+    )
+
+
+def _uniformity_texts(figure) -> list[tuple[float, float, str]]:
+    return sorted(
+        (text.get_position()[0], text.get_position()[1], text.get_text())
+        for text in figure.axes[0].texts
+    )
+
+
 class PublicationPlotTests(unittest.TestCase):
     def setUp(self) -> None:
         self.analysis = {"devices": [device(f"d-{index}", index) for index in range(1, 7)]}
@@ -316,6 +333,76 @@ class PublicationPlotTests(unittest.TestCase):
     def test_uniformity_rejects_unknown_direction(self) -> None:
         with self.assertRaisesRegex(PlotInputError, "direction must be"):
             render_publication_figure(self.analysis, self.groups, kind="uniformity", metric="pce", direction="combined")
+
+    def test_uniformity_dual_device_renders_two_landscape_bars(self) -> None:
+        analysis = {"devices": [device("d-1", 1), device("d-2", 2)]}
+        figure = _render_uniformity(
+            analysis, self.groups, "pce", "forward",
+            devices_per_substrate_by_group={"control": 2},
+        )
+        self.addCleanup(plt.close, figure)
+        rects = _uniformity_rects(figure)
+        # Substrate outline plus two 1.9 x 0.72 bars centered in it: channel 1
+        # is the top bar, channel 2 the bottom bar, forming an "=" sign.
+        self.assertEqual(rects, [
+            (0.15, 0.15, 2.65, 2.65),
+            (0.525, 0.605, 1.9, 0.72),
+            (0.525, 1.625, 1.9, 0.72),
+        ])
+        values = {(round(x, 3), round(y, 3)): text for x, y, text in _uniformity_texts(figure)}
+        self.assertEqual(values[(1.475, 1.985)], "11.0")
+        self.assertEqual(values[(1.475, 0.965)], "12.0")
+
+    def test_uniformity_single_device_renders_one_centered_cell(self) -> None:
+        analysis = {"devices": [device("d-1", 1)]}
+        figure = _render_uniformity(
+            analysis, self.groups, "pce", "forward",
+            devices_per_substrate_by_group={"control": 1},
+        )
+        self.addCleanup(plt.close, figure)
+        self.assertEqual(_uniformity_rects(figure), [
+            (0.15, 0.15, 2.65, 2.65),
+            (1.115, 1.115, 0.72, 0.72),
+        ])
+
+    def test_uniformity_with_layout_counts_keeps_legacy_six_device_grid(self) -> None:
+        figure = _render_uniformity(
+            self.analysis, self.groups, "pce", "forward",
+            devices_per_substrate_by_group={"control": 6},
+        )
+        self.addCleanup(plt.close, figure)
+        rects = _uniformity_rects(figure)
+        # The hand-tuned legacy constants: two columns of 0.72 squares filled
+        # top-to-bottom, left column channels 1-3, right column channels 4-6.
+        self.assertEqual(rects, sorted([
+            (0.15, 0.15, 2.65, 2.65),
+            *[(x, y, 0.72, 0.72) for x in (0.68, 1.58) for y in (0.33, 1.11, 1.89)],
+        ]))
+        values = {(round(x, 3), round(y, 3)): text for x, y, text in _uniformity_texts(figure)}
+        self.assertEqual(values[(1.04, 2.25)], "11.0")
+        self.assertEqual(values[(1.04, 0.69)], "13.0")
+        self.assertEqual(values[(1.94, 2.25)], "14.0")
+        self.assertEqual(values[(1.94, 0.69)], "16.0")
+
+    def test_uniformity_without_layout_counts_falls_back_to_legacy_grid(self) -> None:
+        dual = {"devices": [device("d-1", 1), device("d-2", 2)]}
+        figure = _render_uniformity(dual, self.groups, "pce", "forward")
+        self.addCleanup(plt.close, figure)
+        # No snapshot information: the legacy six-cell grid draws two values
+        # plus four empty channel placeholders.
+        self.assertEqual(len(_uniformity_rects(figure)), 7)
+        placeholders = [text for _, _, text in _uniformity_texts(figure)]
+        self.assertEqual(placeholders.count("—"), 4)
+
+    def test_uniformity_layout_counts_flow_through_the_public_renderer(self) -> None:
+        dual = {"devices": [device("d-1", 1), device("d-2", 2)]}
+        svg = render_publication_figure(
+            dual, self.groups, kind="uniformity", metric="pce",
+            devices_per_substrate_by_group={"control": 2},
+        ).decode("utf-8")
+        self.assertIn("11.0", svg)
+        self.assertIn("12.0", svg)
+        self.assertNotIn("—", svg)
 
     def test_uniformity_keeps_each_condition_on_one_row(self) -> None:
         devices = []

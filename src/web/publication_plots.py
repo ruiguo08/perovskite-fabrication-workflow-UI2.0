@@ -80,7 +80,18 @@ MEDIA_TYPES = {
 }
 _FORMAT_SUFFIX = {"svg": "svg", "pdf": "pdf", "tiff": "tiff"}
 _MATPLOTLIB_LOCK = threading.Lock()
-_CELL_POSITION = {1: (0, 0), 2: (0, 1), 3: (0, 2), 4: (1, 0), 5: (1, 1), 6: (1, 2)}
+# Substrate-uniformity schematic geometry, in axis units. The legacy
+# hand-tuned constants (3 rows x 2 columns of 0.72 squares) are reproduced
+# exactly by the (rows=3, cols=2) branch of _uniformity_slot, so existing
+# 25x25 renders stay unchanged; every other grid is centered inside the
+# outline from the same cell metrics.
+_UNIFORMITY_OUTLINE = (0.15, 0.15, 2.65, 2.65)
+_UNIFORMITY_CELL = 0.72
+_UNIFORMITY_PITCH_X = 0.9
+_UNIFORMITY_PITCH_Y = 0.78
+_UNIFORMITY_BAR_WIDTH = 1.9
+_UNIFORMITY_BAR_GAP_Y = 0.3
+_LEGACY_DEVICE_COUNT = 6
 
 _RC = {
     "font.family": "DejaVu Sans",
@@ -130,6 +141,7 @@ def render_publication_figure(
     scale_min: float | None = None,
     scale_max: float | None = None,
     threshold: float | None = None,
+    devices_per_substrate_by_group: Mapping[str, int] | None = None,
 ) -> bytes:
     """Render and cache one deterministic figure as SVG, PDF, or TIFF bytes."""
 
@@ -143,6 +155,10 @@ def render_publication_figure(
         else tuple(sorted(set(str(device_id) for device_id in excluded_device_ids)))
     )
     flagged_override = tuple(sorted(set(str(device_id) for device_id in flagged_device_ids)))
+    layout_counts = tuple(sorted(
+        (str(group_id), int(count))
+        for group_id, count in (devices_per_substrate_by_group or {}).items()
+    ))
     arguments = (
         analysis_json,
         groups_json,
@@ -157,6 +173,7 @@ def render_publication_figure(
         scale_min,
         scale_max,
         threshold,
+        layout_counts,
     )
     # SVG drives the interactive preview and benefits from caching.  PDF and
     # especially 600 dpi TIFF exports can be large, so render downloads on
@@ -181,6 +198,7 @@ def _render_cached(
     scale_min: float | None,
     scale_max: float | None,
     threshold: float | None,
+    layout_counts: tuple[tuple[str, int], ...],
 ) -> bytes:
     return _render_uncached(
         analysis_json,
@@ -196,6 +214,7 @@ def _render_cached(
         scale_min,
         scale_max,
         threshold,
+        layout_counts,
     )
 
 
@@ -213,6 +232,7 @@ def _render_uncached(
     scale_min: float | None,
     scale_max: float | None,
     threshold: float | None,
+    layout_counts: tuple[tuple[str, int], ...],
 ) -> bytes:
     analysis = json.loads(analysis_json)
     groups = json.loads(groups_json)
@@ -271,6 +291,7 @@ def _render_uncached(
             figure = _render_uniformity(
                 analysis, groups, metric or "pce", direction, palette or "rdylgn",
                 scale_min=scale_min, scale_max=scale_max, threshold=threshold,
+                devices_per_substrate_by_group=dict(layout_counts),
             )
         else:
             raise PlotInputError("unsupported figure kind")
@@ -608,9 +629,53 @@ def _symmetric_offsets(count: int, width: float) -> list[float]:
     return [(-width / 2) + width * index / (count - 1) for index in range(count)]
 
 
-def _device_position(device: Mapping[str, Any]) -> int | None:
+def _device_position(device: Mapping[str, Any], max_ordinal: int) -> int | None:
     value = device.get("device_ordinal")
-    return int(value) if isinstance(value, int) and not isinstance(value, bool) and 1 <= value <= 6 else None
+    if isinstance(value, int) and not isinstance(value, bool) and 1 <= value <= max_ordinal:
+        return value
+    return None
+
+
+def _uniformity_grid(device_count: int) -> tuple[int, int]:
+    """(rows, cols) for a substrate with ``device_count`` devices, filled
+    column-major: devices run down each column before moving right, matching
+    the physical 25x25 six-device substrate (left column channels 1-3, right
+    column channels 4-6). Two or fewer devices fill a single column, so the
+    15x15 dual substrate renders as two landscape bars forming an "=" sign.
+    """
+
+    if device_count <= 2:
+        return device_count, 1
+    rows = math.ceil(device_count / 2)
+    return rows, math.ceil(device_count / rows)
+
+
+def _uniformity_slot(rows: int, cols: int, row: int, col: int) -> tuple[float, float, float, float]:
+    """(x, y, width, height) of one uniformity cell, centered in the outline.
+
+    The (rows=3, cols=2) grid keeps the original hand-tuned constants so
+    existing 25x25 renders stay identical; a single column of two draws
+    landscape bars echoing the physical device shape; every other grid is
+    derived by even centering, shrinking cells when a grid would overflow.
+    """
+
+    if rows == 3 and cols == 2:
+        return (
+            0.68 + col * _UNIFORMITY_PITCH_X,
+            0.33 + row * _UNIFORMITY_PITCH_Y,
+            _UNIFORMITY_CELL,
+            _UNIFORMITY_CELL,
+        )
+    if cols == 1 and rows == 2:
+        width, gap_x, gap_y = _UNIFORMITY_BAR_WIDTH, 0.0, _UNIFORMITY_BAR_GAP_Y
+    else:
+        width = min(_UNIFORMITY_CELL, (_UNIFORMITY_OUTLINE[2] - (cols - 1) * (_UNIFORMITY_PITCH_X - _UNIFORMITY_CELL)) / cols)
+        gap_x = _UNIFORMITY_PITCH_X - width
+        gap_y = _UNIFORMITY_PITCH_Y - _UNIFORMITY_CELL
+    height = min(_UNIFORMITY_CELL, (_UNIFORMITY_OUTLINE[3] - (rows - 1) * (_UNIFORMITY_PITCH_Y - _UNIFORMITY_CELL)) / rows)
+    origin_x = _UNIFORMITY_OUTLINE[0] + (_UNIFORMITY_OUTLINE[2] - (cols * width + (cols - 1) * gap_x)) / 2
+    origin_y = _UNIFORMITY_OUTLINE[1] + (_UNIFORMITY_OUTLINE[3] - (rows * height + (rows - 1) * gap_y)) / 2
+    return origin_x + col * (width + gap_x), origin_y + row * (height + gap_y), width, height
 
 
 def _render_uniformity(
@@ -618,7 +683,16 @@ def _render_uniformity(
     direction: str = "forward", palette: str = "rdylgn",
     *, scale_min: float | None = None, scale_max: float | None = None,
     threshold: float | None = None,
+    devices_per_substrate_by_group: Mapping[str, int] | None = None,
 ) -> Figure:
+    counts = devices_per_substrate_by_group or {}
+
+    def _device_count(group_id: Any) -> int:
+        value = counts.get(str(group_id))
+        if isinstance(value, int) and not isinstance(value, bool) and value >= 1:
+            return value
+        return _LEGACY_DEVICE_COUNT
+
     devices = list(analysis.get("devices") or [])
     by_substrate: dict[str, list[Mapping[str, Any]]] = {}
     for device in devices:
@@ -630,7 +704,7 @@ def _render_uniformity(
     all_values = [
         value
         for device in devices
-        if _device_position(device) is not None
+        if _device_position(device, _device_count(device.get("group_id"))) is not None
         for direction in ("forward", "reverse")
         for value in [_metric_value(device, direction, metric)]
         if value is not None
@@ -639,7 +713,7 @@ def _render_uniformity(
         value for device in devices if not device.get("excluded")
         for direction in ("forward", "reverse")
         for value in [_metric_value(device, direction, metric)]
-        if _device_position(device) is not None and value is not None
+        if _device_position(device, _device_count(device.get("group_id"))) is not None and value is not None
     ]
     if not visible_values:
         raise PlotInputError("no mapped valid measurements for this metric")
@@ -708,17 +782,21 @@ def _render_uniformity(
             visible_axes.add((row_index, column_index))
             axis = axes[row_index][column_index]
             entries = by_substrate[substrate]
+            device_count = _device_count(entries[0].get("group_id"))
+            grid_rows, grid_cols = _uniformity_grid(device_count)
             positions: dict[int, list[Mapping[str, Any]]] = {}
             for device in entries:
-                position = _device_position(device)
+                position = _device_position(device, device_count)
                 if position is not None:
                     positions.setdefault(position, []).append(device)
-            for channel, (column, top_row) in _CELL_POSITION.items():
+            for channel in range(1, device_count + 1):
+                slot_col, slot_row_from_top = divmod(channel - 1, grid_rows)
+                x, y, width, height = _uniformity_slot(
+                    grid_rows, grid_cols, grid_rows - 1 - slot_row_from_top, slot_col,
+                )
                 matches = positions.get(channel) or []
                 device = matches[0] if len(matches) == 1 else None
                 value = None if device is None or device.get("excluded") else _metric_value(device, direction, metric)
-                x = 0.68 + column * 0.9
-                y = 0.33 + (2 - top_row) * 0.78
                 if value is None:
                     facecolor = "#F3F4F6"
                     hatch = "///" if device and device.get("excluded") else None
@@ -733,14 +811,18 @@ def _render_uniformity(
                     text_color = "white" if luminance < 0.48 else "#111827"
                 flagged = bool(device and device.get("flagged") and not device.get("excluded"))
                 axis.add_patch(Rectangle(
-                    (x, y), 0.72, 0.72, facecolor=facecolor,
+                    (x, y), width, height, facecolor=facecolor,
                     edgecolor="#B45309" if flagged else "#6B7280",
                     linewidth=1.8 if flagged else 0.6,
                     hatch=hatch,
                 ))
-                axis.text(x + 0.36, y + 0.36, text, ha="center", va="center",
+                axis.text(x + width / 2, y + height / 2, text, ha="center", va="center",
                           fontsize=8.0, color=text_color, clip_on=True)
-            axis.add_patch(Rectangle((0.15, 0.15), 2.65, 2.65, fill=False, edgecolor="#374151", linewidth=1.1))
+            axis.add_patch(Rectangle(
+                (_UNIFORMITY_OUTLINE[0], _UNIFORMITY_OUTLINE[1]),
+                _UNIFORMITY_OUTLINE[2], _UNIFORMITY_OUTLINE[3],
+                fill=False, edgecolor="#374151", linewidth=1.1,
+            ))
             axis.set_title(substrate, loc="center", pad=4)
             axis.set_xlim(0, 2.95)
             axis.set_ylim(0, 3.1)
