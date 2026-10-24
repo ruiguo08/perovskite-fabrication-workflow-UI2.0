@@ -47,7 +47,7 @@ def upgrade():
     op.execute("""
         INSERT INTO campaign_members
             (campaign_code, user_id, role, granted_by_user_id, granted_at)
-        SELECT c.code, c.created_by_id, 'manager', NULL, CURRENT_TIMESTAMP
+        SELECT c.code, c.created_by_id, 'manager', NULL::integer, CURRENT_TIMESTAMP
         FROM campaigns c
         WHERE c.created_by_id IS NOT NULL
         ON CONFLICT DO NOTHING
@@ -55,7 +55,7 @@ def upgrade():
     op.execute("""
         INSERT INTO campaign_members
             (campaign_code, user_id, role, granted_by_user_id, granted_at)
-        SELECT DISTINCT e.campaign_id, e.created_by_id, 'participant', NULL,
+        SELECT DISTINCT e.campaign_id, e.created_by_id, 'participant', NULL::integer,
                         CURRENT_TIMESTAMP
         FROM experiments e
         WHERE e.campaign_id IS NOT NULL AND e.created_by_id IS NOT NULL
