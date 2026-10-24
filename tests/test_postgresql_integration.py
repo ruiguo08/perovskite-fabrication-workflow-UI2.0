@@ -120,7 +120,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                         assignments=[ResultAssignmentInput("A001", control_id)],
                         exclusions=[ResultExclusionInput(device_id, "Rejected outlier")] if excluded else [],
                         group_assignment=None, correction_reason="Review measurement exclusions",
-                        actor_user_id=actor.id, actor_role=actor.role,
+                        actor_user_id=actor.id, actor_access=None,
                     )
 
                 async def check(pce: float | None, jsc: float | None) -> None:
@@ -2212,6 +2212,15 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                     )
 
             asyncio.run(seed_users())
+
+            async def fetch_owner() -> Any:
+                owner = await WebRepository(setup_database).get_user_by_username(
+                    accounts['owner'][0]
+                )
+                assert owner is not None
+                return owner.id
+
+            owner_id = asyncio.run(fetch_owner())
         finally:
             asyncio.run(setup_database.dispose())
 
@@ -2462,7 +2471,7 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                             grouped,
                             substrate_assignments={"A001": condition_id},
                             group_assignment="concurrent race",
-                            actor_user_id=1,
+                            actor_user_id=owner_id,
                         )
 
                 return await asyncio.gather(
@@ -2748,6 +2757,15 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                     )
 
             asyncio.run(seed_users())
+
+            async def fetch_owner() -> Any:
+                owner = await WebRepository(setup_database).get_user_by_username(
+                    accounts['owner'][0]
+                )
+                assert owner is not None
+                return owner.id
+
+            owner_id = asyncio.run(fetch_owner())
         finally:
             asyncio.run(setup_database.dispose())
 
