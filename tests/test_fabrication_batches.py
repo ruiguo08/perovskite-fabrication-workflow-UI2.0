@@ -58,14 +58,23 @@ async def _create_released_experiment_with_conditions(
     campaign_actor_user_id: int | None = None,
     gas_backfill_stages: list[dict] | None = None,
     vcd_step_sequence: list[str] | None = None,
+    with_campaign_membership: bool = True,
 ) -> int:
-    """Create an experiment, add conditions, release it, return experiment_id."""
+    """Create an experiment, add conditions, release it, return experiment_id.
+
+    ``with_campaign_membership=False`` seeds the campaign without a creator
+    membership — for migration tests that run at a schema revision older
+    than campaign_members (0019), where the auto-manager insert cannot run.
+    """
     from perovskite_bo import DepositionRecipe, deposition_recipe_from_process
+    campaign_actor = campaign_actor_user_id or actor_user_id
+    if not with_campaign_membership:
+        campaign_actor = None
     await repo.create_campaign(
         code=campaign_code,
         display_name=f"Test {campaign_code}",
         description="",
-        actor_user_id=campaign_actor_user_id or actor_user_id,
+        actor_user_id=campaign_actor,
     )
     if standalone:
         dr, dp = _recipe_with_standalone_group()

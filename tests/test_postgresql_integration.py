@@ -1432,12 +1432,13 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                     username=f"pg-assign-{suffix}",
                     display_name="PostgreSQL Assignment Repair Instructor",
                     password_hash=hash_password(f"assign secret {suffix}"),
-                    role=UserRole.INSTRUCTOR,
+                    role=UserRole.ADMINISTRATOR,
                 )
                 experiment_id = await _create_released_experiment_with_conditions(
                     repository,
                     f"pg-assign-{suffix}",
                     actor_user_id=instructor.id,
+                    with_campaign_membership=False,
                 )
                 batch = await repository.create_fabrication_batch(
                     experiment_id,
@@ -1629,6 +1630,8 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             command.upgrade(alembic_config, "head")
             asyncio.run(verify(context))
         finally:
+            # A failed seed must not leave the shared database below head.
+            command.upgrade(alembic_config, "head")
             if previous_url is None:
                 os.environ.pop("PEROVSKITE_DATABASE_URL", None)
             else:
@@ -1675,12 +1678,13 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                     username=f"pg-cycle-{suffix}",
                     display_name="PostgreSQL Cycle Instructor",
                     password_hash=hash_password(f"cycle secret {suffix}"),
-                    role=UserRole.INSTRUCTOR,
+                    role=UserRole.ADMINISTRATOR,
                 )
                 experiment_id = await _create_released_experiment_with_conditions(
                     repository,
                     f"pg-cycle-{suffix}",
                     actor_user_id=instructor.id,
+                    with_campaign_membership=False,
                 )
                 batch = await repository.create_fabrication_batch(
                     experiment_id,
@@ -1920,6 +1924,8 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             command.upgrade(alembic_config, "head")
             asyncio.run(verify(context))
         finally:
+            # A failed seed must not leave the shared database below head.
+            command.upgrade(alembic_config, "head")
             if previous_url is None:
                 os.environ.pop("PEROVSKITE_DATABASE_URL", None)
             else:
