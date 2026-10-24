@@ -2202,25 +2202,25 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         }
         setup_database = Database(url)
         try:
-            async def seed_users() -> None:
+            async def seed_users() -> int:
+                repository = WebRepository(setup_database)
                 for username, password, role in accounts.values():
-                    await WebRepository(setup_database).create_user(
+                    await repository.create_user(
                         username=username,
                         display_name=username,
                         password_hash=hash_password(password, username=username),
                         role=role,
                     )
-
-            asyncio.run(seed_users())
-
-            async def fetch_owner() -> Any:
-                owner = await WebRepository(setup_database).get_user_by_username(
+                # Resolve within the same event loop: the engine's pool is
+                # bound to it, and a second asyncio.run would hand out
+                # futures attached to a different loop.
+                owner = await repository.get_user_by_username(
                     accounts['owner'][0]
                 )
                 assert owner is not None
                 return owner.id
 
-            owner_id = asyncio.run(fetch_owner())
+            owner_id = asyncio.run(seed_users())
         finally:
             asyncio.run(setup_database.dispose())
 
@@ -2747,25 +2747,25 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         }
         setup_database = Database(url)
         try:
-            async def seed_users() -> None:
+            async def seed_users() -> int:
+                repository = WebRepository(setup_database)
                 for username, password, role in accounts.values():
-                    await WebRepository(setup_database).create_user(
+                    await repository.create_user(
                         username=username,
                         display_name=username,
                         password_hash=hash_password(password, username=username),
                         role=role,
                     )
-
-            asyncio.run(seed_users())
-
-            async def fetch_owner() -> Any:
-                owner = await WebRepository(setup_database).get_user_by_username(
+                # Resolve within the same event loop: the engine's pool is
+                # bound to it, and a second asyncio.run would hand out
+                # futures attached to a different loop.
+                owner = await repository.get_user_by_username(
                     accounts['owner'][0]
                 )
                 assert owner is not None
                 return owner.id
 
-            owner_id = asyncio.run(fetch_owner())
+            owner_id = asyncio.run(seed_users())
         finally:
             asyncio.run(setup_database.dispose())
 
