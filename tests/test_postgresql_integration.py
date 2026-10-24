@@ -405,6 +405,13 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 },
             )
             self.assertEqual(campaign.status_code, 201, campaign.text)
+            # The campaign's creator is its manager; the participating
+            # owner needs an explicit membership under campaign ACLs.
+            granted = client.put(
+                f"/api/campaigns/{campaign_code}/members/{accounts['owner'][0]}",
+                json={"role": "participant"},
+            )
+            self.assertEqual(granted.status_code, 200, granted.text)
             device_recipe, deposition_process = complete_guided_setup()
             baseline = client.post(
                 "/api/baselines",
@@ -624,6 +631,13 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 },
             )
             self.assertEqual(campaign.status_code, 201, campaign.text)
+            # The campaign's creator is its manager; the participating
+            # owner needs an explicit membership under campaign ACLs.
+            granted = client.put(
+                f"/api/campaigns/{campaign_code}/members/{accounts['owner'][0]}",
+                json={"role": "participant"},
+            )
+            self.assertEqual(granted.status_code, 200, granted.text)
             baseline = client.post(
                 "/api/baselines",
                 json={
@@ -2276,6 +2290,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 },
             )
             self.assertEqual(campaign.status_code, 201, campaign.text)
+            granted = client.put(
+                f"/api/campaigns/pg3-race-{suffix}/members/{accounts['owner'][0]}",
+                json={"role": "participant"},
+            )
+            self.assertEqual(granted.status_code, 200, granted.text)
             baseline = client.post(
                 "/api/baselines",
                 json={
@@ -2796,6 +2815,11 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
                 },
             )
             self.assertEqual(campaign.status_code, 201, campaign.text)
+            granted = client.put(
+                f"/api/campaigns/pg3-lockorder-{suffix}/members/{accounts['owner'][0]}",
+                json={"role": "participant"},
+            )
+            self.assertEqual(granted.status_code, 200, granted.text)
             baseline = client.post(
                 "/api/baselines",
                 json={
