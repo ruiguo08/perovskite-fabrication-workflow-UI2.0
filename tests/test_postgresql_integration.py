@@ -1301,21 +1301,40 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
 
                 async def release(database: Database) -> Any:
                     repo = WebRepository(database)
+                    from web.repository.condition import StaleApprovalScope
+
                     for status_name in (
                         PlanStatus.PENDING_APPROVAL,
                         PlanStatus.APPROVED,
                         PlanStatus.RELEASED,
                     ):
-                        await repo.update_plan_status(
-                            experiment_id,
-                            status_name,
-                            actor_user_id=instructor_id,
-                            expected_approval_digest=(
-                                await repo.approval_scope_digest(experiment_id)
-                                if status_name == PlanStatus.APPROVED
-                                else None
-                            ),
-                        )
+                        if status_name != PlanStatus.APPROVED:
+                            await repo.update_plan_status(
+                                experiment_id,
+                                status_name,
+                                actor_user_id=instructor_id,
+                            )
+                            continue
+                        # The raced condition creation may commit between the
+                        # digest read and the approve; a stale digest is the
+                        # approve being correctly rejected. Re-read and retry
+                        # once per attempt, exactly like a reviewer who reloads
+                        # the plan after the 409 the UI surfaces.
+                        for _ in range(3):
+                            try:
+                                await repo.update_plan_status(
+                                    experiment_id,
+                                    status_name,
+                                    actor_user_id=instructor_id,
+                                    expected_approval_digest=(
+                                        await repo.approval_scope_digest(
+                                            experiment_id
+                                        )
+                                    ),
+                                )
+                                break
+                            except StaleApprovalScope:
+                                continue
 
                 outcomes = await asyncio.gather(
                     create_condition(databases[0]),
